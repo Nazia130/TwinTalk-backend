@@ -1,3 +1,4 @@
+// server.js
 const express = require("express");
 const http = require("http");
 const { Server } = require("socket.io");
@@ -18,11 +19,11 @@ app.use(bodyParser.urlencoded({ extended: true }));
 const signupFile = path.join(__dirname, "signup.csv");
 
 // --- Serve Frontend ---
-// Default -> auth.html
+app.use(express.static(path.join(__dirname, "../frontend")));
+
 app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "../frontend/auth.html"));
 });
-app.use(express.static(path.join(__dirname, "../frontend")));
 
 // --- Signup Endpoint ---
 app.post("/signup", (req, res) => {
@@ -80,11 +81,15 @@ app.post("/login", (req, res) => {
 app.post("/contact", async (req, res) => {
   const { name, email, message } = req.body;
 
+  if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+    return res.status(500).send("Email environment variables not set.");
+  }
+
   try {
     const transporter = nodemailer.createTransport({
       service: "gmail",
       auth: {
-        user: process.env.EMAIL_USER, // from Render env
+        user: process.env.EMAIL_USER, // Set in Render
         pass: process.env.EMAIL_PASS  // Google App Password
       }
     });
@@ -127,7 +132,7 @@ io.on("connection", (socket) => {
 });
 
 // --- Start Server ---
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 4000;
 server.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
+  console.log(`Server running on port ${PORT}`);
 });

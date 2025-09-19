@@ -1,20 +1,21 @@
 {
-  "name": "twin-talk-backend",
+  "name": "TwinTalk-backend",
   "version": "1.0.0",
-  "description": "Backend for TwinTalk project",
+  "description": "Backend for TwinTalk app (Node.js + Express + Socket.IO)",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "dev": "nodemon server.js"
   },
+  "author": "Naziya Parveen",
+  "license": "MIT",
   "dependencies": {
-    "body-parser": "^1.20.0",
+    "body-parser": "^1.20.2",
     "express": "^4.18.2",
-    "socket.io": "^4.7.2",
-    "nodemailer": "^6.9.3",
-    "csv-parser": "^3.0.0",
-    "uuid": "^9.0.0"
+    "nodemailer": "^6.9.4",
+    "socket.io": "^4.7.1"
   },
-  "engines": {
-    "node": "18.x"
+  "devDependencies": {
+    "nodemon": "^3.0.3"
   }
 }
