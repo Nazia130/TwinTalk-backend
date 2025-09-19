@@ -17,12 +17,18 @@ app.use(bodyParser.urlencoded({ extended: true }));
 
 // Paths
 const signupFile = path.join(__dirname, "signup.csv");
+const frontendPath = path.join(__dirname, "../frontend"); // Correct path to frontend folder
 
 // --- Serve Frontend ---
-app.use(express.static(path.join(__dirname, "../frontend")));
+app.use(express.static(frontendPath));
 
 app.get("/", (req, res) => {
-  res.sendFile(path.join(__dirname, "../frontend/auth.html"));
+  res.sendFile(path.join(frontendPath, "auth.html"));
+});
+
+// Fallback for unknown routes
+app.get(/.*/, (req, res) => {
+  res.sendFile(path.join(frontendPath, "auth.html"));
 });
 
 // --- Signup Endpoint ---
@@ -89,16 +95,16 @@ app.post("/contact", async (req, res) => {
     const transporter = nodemailer.createTransport({
       service: "gmail",
       auth: {
-        user: process.env.EMAIL_USER, // Set in Render
-        pass: process.env.EMAIL_PASS  // Google App Password
-      }
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS,
+      },
     });
 
     await transporter.sendMail({
       from: email,
       to: process.env.EMAIL_USER,
       subject: `Contact Form: ${name}`,
-      text: message
+      text: message,
     });
 
     res.send("✅ Message sent successfully!");
@@ -106,11 +112,6 @@ app.post("/contact", async (req, res) => {
     console.error("❌ Error sending email:", err);
     res.status(500).send("Failed to send message.");
   }
-});
-
-// --- Fallback for unknown routes ---
-app.get(/.*/, (req, res) => {
-  res.sendFile(path.join(__dirname, "../frontend/auth.html"));
 });
 
 // --- Socket.IO ---
