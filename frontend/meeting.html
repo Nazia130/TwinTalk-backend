@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Meeting Room</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    body {
+      background: #f3e9ff;
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+    }
+    .meeting-container { text-align: center; margin-top: 20px; }
+    #videos { display: flex; flex-wrap: wrap; justify-content: center; margin-top: 20px; }
+    video, img.avatar {
+      width: 70%;
+      max-width: 800px;
+      margin: 10px;
+      border-radius: 10px;
+      background: #000;
+    }
+    .controls { margin-top: 15px; }
+    button { margin: 5px; padding: 10px 15px; border: none; border-radius: 6px; background: #6a0dad; color: #fff; cursor: pointer; }
+    button:hover { background: #520c9c; }
+    .chatbox { margin-top: 20px; width: 50%; margin-left:auto; margin-right:auto; background:#fff; border:1px solid #ccc; border-radius:10px; padding:10px; }
+    .chat-messages { height:200px; overflow-y:auto; border-bottom:1px solid #ccc; padding:5px; text-align:left; }
+    .chat-input { display:flex; margin-top:10px; }
+    .chat-input input { flex:1; padding:8px; border-radius:8px; border:1px solid #ccc; }
+    .emoji-bar { margin-top:10px; text-align:center; }
+    .emoji-panel { display:none; margin-top:8px; max-height:160px; overflow-y:auto; background:#fff; border:1px solid #ccc; border-radius:8px; padding:8px; font-size:20px; text-align:left; }
+    .emoji-panel span { cursor:pointer; padding:6px; display:inline-block; }
+    .emoji-panel span:hover { background:#f0f0f0; border-radius:4px; }
+  </style>
+</head>
+<body>
+  <div class="meeting-container">
+    <h1>Meeting Room</h1>
+    <div id="videos"></div>
+
+    <div class="controls">
+      <button id="muteBtn" onclick="toggleMute()">🎤</button>
+      <button id="videoBtn" onclick="toggleVideo()">📷</button>
+      <button onclick="shareScreen()">🖥️</button>
+      <button id="avatarBtn" onclick="toggleAvatar()">🧑 Avatar</button>
+      <button onclick="endMeeting()">End Meeting</button>
+    </div>
+
+    <div class="emoji-bar">
+      <button class="quick-emoji" onclick="sendEmoji('👍')">👍</button>
+      <button class="quick-emoji" onclick="sendEmoji('😂')">😂</button>
+      <button class="quick-emoji" onclick="sendEmoji('👏')">👏</button>
+      <button class="quick-emoji" onclick="sendEmoji('❤️')">❤️</button>
+      <button class="quick-emoji" onclick="toggleEmojiPanel()">➕</button>
+      <div id="emojiPanel" class="emoji-panel">
+        😀 😁 😂 🤣 😃 😄 😅 😆 😉 😊 😋 😎 😍 😘 😗 😙 😚 🥰 🤩 😜 😝 😛
+        🤑 🤗 🤔 🤨 😐 😑 😶 🙄 😏 😣 😥 😮 🤐 😯 😪 😫 😴 😌 🤤 😓 😔 😕
+        🙃 🥺 😢 😭 😤 😠 😡 🤬 🤯 😳 🥵 🥶 😱 😨 😰 😥 😓 🤒 🤕 🤢 🤮 🤧
+        😷 🥴 😵 🤯 🤠 🥳 😇 🤡 👻 💀 ☠️ 👽 🤖 🎃 🐶 🐱 🐭 🐹
+      </div>
+    </div>
+
+    <div class="chatbox">
+      <div class="chat-messages" id="chatMessages"></div>
+      <div class="chat-input">
+        <input type="text" id="chatInput" placeholder="Type a message..." />
+        <button onclick="sendMessage()">Send</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const socket = io();
+    const params = new URLSearchParams(window.location.search);
+    const roomId = params.get('room') || 'default';
+    const name = params.get('name') || localStorage.getItem('username') || 'Guest';
+    const useAvatarParam = params.get('useAvatar') === 'true';
+
+    const videosDiv = document.getElementById('videos');
+    const chatMessages = document.getElementById('chatMessages');
+
+    let localStream = null;
+    let myVideo = null;
+    let avatarImg = null;
+    let audioEnabled = true;
+    let videoEnabled = true;
+
+    // read avatar stored by avatar.html (preset path or dataURL)
+    const savedAvatar = localStorage.getItem('userAvatar') || null;
+
+    async function init() {
+      try {
+        if (useAvatarParam && savedAvatar) {
+          // user wants to join with avatar: request audio only (no camera)
+          try {
+            localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+          } catch (e) {
+            // if mic not allowed, continue without stream
+            console.warn('Audio not available:', e);
+          }
+
+          // show avatar immediately (no camera)
+          avatarImg = document.createElement('img');
+          avatarImg.className = 'avatar';
+          avatarImg.alt = name;
+          avatarImg.style.display = 'block';
+          avatarImg.src = savedAvatar;
+          videosDiv.appendChild(avatarImg);
+
+          myVideo = null;
+          videoEnabled = false;
+        } else {
+          // normal behavior: request video + audio
+          try {
+            localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+          } catch (err) {
+            alert('Camera/Mic access denied: ' + err);
+          }
+
+          if (localStream) {
+            myVideo = document.createElement('video');
+            myVideo.autoplay = true;
+            myVideo.muted = true;
+            myVideo.srcObject = localStream;
+            myVideo.style.display = 'block';
+            videosDiv.appendChild(myVideo);
+            // create hidden avatar element (will show when toggled or when video disabled)
+            avatarImg = document.createElement('img');
+            avatarImg.className = 'avatar';
+            avatarImg.alt = name;
+            avatarImg.style.display = 'none';
+            avatarImg.src = savedAvatar || 'default-avatar.png';
+            videosDiv.appendChild(avatarImg);
+
+            audioEnabled = localStream.getAudioTracks()[0]?.enabled ?? true;
+            videoEnabled = localStream.getVideoTracks()[0]?.enabled ?? true;
+          }
+        }
+      } catch (err) {
+        console.error('init error', err);
+      }
+
+      // socket join
+      socket.emit('join-room', roomId, socket.id, name);
+
+      socket.on('chat-message', data => {
+        addChat(`${data.name}: ${data.message}`);
+      });
+      socket.on('emoji', data => {
+        addChat(`${data.name} reacted ${data.emoji}`);
+      });
+    }
+
+    function toggleMute() {
+      if (!localStream) return;
+      const t = localStream.getAudioTracks()[0];
+      if (!t) return;
+      t.enabled = !t.enabled;
+      audioEnabled = t.enabled;
+      document.getElementById('muteBtn').textContent = audioEnabled ? '🎤' : '🔇';
+    }
+
+    function toggleVideo() {
+      // if there is no video track (because we joined with avatar), toggle to camera if possible
+      if (!localStream || !localStream.getVideoTracks().length) {
+        // try to acquire camera now (if user wants)
+        navigator.mediaDevices.getUserMedia({ video: true, audio: false })
+          .then(camStream => {
+            // attach camera stream to video element
+            if (!myVideo) {
+              myVideo = document.createElement('video');
+              myVideo.autoplay = true;
+              myVideo.muted = true;
+              videosDiv.appendChild(myVideo);
+            }
+            myVideo.srcObject = camStream;
+            localStream = localStream || new MediaStream();
+            // add video track into localStream (not persistent across this session if you stop)
+            camStream.getVideoTracks().forEach(t => localStream.addTrack(t));
+            videoEnabled = true;
+            document.getElementById('videoBtn').textContent = '📷';
+            // hide avatar if present
+            if (avatarImg) avatarImg.style.display = 'none';
+            myVideo.style.display = 'block';
+          })
+          .catch(e => {
+            alert('Camera access denied: ' + e);
+          });
+        return;
+      }
+
+      // normal toggle when we have a video track in localStream
+      const track = localStream.getVideoTracks()[0];
+      if (!track) return;
+      track.enabled = !track.enabled;
+      videoEnabled = track.enabled;
+      document.getElementById('videoBtn').textContent = videoEnabled ? '📷' : '🚫📷';
+
+      if (videoEnabled) {
+        if (myVideo) myVideo.style.display = 'block';
+        if (avatarImg) avatarImg.style.display = 'none';
+      } else {
+        if (myVideo) myVideo.style.display = 'none';
+        if (avatarImg) avatarImg.style.display = 'block';
+      }
+    }
+
+    async function shareScreen() {
+      try {
+        const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+        if (myVideo) myVideo.srcObject = screenStream;
+      } catch (err) {
+        alert('Screen share failed: ' + err);
+      }
+    }
+
+    function toggleAvatar() {
+      if (!avatarImg) return;
+      const showingAvatar = avatarImg.style.display === 'block';
+      avatarImg.style.display = showingAvatar ? 'none' : 'block';
+      if (myVideo) myVideo.style.display = showingAvatar ? 'block' : 'none';
+      document.getElementById('avatarBtn').textContent = showingAvatar ? '🧑 Avatar' : '🧑 (on)';
+    }
+
+    function sendMessage() {
+      const input = document.getElementById('chatInput');
+      const message = input.value.trim();
+      if (!message) return;
+      socket.emit('chat-message', { roomId, name, message });
+      addChat(`${name}: ${message}`);
+      input.value = '';
+    }
+
+    function sendEmoji(emoji) {
+      socket.emit('emoji', { roomId, name, emoji });
+      addChat(`${name} reacted ${emoji}`);
+      document.getElementById('emojiPanel').style.display = 'none';
+    }
+
+    function toggleEmojiPanel() {
+      const panel = document.getElementById('emojiPanel');
+      panel.style.display = panel.style.display === 'block' ? 'none' : 'block';
+    }
+
+    function addChat(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      chatMessages.appendChild(div);
+      chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      const panel = document.getElementById('emojiPanel');
+      panel.innerHTML = panel.innerHTML.split(/\s+/).filter(e => e.trim() !== '').map(e => `<span onclick="sendEmoji('${e}')">${e}</span>`).join(' ');
+    });
+
+    function endMeeting() {
+      if (localStream) localStream.getTracks().forEach(t => t.stop());
+      window.location.href = '/index.html';
+    }
+
+    init();
+  </script>
+</body>
+</html>

@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Profile - MeetTwin</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<style>
+body.dark { background:#121212; color:#fff; }
+body.dark input, body.dark button { background:#1f1f1f; color:#fff; border:1px solid #ccc; }
+.container { max-width:500px; margin:5rem auto; padding:2rem; background:#fff; border-radius:10px; box-shadow:0 0 10px rgba(0,0,0,0.1); }
+body.dark .container { background:#1f1f1f; }
+label { display:block; margin-bottom:0.5rem; font-weight:600; }
+input { width:100%; padding:0.5rem; margin-bottom:1rem; border-radius:5px; border:1px solid #ccc; font-size:1rem; }
+button { padding:0.5rem 1rem; border:none; border-radius:5px; font-weight:600; cursor:pointer; background:#4b2aad; color:#fff; }
+button:hover { background:#3a1f8f; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h2>Edit Profile</h2>
+  <form id="profileForm">
+    <label for="name">Your Name:</label>
+    <input type="text" id="name" placeholder="Enter your name" required>
+    <button type="submit">Save</button>
+  </form>
+  <button onclick="goBack()">Back to Home</button>
+</div>
+
+<script>
+// Persist theme
+if(localStorage.getItem('theme')==='dark') document.body.classList.add('dark');
+
+// Save profile name
+const profileForm = document.getElementById('profileForm');
+profileForm.addEventListener('submit', e => {
+  e.preventDefault();
+  const name = document.getElementById('name').value;
+  localStorage.setItem('profileName', name);
+  alert('Profile updated!');
+});
+
+// Prefill saved name
+const savedName = localStorage.getItem('profileName');
+if(savedName) document.getElementById('name').value = savedName;
+
+function goBack(){ window.location.href = 'index.html'; }
+</script>
+</body>
+</html>

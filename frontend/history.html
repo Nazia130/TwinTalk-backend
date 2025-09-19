@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>History - MeetTwin</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<style>
+body.dark { background:#121212; color:#fff; }
+.container { max-width:600px; margin:5rem auto; padding:2rem; background:#fff; border-radius:10px; box-shadow:0 0 10px rgba(0,0,0,0.1); text-align:center; }
+body.dark .container { background:#1f1f1f; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h2>Meeting History</h2>
+  <p>Coming soon...</p>
+  <button onclick="goBack()">Back to Home</button>
+</div>
+
+<script>
+// Persist theme
+if(localStorage.getItem('theme')==='dark') document.body.classList.add('dark');
+function goBack(){ window.location.href='index.html'; }
+</script>
+</body>
+</html>

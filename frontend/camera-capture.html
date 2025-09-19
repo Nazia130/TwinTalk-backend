@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Create Custom Avatar</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      background: #f0f2f5;
+      padding: 20px;
+    }
+    video, canvas {
+      border: 2px solid #6c63ff;
+      border-radius: 10px;
+      margin: 10px;
+    }
+    button {
+      padding: 10px 15px;
+      background: #6c63ff;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 16px;
+      margin: 10px;
+      transition: 0.3s;
+    }
+    button:hover {
+      background: #5848d6;
+    }
+  </style>
+</head>
+<body>
+  <h2>Create Your Custom Avatar</h2>
+  
+  <video id="video" width="320" height="240" autoplay></video>
+  <canvas id="canvas" width="320" height="240" style="display:none;"></canvas>
+  <br>
+  <button onclick="takeSnapshot()">📸 Capture</button>
+  <button onclick="saveAvatar()" style="display:none;" id="saveBtn">✅ Save Avatar</button>
+
+  <script>
+    const video = document.getElementById('video');
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const saveBtn = document.getElementById('saveBtn');
+    let snapshotTaken = false;
+
+    // Access webcam
+    navigator.mediaDevices.getUserMedia({ video: true })
+      .then(stream => { video.srcObject = stream; })
+      .catch(err => { alert("Camera not accessible: " + err); });
+
+    function takeSnapshot() {
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+      // apply cartoon effect (simple filter example)
+      let imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      for (let i = 0; i < imgData.data.length; i += 4) {
+        imgData.data[i] = Math.floor(imgData.data[i] / 50) * 50;     // Red
+        imgData.data[i+1] = Math.floor(imgData.data[i+1] / 50) * 50; // Green
+        imgData.data[i+2] = Math.floor(imgData.data[i+2] / 50) * 50; // Blue
+      }
+      ctx.putImageData(imgData, 0, 0);
+
+      canvas.style.display = 'block';
+      saveBtn.style.display = 'inline-block';
+      snapshotTaken = true;
+    }
+
+    function saveAvatar() {
+      if (!snapshotTaken) return;
+      const dataUrl = canvas.toDataURL("image/png");
+      localStorage.setItem("userAvatar", dataUrl);
+      window.location.href = "join.html"; // redirect back to meeting
+    }
+  </script>
+</body>
+</html>

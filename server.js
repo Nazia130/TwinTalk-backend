@@ -1,6 +1,7 @@
 // server.js
 const express = require("express");
 const http = require("http");
+const open = require("open"); // Use open.default for Node v22+
 const { Server } = require("socket.io");
 const path = require("path");
 const fs = require("fs");
@@ -17,7 +18,7 @@ app.use(bodyParser.urlencoded({ extended: true }));
 
 // Paths
 const signupFile = path.join(__dirname, "signup.csv");
-const frontendPath = path.join(__dirname, "../frontend"); // Correct path to frontend folder
+const frontendPath = path.join(__dirname, "frontend"); // frontend is now inside backend
 
 // --- Serve Frontend ---
 app.use(express.static(frontendPath));
@@ -135,5 +136,6 @@ io.on("connection", (socket) => {
 // --- Start Server ---
 const PORT = process.env.PORT || 4000;
 server.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+  console.log(`Server running on http://localhost:${PORT}`);
+  // auto-open browser
 });

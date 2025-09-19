@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Join Meeting - TwinTalk</title>
+  <style>
+    /* ==== EXISTING STYLES KEPT EXACTLY ==== */
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #f4f6f9;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+    }
+
+    header {
+      background: #007bff;
+      color: white;
+      padding: 12px;
+      text-align: center;
+      font-size: 22px;
+      font-weight: bold;
+    }
+
+    main {
+      flex: 1;
+      display: flex;
+      padding: 15px;
+      gap: 15px;
+    }
+
+    .video-container {
+      flex: 2;
+      background: #000;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+    }
+
+    video, img {
+      max-width: 100%;
+      max-height: 100%;
+      border-radius: 10px;
+    }
+
+    .chat-container {
+      flex: 1;
+      border: 1px solid #ddd;
+      border-radius: 10px;
+      display: flex;
+      flex-direction: column;
+      background: #fff;
+      height: calc(100vh - 100px);
+    }
+
+    .chat-box {
+      flex: 1;
+      padding: 10px;
+      overflow-y: auto;
+      font-size: 14px;
+    }
+
+    .chat-message {
+      margin-bottom: 8px;
+      padding: 6px 10px;
+      border-radius: 6px;
+      background: #e1e1e1;
+      max-width: 80%;
+      word-wrap: break-word;
+    }
+
+    .chat-message.self {
+      background: #007bff;
+      color: white;
+      margin-left: auto;
+    }
+
+    .chat-input {
+      display: flex;
+      border-top: 1px solid #ddd;
+    }
+
+    .chat-input input {
+      flex: 1;
+      border: none;
+      padding: 10px;
+      font-size: 14px;
+    }
+
+    .chat-input button {
+      background: #007bff;
+      color: white;
+      border: none;
+      padding: 10px 15px;
+      cursor: pointer;
+    }
+
+    .controls {
+      display: flex;
+      justify-content: center;
+      gap: 12px;
+      margin-top: 12px;
+      flex-wrap: wrap;
+    }
+
+    .controls button {
+      padding: 10px 15px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 14px;
+      background: #007bff;
+      color: white;
+      transition: background 0.3s;
+    }
+
+    .controls button:hover {
+      background: #0056b3;
+    }
+
+    .controls .end {
+      background: #dc3545;
+    }
+
+    .controls .end:hover {
+      background: #a71d2a;
+    }
+
+    .emoji-bar {
+      margin-top: 10px;
+      text-align: center;
+    }
+    .emoji-bar button.quick-emoji {
+      font-size: 20px;
+      margin: 2px;
+      border: none;
+      background: none;
+      cursor: pointer;
+    }
+    .emoji-panel {
+      display: none;
+      margin-top: 8px;
+      max-height: 160px;
+      overflow-y: auto;
+      background: #fff;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      padding: 8px;
+      font-size: 20px;
+      text-align: left;
+    }
+    .emoji-panel span {
+      cursor: pointer;
+      padding: 6px;
+      display: inline-block;
+    }
+    .emoji-panel span:hover {
+      background: #f0f0f0;
+      border-radius: 4px;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    TwinTalk Meeting
+  </header>
+
+  <main>
+    <!-- Video Area -->
+    <div class="video-container">
+      <video id="user-video" autoplay playsinline></video>
+      <img id="avatar" src="default-avatar.png" alt="Avatar" style="display:none;" />
+    </div>
+
+    <!-- Chat Section -->
+    <div class="chat-container">
+      <div id="chat-box" class="chat-box"></div>
+      <div class="chat-input">
+        <input type="text" id="chat-message" placeholder="Type a message..." />
+        <button onclick="sendMessage()">Send</button>
+      </div>
+    </div>
+  </main>
+
+  <!-- Controls -->
+  <div class="controls">
+    <button onclick="toggleAudio()">🎤</button>
+    <button onclick="toggleVideo()">📷</button>
+    <button onclick="shareScreen()">🖥️</button>
+    <button onclick="goToAvatar()">🧑 Avatar</button>
+    <button class="end" onclick="endMeeting()">🚪 End</button>
+  </div>
+
+  <!-- Emoji Bar -->
+  <div class="emoji-bar">
+    <button class="quick-emoji" onclick="sendEmoji('👍')">👍</button>
+    <button class="quick-emoji" onclick="sendEmoji('😂')">😂</button>
+    <button class="quick-emoji" onclick="sendEmoji('👏')">👏</button>
+    <button class="quick-emoji" onclick="sendEmoji('❤️')">❤️</button>
+    <button class="quick-emoji" onclick="toggleEmojiPanel()">➕</button>
+
+    <div id="emojiPanel" class="emoji-panel">
+      😀 😁 😂 🤣 😃 😄 😅 😆 😉 😊 😋 😎 😍 😘 😗 😙 😚 🥰 🤩 😜 😝 😛
+      🤑 🤗 🤔 🤨 😐 😑 😶 🙄 😏 😣 😥 😮 🤐 😯 😪 😫 😴 😌 🤤 😓 😔 😕
+      🙃 🥺 😢 😭 😤 😠 😡 🤬 🤯 😳 🥵 🥶 😱 😨 😰 😥 😓 🤒 🤕 🤢 🤮 🤧
+      😷 🥴 😵 🤯 🤠 🥳 😇 🤡 👻 💀 ☠️ 👽 🤖 🎃 🐶 🐱 🐭 🐹
+    </div>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const socket = io();
+    const video = document.getElementById("user-video");
+    const avatar = document.getElementById("avatar");
+    let stream, audioTrack, videoTrack;
+
+    // ==== UPDATED: fetch roomId & name safely ====
+    const params = new URLSearchParams(window.location.search);
+    const roomId = params.get("room") || "default";
+    const name = params.get("name") || localStorage.getItem("username") || "Guest";
+    if (params.get("name")) localStorage.setItem("username", params.get("name"));
+
+    const savedAvatar = localStorage.getItem("userAvatar");
+    if (savedAvatar) avatar.src = savedAvatar;
+
+    // Camera
+    async function startCamera() {
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        video.srcObject = stream;
+        audioTrack = stream.getAudioTracks()[0];
+        videoTrack = stream.getVideoTracks()[0];
+      } catch (err) {
+        alert("Camera/Mic access denied!");
+      }
+    }
+    startCamera();
+
+    function toggleAudio() { if(audioTrack) audioTrack.enabled = !audioTrack.enabled; }
+    function toggleVideo() { if(videoTrack) videoTrack.enabled = !videoTrack.enabled; }
+
+    async function shareScreen() {
+      try {
+        const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+        video.srcObject = screenStream;
+      } catch (err) { alert("Screen share cancelled."); }
+    }
+
+    function goToAvatar() {
+      window.location.href = `avatar.html?room=${roomId}&name=${name}`;
+    }
+
+    // Chat
+    function sendMessage() {
+      const input = document.getElementById("chat-message");
+      const message = input.value.trim();
+      if (message !== "") {
+        socket.emit("chat-message", { roomId, name, message });
+        input.value = "";
+        appendChat({ name, message });
+      }
+    }
+
+    function appendChat(data) {
+      const chatBox = document.getElementById("chat-box");
+      const newMsg = document.createElement("div");
+      newMsg.className = data.name === name ? "chat-message self" : "chat-message";
+      newMsg.textContent = `${data.name}: ${data.message}`;
+      chatBox.appendChild(newMsg);
+      chatBox.scrollTop = chatBox.scrollHeight;
+    }
+
+    socket.on("chat-message", data => appendChat(data));
+
+    function sendEmoji(emoji) {
+      socket.emit("emoji", { roomId, name, emoji });
+      appendEmoji({ name, emoji });
+      document.getElementById("emojiPanel").style.display = "none";
+    }
+
+    function appendEmoji(data) {
+      const chatBox = document.getElementById("chat-box");
+      const newMsg = document.createElement("div");
+      newMsg.className = data.name === name ? "chat-message self" : "chat-message";
+      newMsg.textContent = `${data.name} reacted ${data.emoji}`;
+      chatBox.appendChild(newMsg);
+      chatBox.scrollTop = chatBox.scrollHeight;
+    }
+
+    socket.on("emoji", data => appendEmoji(data));
+
+    function toggleEmojiPanel() {
+      const panel = document.getElementById("emojiPanel");
+      panel.style.display = panel.style.display === "block" ? "none" : "block";
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+      const panel = document.getElementById("emojiPanel");
+      panel.innerHTML = panel.innerHTML
+        .split(/\s+/)
+        .filter(e => e.trim() !== "")
+        .map(e => `<span onclick="sendEmoji('${e}')">${e}</span>`)
+        .join(" ");
+    });
+
+    function endMeeting() {
+      if(stream) stream.getTracks().forEach(track => track.stop());
+      window.location.href = "index.html";
+    }
+
+    // ==== UPDATED: join server room safely ====
+    socket.emit("join-room", roomId, socket.id, name);
+  </script>
+</body>
+</html>

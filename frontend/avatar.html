@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Select Avatar</title>
+  <style>
+    body { font-family: Arial, sans-serif; background:#f3e9ff; text-align:center; padding:18px; }
+    h1 { color:#6a0dad; }
+    .presets { display:flex; justify-content:center; gap:14px; flex-wrap:wrap; margin-bottom:14px; }
+    .presets img { width:120px; height:120px; object-fit:cover; border-radius:12px; cursor:pointer; border:2px solid transparent; }
+    .presets img:hover { border-color:#6a0dad; }
+    #video { width:320px; height:240px; border-radius:8px; background:#000; display:block; margin:12px auto; }
+    canvas { display:none; }
+    button { padding:10px 14px; border-radius:8px; border:none; background:#6a0dad; color:#fff; cursor:pointer; margin:6px; }
+    button.gray { background:#ccc; color:#000; }
+  </style>
+</head>
+<body>
+  <h1>Choose Your Avatar</h1>
+
+  <h3>Preset Avatars</h3>
+  <div class="presets">
+  <img src="https://tse4.mm.bing.net/th/id/OIP._8y_AjgfPlCos61q1924LgHaHa?pid=Api&P=0&h=180" alt="Male 1" onclick="selectPreset(this.src)">
+  <img src="https://tse4.mm.bing.net/th/id/OIP.IkLYdobJ8Ux8CAX0AfuXIQHaHa?pid=Api&P=0&h=180" alt="Male 2" onclick="selectPreset(this.src)">
+  <img src="https://img.freepik.com/vector-premium/ilustracion-vectorial-perfil-avatar-mujer-linda_1058532-14546.jpg" alt="Female 1" onclick="selectPreset(this.src)">
+  <img src="https://static.vecteezy.com/system/resources/previews/019/837/194/original/smile-american-african-businesswoman-avatar-curly-hair-woman-face-profile-icon-concept-online-support-service-female-cartoon-character-portrait-isolated-flat-icon-png.png" alt="Female 2" onclick="selectPreset(this.src)">
+</div>
+
+
+
+  <h3>Or Create Custom Avatar</h3>
+  <video id="video" autoplay playsinline></video>
+  <canvas id="canvas" width="320" height="240"></canvas>
+  <div>
+    <button onclick="capture()">📸 Capture</button>
+    <button id="saveBtn" onclick="saveCaptured()" style="display:none">✅ Save & Join</button>
+    <button class="gray" onclick="goBack()">⬅ Back</button>
+  </div>
+
+<script>
+  // read possible room/name passed from join page so we can redirect back
+  const params = new URLSearchParams(window.location.search);
+  const roomId = params.get('room') || '';
+  const name = params.get('name') || localStorage.getItem('username') || '';
+
+  // start webcam preview
+  const video = document.getElementById('video');
+  const canvas = document.getElementById('canvas');
+  const ctx = canvas.getContext('2d');
+  let stream = null;
+  navigator.mediaDevices.getUserMedia({ video: true, audio: false })
+    .then(s => { stream = s; video.srcObject = s; })
+    .catch(e => { console.warn('Camera not available:', e); /* still allow presets */ });
+
+  // Save preset and go straight to meeting with useAvatar=true
+  function selectPreset(src) {
+    localStorage.setItem('userAvatar', src);
+    // redirect to meeting and request audio only (so meeting can still get mic)
+    window.location.href = `meeting.html?room=${encodeURIComponent(roomId)}&name=${encodeURIComponent(name)}&useAvatar=true`;
+  }
+
+  // capture snapshot & apply simple "cartoon" (posterize) effect
+  function capture() {
+    if (!video.videoWidth) {
+      alert('Camera not ready. Please allow camera access and try again.');
+      return;
+    }
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+    // posterize / reduce color depth for cartoon look
+    const imgData = ctx.getImageData(0,0,canvas.width,canvas.height);
+    const d = imgData.data;
+    const levels = 6; // adjust posterize strength (lower = bigger blocks)
+    for (let i = 0; i < d.length; i += 4) {
+      d[i]   = Math.floor(d[i] / (256/levels)) * (256/levels);   // R
+      d[i+1] = Math.floor(d[i+1] / (256/levels)) * (256/levels); // G
+      d[i+2] = Math.floor(d[i+2] / (256/levels)) * (256/levels); // B
+    }
+    ctx.putImageData(imgData, 0, 0);
+
+    // show Save button
+    document.getElementById('saveBtn').style.display = 'inline-block';
+    // hide video preview so user sees captured result
+    video.style.display = 'none';
+    canvas.style.display = 'block';
+  }
+
+  // save canvas to localStorage and redirect to meeting with useAvatar=true
+  function saveCaptured() {
+    const dataUrl = canvas.toDataURL('image/png');
+    localStorage.setItem('userAvatar', dataUrl);
+    // close camera stream if open
+    if (stream) {
+      stream.getTracks().forEach(t => t.stop());
+    }
+    // redirect to meeting and ask meeting to use avatar (no camera)
+    window.location.href = `meeting.html?room=${encodeURIComponent(roomId)}&name=${encodeURIComponent(name)}&useAvatar=true`;
+  }
+
+  function goBack() {
+    // stop camera
+    if (stream) stream.getTracks().forEach(t => t.stop());
+    // go back to join page (keep room & name)
+    if (roomId || name) {
+      window.location.href = `join.html?room=${encodeURIComponent(roomId)}&name=${encodeURIComponent(name)}`;
+    } else {
+      window.location.href = 'join.html';
+    }
+  }
+</script>
+</body>
+</html>
