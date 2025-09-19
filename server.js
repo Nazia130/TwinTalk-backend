@@ -4,6 +4,7 @@ const { Server } = require("socket.io");
 const path = require("path");
 const fs = require("fs");
 const bodyParser = require("body-parser");
+const nodemailer = require("nodemailer");
 
 const app = express();
 const server = http.createServer(app);
@@ -13,59 +14,32 @@ const io = new Server(server);
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
-// CSV file path
+// Paths
 const signupFile = path.join(__dirname, "signup.csv");
 
-// Ensure signup.csv exists with headers
-if (!fs.existsSync(signupFile)) {
-  fs.writeFileSync(signupFile, "name,email,password\n", "utf8");
-}
-
 // --- Serve Frontend ---
-app.use(express.static(path.join(__dirname, "../frontend")));
-
-// Default route -> auth.html
+// Default -> auth.html
 app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "../frontend/auth.html"));
 });
+app.use(express.static(path.join(__dirname, "../frontend")));
 
 // --- Signup Endpoint ---
 app.post("/signup", (req, res) => {
   const { name, email, password } = req.body;
 
   if (!name || !email || !password) {
-    return res.status(400).json({ message: "All fields are required" });
+    return res.status(400).json({ message: "All fields required" });
   }
 
-  // Read existing users
-  fs.readFile(signupFile, "utf8", (err, data) => {
+  const userLine = `${name},${email},${password}\n`;
+  fs.appendFile(signupFile, userLine, (err) => {
     if (err) {
-      console.error("Error reading signup.csv:", err);
+      console.error("Error writing signup.csv:", err);
       return res.status(500).json({ message: "Signup failed" });
     }
-
-    const users = data
-      .trim()
-      .split("\n")
-      .slice(1) // skip header
-      .map(line => {
-        const [uName, uEmail, uPass] = line.split(",");
-        return { name: uName, email: uEmail, password: uPass };
-      });
-
-    if (users.find(u => u.email === email)) {
-      return res.status(400).json({ message: "User already exists. Please login." });
-    }
-
-    // Append new user
-    fs.appendFile(signupFile, `${name},${email},${password}\n`, err => {
-      if (err) {
-        console.error("Error writing to signup.csv:", err);
-        return res.status(500).json({ message: "Signup failed" });
-      }
-      console.log("User signed up:", email);
-      res.json({ success: true, message: "Signup successful" });
-    });
+    console.log("User signed up:", email);
+    res.json({ message: "Signup successful" });
   });
 });
 
@@ -86,21 +60,47 @@ app.post("/login", (req, res) => {
     const users = data
       .trim()
       .split("\n")
-      .slice(1) // skip header
-      .map(line => {
-        const [name, uEmail, uPass] = line.split(",");
-        return { name, email: uEmail, password: uPass };
+      .map((line) => {
+        const [name, userEmail, userPass] = line.split(",");
+        return { name, email: userEmail, password: userPass };
       });
 
-    const user = users.find(u => u.email === email && u.password === password);
+    const user = users.find((u) => u.email === email && u.password === password);
 
     if (user) {
       console.log("User logged in:", email);
-      res.json({ success: true, message: "Login successful", user: { name: user.name, email: user.email } });
+      res.json({ success: true, message: "Login successful", user });
     } else {
-      res.status(401).json({ success: false, message: "Invalid credentials. Please sign up first." });
+      res.json({ success: false, message: "Invalid credentials" });
     }
   });
+});
+
+// --- Contact Endpoint (Email) ---
+app.post("/contact", async (req, res) => {
+  const { name, email, message } = req.body;
+
+  try {
+    const transporter = nodemailer.createTransport({
+      service: "gmail",
+      auth: {
+        user: process.env.EMAIL_USER, // from Render env
+        pass: process.env.EMAIL_PASS  // Google App Password
+      }
+    });
+
+    await transporter.sendMail({
+      from: email,
+      to: process.env.EMAIL_USER,
+      subject: `Contact Form: ${name}`,
+      text: message
+    });
+
+    res.send("✅ Message sent successfully!");
+  } catch (err) {
+    console.error("❌ Error sending email:", err);
+    res.status(500).send("Failed to send message.");
+  }
 });
 
 // --- Fallback for unknown routes ---
@@ -109,15 +109,15 @@ app.get(/.*/, (req, res) => {
 });
 
 // --- Socket.IO ---
-io.on("connection", socket => {
+io.on("connection", (socket) => {
   console.log("A user connected:", socket.id);
 
-  socket.on("join-room", roomId => {
+  socket.on("join-room", (roomId) => {
     socket.join(roomId);
     socket.to(roomId).emit("user-joined", socket.id);
   });
 
-  socket.on("signal", data => {
+  socket.on("signal", (data) => {
     io.to(data.to).emit("signal", { from: data.from, signal: data.signal });
   });
 
