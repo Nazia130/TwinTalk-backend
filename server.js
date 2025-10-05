@@ -108,11 +108,31 @@ app.post("/contact", async (req, res) => {
 io.on("connection", (socket) => {
   console.log("Connected:", socket.id);
 
-  // Join a room and get current peers
-  socket.on("join-room", ({ roomId, name }) => {
+  // --- Join Room (handles new & old emit styles) ---
+  socket.on("join-room", (arg1, arg2, arg3) => {
+    let roomId, name;
+
+    // New style: socket.emit("join-room", { roomId, name })
+    if (arg1 && typeof arg1 === "object") {
+      roomId = arg1.roomId;
+      name = arg1.name;
+    } else {
+      // Old style: socket.emit("join-room", roomId, socket.id, name)
+      roomId = arg1;
+      name = arg3; // arg2 was socket.id in old code
+    }
+
+    if (!roomId || typeof roomId !== "string") {
+      console.warn("join-room called without a valid roomId; defaulting to 'default'");
+      roomId = "default";
+    }
+    if (!name || typeof name !== "string") {
+      name = "Guest";
+    }
+
     socket.join(roomId);
     socket.data.roomId = roomId;
-    socket.data.name = name || "Guest";
+    socket.data.name = name;
 
     // List current peers in room (excluding self)
     const room = io.sockets.adapter.rooms.get(roomId);
@@ -123,10 +143,11 @@ io.on("connection", (socket) => {
 
     // Tell others someone joined
     socket.to(roomId).emit("peer-joined", { peerId: socket.id, name: socket.data.name });
+
     console.log(`[${roomId}] ${socket.id} (${socket.data.name}) joined. Peers: ${peers.length}`);
   });
 
-  // WebRTC relay
+  // --- WebRTC relay ---
   socket.on("webrtc-offer", ({ to, sdp }) => {
     io.to(to).emit("webrtc-offer", { from: socket.id, sdp });
   });
@@ -139,15 +160,16 @@ io.on("connection", (socket) => {
     io.to(to).emit("webrtc-ice-candidate", { from: socket.id, candidate });
   });
 
-  // Chat + Emoji
+  // --- Chat + Emoji ---
   socket.on("chat-message", ({ roomId, name, message }) => {
     io.to(roomId).emit("chat-message", { name, message });
   });
+
   socket.on("emoji", ({ roomId, name, emoji }) => {
     io.to(roomId).emit("emoji", { name, emoji });
   });
 
-  // Leaving
+  // --- Leaving ---
   socket.on("disconnect", () => {
     const roomId = socket.data.roomId;
     if (roomId) {
