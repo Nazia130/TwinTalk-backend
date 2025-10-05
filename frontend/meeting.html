@@ -107,12 +107,27 @@
     const peerVideos = {};
 
     // ICE servers (free STUN)
-    const rtcConfig = {
-      iceServers: [
-        { urls: "stun:stun.l.google.com:19302" },
-        { urls: "stun:global.stun.twilio.com:3478?transport=udp" }
+    // === WebRTC ICE servers ===
+const rtcConfig = {
+  iceServers: [
+    {
+      urls: [ "stun:bn-turn1.xirsys.com" ]
+    },
+    {
+      username: "9vPc46D2ulxFRkRBW-g2drEOHQp3FYwqstrpoR1Ar-SRTS3NmWDUuFDl33686Tu0AAAAAGjiKYtzeWVkYW5heml5YQ==",
+      credential: "b4003654-a1c3-11f0-a3eb-0242ac140004",
+      urls: [
+        "turn:bn-turn1.xirsys.com:80?transport=udp",
+        "turn:bn-turn1.xirsys.com:3478?transport=udp",
+        "turn:bn-turn1.xirsys.com:80?transport=tcp",
+        "turn:bn-turn1.xirsys.com:3478?transport=tcp",
+        "turns:bn-turn1.xirsys.com:443?transport=tcp",
+        "turns:bn-turn1.xirsys.com:5349?transport=tcp"
       ]
-    };
+    }
+  ]
+};
+
 
     // ---------------------------
     // Helpers – video grid
