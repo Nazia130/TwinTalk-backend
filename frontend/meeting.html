@@ -86,6 +86,8 @@
     const name = params.get('name') || localStorage.getItem('username') || 'Guest';
     const useAvatarParam = params.get('useAvatar') === 'true';
 
+    console.log("[Meeting] roomId =", roomId, "name =", name);
+
     // Avatar storage (set elsewhere in your app)
     const savedAvatar = localStorage.getItem('userAvatar') || null;
 
@@ -103,31 +105,26 @@
 
     // Peer connections: { peerId: RTCPeerConnection }
     const peers = {};
-    // Map of peerId -> HTMLVideoElement for cleanup
     const peerVideos = {};
 
-    // ICE servers (free STUN)
-    // === WebRTC ICE servers ===
-const rtcConfig = {
-  iceServers: [
-    {
-      urls: [ "stun:bn-turn1.xirsys.com" ]
-    },
-    {
-      username: "9vPc46D2ulxFRkRBW-g2drEOHQp3FYwqstrpoR1Ar-SRTS3NmWDUuFDl33686Tu0AAAAAGjiKYtzeWVkYW5heml5YQ==",
-      credential: "b4003654-a1c3-11f0-a3eb-0242ac140004",
-      urls: [
-        "turn:bn-turn1.xirsys.com:80?transport=udp",
-        "turn:bn-turn1.xirsys.com:3478?transport=udp",
-        "turn:bn-turn1.xirsys.com:80?transport=tcp",
-        "turn:bn-turn1.xirsys.com:3478?transport=tcp",
-        "turns:bn-turn1.xirsys.com:443?transport=tcp",
-        "turns:bn-turn1.xirsys.com:5349?transport=tcp"
+    // === WebRTC ICE servers (Xirsys) ===
+    const rtcConfig = {
+      iceServers: [
+        { urls: [ "stun:bn-turn1.xirsys.com" ] },
+        {
+          username: "9vPc46D2ulxFRkRBW-g2drEOHQp3FYwqstrpoR1Ar-SRTS3NmWDUuFDl33686Tu0AAAAAGjiKYtzeWVkYW5heml5YQ==",
+          credential: "b4003654-a1c3-11f0-a3eb-0242ac140004",
+          urls: [
+            "turn:bn-turn1.xirsys.com:80?transport=udp",
+            "turn:bn-turn1.xirsys.com:3478?transport=udp",
+            "turn:bn-turn1.xirsys.com:80?transport=tcp",
+            "turn:bn-turn1.xirsys.com:3478?transport=tcp",
+            "turns:bn-turn1.xirsys.com:443?transport=tcp",
+            "turns:bn-turn1.xirsys.com:5349?transport=tcp"
+          ]
+        }
       ]
-    }
-  ]
-};
-
+    };
 
     // ---------------------------
     // Helpers – video grid
@@ -140,7 +137,7 @@ const rtcConfig = {
         outer.id = `tile-${id}`;
 
         const v = isAvatar ? document.createElement('img') : document.createElement('video');
-        v.id = `video-${id}`;
+        v.id = (id === 'me') ? 'video-me' : `video-${id}`;
         if (!isAvatar) {
           v.autoplay = true;
           v.playsInline = true;
@@ -157,7 +154,7 @@ const rtcConfig = {
 
         videosDiv.appendChild(outer);
       }
-      const el = document.getElementById(`video-${id}`);
+      const el = (id === 'me') ? document.getElementById('video-me') : document.getElementById(`video-${id}`);
       if (stream && el && el.tagName === 'VIDEO') {
         el.srcObject = stream;
       }
@@ -186,7 +183,7 @@ const rtcConfig = {
           try { localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false }); }
           catch (e) { console.warn("Audio not available:", e); localStream = new MediaStream(); }
 
-          // Avatar: if .glb via model-viewer → canvas → stream; else image fallback
+          // Avatar via model-viewer canvas → stream
           if (savedAvatar.endsWith('.glb')) {
             const modelViewer = document.createElement('model-viewer');
             modelViewer.src = savedAvatar;
@@ -195,8 +192,6 @@ const rtcConfig = {
             modelViewer.style.height = '180px';
             modelViewer.cameraControls = true;
             modelViewer.autoRotate = true;
-            modelViewer.style.display = 'block';
-            modelViewer.style.background = '#f3e9ff';
             modelViewer.style.position = 'fixed';
             modelViewer.style.left = '-9999px';
             document.body.appendChild(modelViewer);
@@ -215,16 +210,16 @@ const rtcConfig = {
             draw();
 
             const avatarVideoStream = avatarCanvas.captureStream(30);
-            // merge audio
             if (localStream.getAudioTracks().length) {
               avatarVideoStream.addTrack(localStream.getAudioTracks()[0]);
             }
             cameraStream = avatarVideoStream;
+            localStream = avatarVideoStream;
             videoEnabled = true;
 
             addVideoTile('me', name + ' (You)', avatarVideoStream, true);
           } else {
-            // Image fallback as local tile; only audio goes to peers
+            // Image fallback as local tile; only audio goes out
             addVideoTile('me', name + ' (You)', null, true, true);
             cameraStream = new MediaStream();
             if (localStream.getAudioTracks().length) {
@@ -242,6 +237,7 @@ const rtcConfig = {
         }
       } catch (err) {
         alert("Could not get camera/mic: " + err);
+        console.error(err);
         localStream = new MediaStream(); // allow joining without media
         addVideoTile('me', name + ' (You)', null, true, true);
       }
@@ -262,9 +258,7 @@ const rtcConfig = {
         });
       }
 
-      // Remote tracks
       pc.ontrack = (ev) => {
-        // For unified-plan, streams[0] holds the combined remote media
         const [remoteStream] = ev.streams;
         if (remoteStream) {
           addVideoTile(peerId, `User ${peerId.slice(0,6)}`, remoteStream);
@@ -272,7 +266,6 @@ const rtcConfig = {
         }
       };
 
-      // ICE
       pc.onicecandidate = (e) => {
         if (e.candidate) {
           socket.emit("webrtc-ice-candidate", { to: peerId, candidate: e.candidate });
@@ -280,8 +273,10 @@ const rtcConfig = {
       };
 
       pc.onconnectionstatechange = () => {
+        console.log(`[PC:${peerId}] state:`, pc.connectionState);
         if (pc.connectionState === "disconnected" || pc.connectionState === "failed" || pc.connectionState === "closed") {
           removeVideoTile(peerId);
+          try { pc.close(); } catch {}
           delete peers[peerId];
           delete peerVideos[peerId];
         }
@@ -292,13 +287,17 @@ const rtcConfig = {
     }
 
     async function callPeer(peerId) {
-      const pc = createPeerConnection(peerId);
-      const offer = await pc.createOffer({ offerToReceiveAudio: true, offerToReceiveVideo: true });
-      await pc.setLocalDescription(offer);
-      socket.emit("webrtc-offer", { to: peerId, sdp: offer });
+      try {
+        const pc = createPeerConnection(peerId);
+        const offer = await pc.createOffer({ offerToReceiveAudio: true, offerToReceiveVideo: true });
+        await pc.setLocalDescription(offer);
+        socket.emit("webrtc-offer", { to: peerId, sdp: offer });
+        console.log("[Offer] ->", peerId);
+      } catch (e) {
+        console.error("callPeer error:", e);
+      }
     }
 
-    // Replace outgoing video track for every connection (camera <-> screen)
     function replaceOutgoingVideoTrack(newTrack) {
       Object.values(peers).forEach(pc => {
         const sender = pc.getSenders().find(s => s.track && s.track.kind === 'video');
@@ -310,53 +309,68 @@ const rtcConfig = {
     // Socket wiring
     // ---------------------------
     socket.on("connect", async () => {
+      console.log("[Socket] connected as", socket.id);
       await initLocalMedia();
+      // IMPORTANT: send roomId + name object
       socket.emit("join-room", { roomId, name });
+      console.log("[Join] emitted with roomId:", roomId, "name:", name);
     });
 
     socket.on("existing-peers", async ({ peers: existing }) => {
-      // Newcomer initiates offers to all existing peers
+      console.log("[Existing peers]", existing);
       for (const peerId of existing) {
         await callPeer(peerId);
       }
     });
 
-    // Someone else joined — they will call us. No action required here.
-    socket.on("peer-joined", ({ peerId, name }) => {
-      console.log("Peer joined:", peerId, name);
+    // Proactively call newcomers too (belt & suspenders)
+    socket.on("peer-joined", async ({ peerId, name: peerName }) => {
+      console.log("[Peer joined]", peerId, peerName);
+      await callPeer(peerId);
     });
 
     socket.on("webrtc-offer", async ({ from, sdp }) => {
-      const pc = createPeerConnection(from);
-      await pc.setRemoteDescription(new RTCSessionDescription(sdp));
-      const answer = await pc.createAnswer();
-      await pc.setLocalDescription(answer);
-      socket.emit("webrtc-answer", { to: from, sdp: answer });
+      try {
+        const pc = createPeerConnection(from);
+        await pc.setRemoteDescription(new RTCSessionDescription(sdp));
+        const answer = await pc.createAnswer();
+        await pc.setLocalDescription(answer);
+        socket.emit("webrtc-answer", { to: from, sdp: answer });
+        console.log("[Answer] ->", from);
+      } catch (e) {
+        console.error("offer handling error:", e);
+      }
     });
 
     socket.on("webrtc-answer", async ({ from, sdp }) => {
-      const pc = peers[from];
-      if (!pc) return;
-      await pc.setRemoteDescription(new RTCSessionDescription(sdp));
+      try {
+        const pc = peers[from];
+        if (!pc) return;
+        await pc.setRemoteDescription(new RTCSessionDescription(sdp));
+        console.log("[Answer received] from", from);
+      } catch (e) {
+        console.error("answer handling error:", e);
+      }
     });
 
     socket.on("webrtc-ice-candidate", async ({ from, candidate }) => {
       const pc = peers[from];
       if (!pc || !candidate) return;
-      try { await pc.addIceCandidate(new RTCIceCandidate(candidate)); }
-      catch (e) { console.warn("ICE add error", e); }
+      try {
+        await pc.addIceCandidate(new RTCIceCandidate(candidate));
+        // console.log("[ICE] candidate from", from);
+      } catch (e) {
+        console.warn("ICE add error", e);
+      }
     });
 
     socket.on("peer-left", ({ peerId }) => {
-      removeVideoTile(peerId);
+      console.log("[Peer left]", peerId);
       const pc = peers[peerId];
-      if (pc) { pc.close(); delete peers[peerId]; }
+      if (pc) { try { pc.close(); } catch {} delete peers[peerId]; }
+      removeVideoTile(peerId);
       delete peerVideos[peerId];
     });
-
-    // Chat + Emoji
-    socket.on("chat-message", data => logChat(`${data.name}: ${data.message}`));
-    socket.on("emoji", data => logChat(`${data.name} reacted ${data.emoji}`));
 
     // ---------------------------
     // Controls
@@ -370,7 +384,6 @@ const rtcConfig = {
     };
 
     document.getElementById('videoBtn').onclick = async () => {
-      // If there is no video track at all (e.g., avatar flow), try requesting camera
       if (!localStream.getVideoTracks().length) {
         try {
           const cam = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
@@ -394,15 +407,12 @@ const rtcConfig = {
         try {
           const screen = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: false });
           isScreenSharing = true;
-          // Replace track everywhere
           const screenTrack = screen.getVideoTracks()[0];
           replaceOutgoingVideoTrack(screenTrack);
 
-          // Update local preview
           const myVideo = document.getElementById('video-me');
           if (myVideo && myVideo.tagName === 'VIDEO') myVideo.srcObject = screen;
 
-          // When user stops share
           screenTrack.onended = () => {
             isScreenSharing = false;
             const camTrack = cameraStream?.getVideoTracks()[0];
@@ -430,8 +440,7 @@ const rtcConfig = {
     };
 
     document.getElementById('leaveBtn').onclick = () => {
-      // Close all
-      Object.values(peers).forEach(pc => pc.close());
+      Object.values(peers).forEach(pc => { try { pc.close(); } catch {} });
       if (localStream) localStream.getTracks().forEach(t => t.stop());
       window.location.href = '/index.html';
     };
