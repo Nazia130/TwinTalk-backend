@@ -180,20 +180,20 @@ if(localStorage.getItem('theme')==='dark') document.body.classList.add('dark');
 // ✅ Create Meeting
 function createMeeting() {
   const username = prompt("Enter your name for the meeting:", savedName) || "Guest";
-  const roomId = Math.random().toString(36).substr(2, 8); // random 8 char
+  const roomId = Math.random().toString(36).substr(2, 8);
   localStorage.setItem('profileName', username);
-  window.location.href = `/join.html?room=${roomId}&name=${encodeURIComponent(username)}`;
+  window.location.href = `/meeting.html?room=${roomId}&name=${encodeURIComponent(username)}`;
 }
 
-// ✅ Join by ID
 function joinMeeting() {
   const roomId = prompt("Enter Meeting ID:");
   if(roomId) {
     const username = prompt("Enter your name:", savedName) || "Guest";
     localStorage.setItem('profileName', username);
-    window.location.href = `/join.html?room=${roomId}&name=${encodeURIComponent(username)}`;
+    window.location.href = `/meeting.html?room=${roomId}&name=${encodeURIComponent(username)}`;
   }
 }
+
 
 // ✅ Schedule Meeting
 function scheduleMeeting() {
