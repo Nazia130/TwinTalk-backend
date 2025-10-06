@@ -178,12 +178,18 @@ document.getElementById('settingsBtn').addEventListener('click', ()=>{ window.lo
 if(localStorage.getItem('theme')==='dark') document.body.classList.add('dark');
 
 // ✅ Create Meeting
-function createMeeting() {
-  const username = prompt("Enter your name for the meeting:", savedName) || "Guest";
-  const roomId = Math.random().toString(36).substr(2, 8); // random 8 char
-  localStorage.setItem('profileName', username);
-  window.location.href = `/meeting.html?room=${roomId}&name=${encodeURIComponent(username)}`;
-}
+ function createMeeting() {
+    const username = prompt("Enter your name for the meeting:", savedName) || "Guest";
+    const roomId = Math.random().toString(36).substr(2, 8); 
+    localStorage.setItem('profileName', username);
+    alert(`✅ Meeting created!\nShare this link:\n${window.location.origin}/meeting.html?room=${roomId}`);
+    window.location.href = `/meeting.html?room=${roomId}&name=${encodeURIComponent(username)}`;
+  }
+
+  // ✅ Join by ID (redirects to join.html instead of meeting directly)
+  function joinMeeting() {
+    window.location.href = "join.html";
+  }
 
 // ✅ Join by ID
 function joinMeeting() {

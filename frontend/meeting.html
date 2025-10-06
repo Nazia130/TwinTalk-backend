@@ -69,12 +69,15 @@
 
 <script>
 const socket = io();
+
+// Get room and name
 const params = new URLSearchParams(window.location.search);
 const roomId = params.get('room') || 'default';
-const name = params.get('name') || 'Guest';
+const username = params.get('name') || localStorage.getItem('username') || 'Guest';
 
 let localStream;
 const peers = {};
+const peerNames = {}; // store peer names
 
 const videosDiv = document.getElementById('videos');
 const chatMessages = document.getElementById('chatMessages');
@@ -138,19 +141,20 @@ function logChat(msg){
 async function initMedia(){
   try{
     localStream = await navigator.mediaDevices.getUserMedia({video:true,audio:true});
-    addVideoTile('me', `${name} (You)`, localStream,true);
+    addVideoTile('me', `${username} (You)`, localStream,true);
   }catch(e){
     alert('Could not get camera/mic: '+e);
   }
 }
 
 // peers
-function createPeerConnection(peerId){
+function createPeerConnection(peerId, peerLabel){
   const pc = new RTCPeerConnection(rtcConfig);
   localStream.getTracks().forEach(track=>pc.addTrack(track,localStream));
 
   pc.ontrack = e=>{
-    addVideoTile(peerId, `User ${peerId.slice(0,5)}`, e.streams[0]);
+    const displayName = peerNames[peerId] || peerLabel || `User ${peerId.slice(0,5)}`;
+    addVideoTile(peerId, displayName, e.streams[0]);
   };
 
   pc.onicecandidate = e=>{
@@ -164,14 +168,15 @@ function createPeerConnection(peerId){
       removeVideoTile(peerId);
       pc.close();
       delete peers[peerId];
+      delete peerNames[peerId];
     }
   };
   peers[peerId]=pc;
   return pc;
 }
 
-async function callPeer(peerId){
-  const pc = createPeerConnection(peerId);
+async function callPeer(peerId, peerLabel){
+  const pc = createPeerConnection(peerId, peerLabel);
   const offer = await pc.createOffer();
   await pc.setLocalDescription(offer);
   socket.emit('webrtc-offer',{to:peerId,sdp:offer});
@@ -180,7 +185,7 @@ async function callPeer(peerId){
 // socket events
 socket.on('connect',async()=>{
   await initMedia();
-  socket.emit('join-room',{roomId,name});
+  socket.emit('join-room',{roomId,name:username});
 });
 
 socket.on('existing-peers', async ({peers:existing})=>{
@@ -189,14 +194,13 @@ socket.on('existing-peers', async ({peers:existing})=>{
   }
 });
 
-// 🔑 Removed extra call here to prevent double-offer bug
-socket.on('peer-joined', ({peerId,name:peerName})=>{
-  console.log('Peer joined',peerId,peerName);
-  // do nothing — wait for them to send offer
+socket.on('peer-joined', ({peerId,name})=>{
+  peerNames[peerId] = name; // store the peer’s actual name
+  callPeer(peerId, name);
 });
 
 socket.on('webrtc-offer',async({from,sdp})=>{
-  const pc = createPeerConnection(from);
+  const pc = createPeerConnection(from, peerNames[from]);
   await pc.setRemoteDescription(new RTCSessionDescription(sdp));
   const answer = await pc.createAnswer();
   await pc.setLocalDescription(answer);
@@ -217,6 +221,7 @@ socket.on('peer-left',({peerId})=>{
   removeVideoTile(peerId);
   if(peers[peerId]) peers[peerId].close();
   delete peers[peerId];
+  delete peerNames[peerId];
 });
 
 // controls
@@ -244,18 +249,27 @@ document.getElementById('leaveBtn').onclick=()=>{
 document.getElementById('sendBtn').onclick=()=>{
   const msg = chatInput.value.trim();
   if(!msg) return;
-  socket.emit('chat-message',{roomId,name,message:msg});
-  logChat(`${name}: ${msg}`);
+  socket.emit('chat-message',{roomId,name:username,message:msg});
+  logChat(`${username}: ${msg}`);
   chatInput.value='';
 };
+
+// receive chat from others
+socket.on('chat-message',({name,message})=>{
+  logChat(`${name}: ${message}`);
+});
 
 // emoji
 document.querySelectorAll('.quick-emoji').forEach(b=>{
   b.onclick=()=>{
     const emoji = b.textContent;
-    socket.emit('emoji',{roomId,name,emoji});
-    logChat(`${name} reacted ${emoji}`);
+    socket.emit('emoji',{roomId,name:username,emoji});
+    logChat(`${username} reacted ${emoji}`);
   };
+});
+
+socket.on('emoji',({name,emoji})=>{
+  logChat(`${name} reacted ${emoji}`);
 });
 </script>
 </body>

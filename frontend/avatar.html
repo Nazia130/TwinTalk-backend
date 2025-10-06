@@ -8,26 +8,35 @@
     body { font-family: Arial, sans-serif; background:#f3e9ff; text-align:center; padding:18px; }
     h1 { color:#6a0dad; }
     .presets { display:flex; justify-content:center; gap:14px; flex-wrap:wrap; margin-bottom:14px; }
-    .presets img { width:120px; height:120px; object-fit:cover; border-radius:12px; cursor:pointer; border:2px solid transparent; }
-    .presets img:hover { border-color:#6a0dad; }
+    .presets img, .presets model-viewer { width:120px; height:120px; object-fit:cover; border-radius:12px; cursor:pointer; border:2px solid transparent; }
+    .presets img:hover, .presets model-viewer:hover { border-color:#6a0dad; }
     #video { width:320px; height:240px; border-radius:8px; background:#000; display:block; margin:12px auto; }
     canvas { display:none; }
     button { padding:10px 14px; border-radius:8px; border:none; background:#6a0dad; color:#fff; cursor:pointer; margin:6px; }
     button.gray { background:#ccc; color:#000; }
   </style>
+
+  <!-- ✅ Add model-viewer support -->
+  <script type="module" src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"></script>
 </head>
 <body>
   <h1>Choose Your Avatar</h1>
 
   <h3>Preset Avatars</h3>
   <div class="presets">
-  <img src="https://tse4.mm.bing.net/th/id/OIP._8y_AjgfPlCos61q1924LgHaHa?pid=Api&P=0&h=180" alt="Male 1" onclick="selectPreset(this.src)">
-  <img src="https://tse4.mm.bing.net/th/id/OIP.IkLYdobJ8Ux8CAX0AfuXIQHaHa?pid=Api&P=0&h=180" alt="Male 2" onclick="selectPreset(this.src)">
-  <img src="https://img.freepik.com/vector-premium/ilustracion-vectorial-perfil-avatar-mujer-linda_1058532-14546.jpg" alt="Female 1" onclick="selectPreset(this.src)">
-  <img src="https://static.vecteezy.com/system/resources/previews/019/837/194/original/smile-american-african-businesswoman-avatar-curly-hair-woman-face-profile-icon-concept-online-support-service-female-cartoon-character-portrait-isolated-flat-icon-png.png" alt="Female 2" onclick="selectPreset(this.src)">
-</div>
+    <img src="https://tse4.mm.bing.net/th/id/OIP._8y_AjgfPlCos61q1924LgHaHa?pid=Api&P=0&h=180" alt="Male 1" onclick="selectPreset(this.src)">
+    <img src="https://tse4.mm.bing.net/th/id/OIP.IkLYdobJ8Ux8CAX0AfuXIQHaHa?pid=Api&P=0&h=180" alt="Male 2" onclick="selectPreset(this.src)">
+    <img src="https://img.freepik.com/vector-premium/ilustracion-vectorial-perfil-avatar-mujer-linda_1058532-14546.jpg" alt="Female 1" onclick="selectPreset(this.src)">
 
+    <!-- ✅ Updated GLB Model -->
+    <model-viewer src="character_avatar.glb" alt="Custom Character"
+      camera-controls auto-rotate
+      style="width:120px; height:120px; border-radius:12px; cursor:pointer; border:2px solid transparent;"
+      onclick="selectGLB('character_avatar.glb')">
+    </model-viewer>
 
+    <img src="https://static.vecteezy.com/system/resources/previews/019/837/194/original/smile-american-african-businesswoman-avatar-curly-hair-woman-face-profile-icon-concept-online-support-service-female-cartoon-character-portrait-isolated-flat-icon-png.png" alt="Female 2" onclick="selectPreset(this.src)">
+  </div>
 
   <h3>Or Create Custom Avatar</h3>
   <video id="video" autoplay playsinline></video>
@@ -56,7 +65,12 @@
   // Save preset and go straight to meeting with useAvatar=true
   function selectPreset(src) {
     localStorage.setItem('userAvatar', src);
-    // redirect to meeting and request audio only (so meeting can still get mic)
+    window.location.href = `meeting.html?room=${encodeURIComponent(roomId)}&name=${encodeURIComponent(name)}&useAvatar=true`;
+  }
+
+  // ✅ New function for GLB model
+  function selectGLB(path) {
+    localStorage.setItem('userAvatar', path);
     window.location.href = `meeting.html?room=${encodeURIComponent(roomId)}&name=${encodeURIComponent(name)}&useAvatar=true`;
   }
 
@@ -73,37 +87,29 @@
     // posterize / reduce color depth for cartoon look
     const imgData = ctx.getImageData(0,0,canvas.width,canvas.height);
     const d = imgData.data;
-    const levels = 6; // adjust posterize strength (lower = bigger blocks)
+    const levels = 6; // adjust posterize strength
     for (let i = 0; i < d.length; i += 4) {
-      d[i]   = Math.floor(d[i] / (256/levels)) * (256/levels);   // R
-      d[i+1] = Math.floor(d[i+1] / (256/levels)) * (256/levels); // G
-      d[i+2] = Math.floor(d[i+2] / (256/levels)) * (256/levels); // B
+      d[i]   = Math.floor(d[i] / (256/levels)) * (256/levels);
+      d[i+1] = Math.floor(d[i+1] / (256/levels)) * (256/levels);
+      d[i+2] = Math.floor(d[i+2] / (256/levels)) * (256/levels);
     }
     ctx.putImageData(imgData, 0, 0);
 
-    // show Save button
     document.getElementById('saveBtn').style.display = 'inline-block';
-    // hide video preview so user sees captured result
     video.style.display = 'none';
     canvas.style.display = 'block';
   }
 
-  // save canvas to localStorage and redirect to meeting with useAvatar=true
+  // save canvas to localStorage and redirect to meeting
   function saveCaptured() {
     const dataUrl = canvas.toDataURL('image/png');
     localStorage.setItem('userAvatar', dataUrl);
-    // close camera stream if open
-    if (stream) {
-      stream.getTracks().forEach(t => t.stop());
-    }
-    // redirect to meeting and ask meeting to use avatar (no camera)
+    if (stream) stream.getTracks().forEach(t => t.stop());
     window.location.href = `meeting.html?room=${encodeURIComponent(roomId)}&name=${encodeURIComponent(name)}&useAvatar=true`;
   }
 
   function goBack() {
-    // stop camera
     if (stream) stream.getTracks().forEach(t => t.stop());
-    // go back to join page (keep room & name)
     if (roomId || name) {
       window.location.href = `join.html?room=${encodeURIComponent(roomId)}&name=${encodeURIComponent(name)}`;
     } else {
