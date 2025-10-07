@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Meeting Notes</title>
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    background: #f5f5f5;
+    margin: 0;
+    padding: 20px;
+  }
+
+  .container {
+    max-width: 800px;
+    margin: 0 auto;
+    background: #fff;
+    border-radius: 8px;
+    padding: 20px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+  }
+
+  h1 {
+    text-align: center;
+    color: #4a148c;
+  }
+
+  p {
+    font-size: 15px;
+    color: #333;
+  }
+
+  .back-btn {
+    display: inline-block;
+    margin-top: 15px;
+    background: #6a0dad;
+    color: #fff;
+    padding: 8px 14px;
+    border-radius: 5px;
+    text-decoration: none;
+  }
+
+  .back-btn:hover {
+    background: #4a148c;
+  }
+
+  .summary-box {
+    background: #f8f8f8;
+    border-radius: 6px;
+    padding: 12px;
+    margin-top: 10px;
+    white-space: pre-wrap;
+    font-size: 14px;
+    color: #444;
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <h1>📝 Meeting Notes</h1>
+  <p><strong>Title:</strong> <span id="meetingTitle"></span></p>
+  <p><strong>Date:</strong> <span id="meetingDate"></span></p>
+  <h3>Summary:</h3>
+  <div class="summary-box" id="meetingSummary"></div>
+  <a href="history.html" class="back-btn">⬅ Back to History</a>
+</div>
+
+<script>
+async function loadNotes() {
+  const params = new URLSearchParams(window.location.search);
+  const index = params.get('i');
+  if (index === null) {
+    document.body.innerHTML = "<h2>❌ Invalid request</h2>";
+    return;
+  }
+
+  try {
+    const res = await fetch('/history');
+    const data = await res.json();
+    const item = data[index];
+
+    if (!item) {
+      document.body.innerHTML = "<h2>❌ Meeting not found</h2>";
+      return;
+    }
+
+    document.getElementById('meetingTitle').textContent = item.title || "Untitled Meeting";
+    document.getElementById('meetingDate').textContent = item.date || "Unknown Date";
+    document.getElementById('meetingSummary').textContent = item.summary || "No notes available.";
+  } catch (err) {
+    document.body.innerHTML = "<h2>❌ Error loading notes</h2>";
+    console.error(err);
+  }
+}
+
+loadNotes();
+</script>
+
+</body>
+</html>

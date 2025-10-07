@@ -177,37 +177,29 @@ document.getElementById('settingsBtn').addEventListener('click', ()=>{ window.lo
 // Persist theme
 if(localStorage.getItem('theme')==='dark') document.body.classList.add('dark');
 
-// ✅ Create Meeting
-<script>
-  // ✅ Create Meeting – Host enters their name
-  function createMeeting() {
-    const hostName = prompt("Enter your name to host the meeting:") || "Guest";
-    const roomId = Math.random().toString(36).substr(2, 8); // random 8-char ID
-    // Save host name locally for display
-    localStorage.setItem("profileName", hostName);
-    // Go to meeting with host name
-    window.location.href = `/meeting.html?room=${roomId}&name=${encodeURIComponent(hostName)}`;
-  }
+// ✅ Create Meeting – Host enters their name
+function createMeeting() {
+  const hostName = prompt("Enter your name to host the meeting:") || "Guest";
+  const roomId = Math.random().toString(36).substr(2, 8);
+  localStorage.setItem("profileName", hostName);
+  window.location.href = `/meeting.html?room=${roomId}&name=${encodeURIComponent(hostName)}`;
+}
 
-  // ✅ Join by ID – Attendee enters their own name
-  function joinMeeting() {
-    const meetingURL = prompt("Paste the meeting link or enter Meeting ID:");
-    if (!meetingURL) return;
+// ✅ Join by ID – Attendee enters their own name
+function joinMeeting() {
+  const meetingURL = prompt("Paste the meeting link or enter Meeting ID:");
+  if (!meetingURL) return;
 
-    // Extract roomId from pasted link or raw ID
-    let roomId = meetingURL;
-    try {
-      const urlObj = new URL(meetingURL);
-      roomId = urlObj.searchParams.get("room") || meetingURL;
-    } catch { /* user probably typed just an ID */ }
+  let roomId = meetingURL;
+  try {
+    const urlObj = new URL(meetingURL);
+    roomId = urlObj.searchParams.get("room") || meetingURL;
+  } catch { /* if user entered only the ID */ }
 
-    const attendeeName = prompt("Enter your name to join the meeting:") || "Guest";
-    localStorage.setItem("profileName", attendeeName);
-
-    window.location.href = `/meeting.html?room=${roomId}&name=${encodeURIComponent(attendeeName)}`;
-  }
-</script>
-
+  const attendeeName = prompt("Enter your name to join the meeting:") || "Guest";
+  localStorage.setItem("profileName", attendeeName);
+  window.location.href = `/meeting.html?room=${roomId}&name=${encodeURIComponent(attendeeName)}`;
+}
 
 // ✅ Schedule Meeting
 function scheduleMeeting() {
@@ -230,18 +222,6 @@ document.getElementById("feedbackForm").addEventListener("submit", async functio
   } catch(err) { alert("❌ Failed to submit feedback!"); }
 });
 </script>
-<!-- ✅ Meeting Modal -->
-<div id="meetingModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; 
-    background:rgba(0,0,0,0.5); z-index:2000; justify-content:center; align-items:center;">
-  <div style="background:#fff; padding:2rem; border-radius:10px; width:300px; text-align:center; position:relative;">
-    <span id="closeModal" style="position:absolute; top:10px; right:15px; cursor:pointer; font-size:18px;">&times;</span>
-    <h3 id="modalTitle">Enter Meeting Details</h3>
-    <input id="modalName" type="text" placeholder="Your Name" style="width:100%; padding:8px; margin:10px 0; border-radius:5px; border:1px solid #ccc;">
-    <input id="modalRoom" type="text" placeholder="Meeting ID (leave blank to create)" style="width:100%; padding:8px; margin:10px 0; border-radius:5px; border:1px solid #ccc;">
-    <button id="modalSubmit" class="btn" style="width:100%;">Join / Create</button>
-  </div>
-</div>
-
 
 </body>
 </html>
