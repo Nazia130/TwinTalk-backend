@@ -14,7 +14,6 @@
     flex-direction: column;
     height: 100vh;
   }
-
   header {
     background: #202020;
     padding: 8px 12px;
@@ -97,11 +96,7 @@
     border-radius: 6px;
   }
   footer button:hover { background: rgba(255,255,255,0.1); }
-  .end-btn {
-    background: #cc1534;
-    border-radius: 20px;
-    font-weight: bold;
-  }
+  .end-btn { background: #cc1534; border-radius: 20px; font-weight: bold; }
 
   #chatbox {
     position: absolute;
@@ -116,38 +111,15 @@
     flex-direction: column;
     overflow: hidden;
   }
-  #chat-messages {
-    flex: 1;
-    padding: 6px;
-    overflow-y: auto;
-    font-size: 13px;
-  }
-  #chat-input {
-    display: flex;
-    border-top: 1px solid #ccc;
-  }
-  #chat-input input {
-    flex: 1;
-    padding: 6px;
-    border: none;
-    outline: none;
-  }
-  #chat-input button {
-    background: #6a0dad;
-    border: none;
-    color: #fff;
-    padding: 0 10px;
-    cursor: pointer;
-  }
+  #chat-messages { flex: 1; padding: 6px; overflow-y: auto; font-size: 13px; }
+  #chat-input { display: flex; border-top: 1px solid #ccc; }
+  #chat-input input { flex: 1; padding: 6px; border: none; outline: none; }
+  #chat-input button { background: #6a0dad; border: none; color: #fff; padding: 0 10px; cursor: pointer; }
 </style>
 </head>
 <body>
 
-<header>
-  Meeting Room
-  <span id="meetingTimer">00:00:00</span>
-</header>
-
+<header>Meeting Room <span id="meetingTimer">00:00:00</span></header>
 <div id="top-strip"></div>
 
 <div id="main-speaker">
@@ -180,7 +152,7 @@ const savedAvatar = localStorage.getItem('userAvatar');
 
 let localStream;
 const peers = {};
-let meetingTranscript = ""; // 📝 store speech text for summary
+let meetingTranscript = "";
 
 const rtcConfig = {
   iceServers: [
@@ -200,60 +172,51 @@ const rtcConfig = {
   ]
 };
 
-const mainSpeaker = document.getElementById('main-speaker');
-const topStrip = document.getElementById('top-strip');
+// Timer
 const timerDisplay = document.getElementById('meetingTimer');
-
-// ---------------- Timer ----------------
 const startTime = Date.now();
-setInterval(()=> {
-  const elapsed = Date.now() - startTime;
+setInterval(()=>{
+  const elapsed = Date.now()-startTime;
   const h = Math.floor(elapsed/3600000);
   const m = Math.floor((elapsed%3600000)/60000);
   const s = Math.floor((elapsed%60000)/1000);
-  timerDisplay.textContent =
-    `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+  timerDisplay.textContent = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
 },1000);
 
-// ---------------- UI Helpers ----------------
+// UI helpers
 function createSmallTile(id,label,stream,avatarURL){
   let tile = document.getElementById('tile-'+id);
   if(!tile){
     tile = document.createElement('div');
     tile.className = 'small-tile';
     tile.id = 'tile-'+id;
-
     if(stream){
       const video = document.createElement('video');
-      video.autoplay = true;
-      video.playsInline = true;
+      video.autoplay = true; video.playsInline = true;
       if(id==='me') video.muted = true;
       video.srcObject = stream;
       tile.appendChild(video);
     } else if(avatarURL){
       const img = document.createElement('img');
-      img.src = avatarURL;
-      tile.appendChild(img);
+      img.src = avatarURL; tile.appendChild(img);
     }
-
     const lbl = document.createElement('div');
-    lbl.className = 'name-label';
-    lbl.textContent = label;
+    lbl.className = 'name-label'; lbl.textContent = label;
     tile.appendChild(lbl);
-    topStrip.appendChild(tile);
+    document.getElementById('top-strip').appendChild(tile);
   } else {
     if(stream){
       tile.innerHTML = `<video autoplay playsinline ${id==='me'?'muted':''}></video>
                         <div class="name-label">${label}</div>`;
       tile.querySelector('video').srcObject = stream;
     } else if(avatarURL){
-      tile.innerHTML = `<img src="${avatarURL}">
-                        <div class="name-label">${label}</div>`;
+      tile.innerHTML = `<img src="${avatarURL}"><div class="name-label">${label}</div>`;
     }
   }
 }
 
 function setMainSpeaker(id,label,stream,avatarURL){
+  const mainSpeaker = document.getElementById('main-speaker');
   if(stream){
     mainSpeaker.innerHTML = `<video autoplay playsinline ${id==='me'?'muted':''}></video>
       <div class="name-label">${label}</div>`;
@@ -264,53 +227,49 @@ function setMainSpeaker(id,label,stream,avatarURL){
   }
 }
 
-// ---------------- Media ----------------
+// Media
 async function initMedia(){
   try{
     if(useAvatar && savedAvatar){
-      createSmallTile('me', name + ' (Avatar)', null, savedAvatar);
-      setMainSpeaker('me', name + ' (Avatar)', null, savedAvatar);
-      socket.emit("set-avatar", { roomId, avatar: savedAvatar, name });
-      startSpeechRecognition(); // 🎤 start speech-to-text when avatar is active
+      createSmallTile('me', name+' (Avatar)', null, savedAvatar);
+      setMainSpeaker('me', name+' (Avatar)', null, savedAvatar);
+      socket.emit("set-avatar",{roomId, avatar: savedAvatar, name});
+      startSpeechRecognition();
     } else {
       localStream = await navigator.mediaDevices.getUserMedia({video:true,audio:true});
-      createSmallTile('me', name + ' (You)', localStream, null);
-      setMainSpeaker('me', name + ' (You)', localStream, null);
+      createSmallTile('me', name+' (You)', localStream, null);
+      setMainSpeaker('me', name+' (You)', localStream, null);
     }
   }catch(e){ alert("Camera/Mic error: "+e); }
 }
 
-// ---------------- Speech-to-Text ----------------
+// Speech-to-text
 let recognition;
 function startSpeechRecognition(){
   if(!('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)){
     console.warn("Speech recognition not supported in this browser.");
     return;
   }
-  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-  recognition = new SpeechRecognition();
-  recognition.lang = 'en-IN';
-  recognition.continuous = true;
-  recognition.interimResults = true;
-
-  recognition.onresult = (e) => {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  recognition = new SR();
+  recognition.lang = 'en-IN'; recognition.continuous = true; recognition.interimResults = true;
+  recognition.onresult = e => {
     for(let i=e.resultIndex;i<e.results.length;i++){
-      if(e.results[i].isFinal){
-        meetingTranscript += e.results[i][0].transcript + ". ";
-      }
+      if(e.results[i].isFinal) meetingTranscript += e.results[i][0].transcript + ". ";
     }
   };
-  recognition.onerror = (err)=>console.error("STT Error:", err);
+  recognition.onerror = err => console.error("STT error:",err);
   recognition.start();
 }
 
-// ---------------- Peers ----------------
+// WebRTC
 function createPeerConnection(peerId){
   const pc = new RTCPeerConnection(rtcConfig);
   if(localStream){
     localStream.getTracks().forEach(t=>pc.addTrack(t,localStream));
   }
   pc.ontrack = e=>{
+    console.log("📹 Track from", peerId);
     createSmallTile(peerId,'User '+peerId.slice(0,5),e.streams[0],null);
     setMainSpeaker(peerId,'User '+peerId.slice(0,5),e.streams[0],null);
   };
@@ -318,13 +277,13 @@ function createPeerConnection(peerId){
     if(e.candidate) socket.emit('webrtc-ice-candidate',{to:peerId,candidate:e.candidate});
   };
   pc.onconnectionstatechange=()=>{
+    console.log("🔗 State",peerId,pc.connectionState);
     if(['disconnected','failed','closed'].includes(pc.connectionState)){
       const tile=document.getElementById('tile-'+peerId);
-      if(tile) tile.remove();
-      pc.close(); delete peers[peerId];
+      if(tile) tile.remove(); pc.close(); delete peers[peerId];
     }
   };
-  peers[peerId]=pc;
+  peers[peerId] = pc;
   return pc;
 }
 
@@ -332,64 +291,64 @@ async function callPeer(peerId){
   const pc = createPeerConnection(peerId);
   const offer = await pc.createOffer();
   await pc.setLocalDescription(offer);
+  console.log("➡️ Sending offer to", peerId);
   socket.emit('webrtc-offer',{to:peerId,sdp:offer});
 }
 
-// ---------------- Socket Events ----------------
+// Socket events
 socket.on('connect',async()=>{
+  console.log("✅ Connected to signalling server");
   await initMedia();
   socket.emit('join-room',{roomId,name});
 });
-
 socket.on('existing-peers',async({peers:existing})=>{
+  console.log("Existing peers:",existing);
   for(const p of existing) await callPeer(p);
 });
-
-socket.on('peer-joined',({peerId})=>console.log("Peer joined:",peerId));
-
+socket.on('peer-joined',({peerId})=>{
+  console.log("👤 Peer joined:",peerId);
+});
 socket.on('webrtc-offer',async({from,sdp})=>{
+  console.log("⬅️ Offer from",from);
   const pc=createPeerConnection(from);
   await pc.setRemoteDescription(new RTCSessionDescription(sdp));
   const answer=await pc.createAnswer();
   await pc.setLocalDescription(answer);
   socket.emit('webrtc-answer',{to:from,sdp:answer});
 });
-
 socket.on('webrtc-answer',async({from,sdp})=>{
+  console.log("📩 Answer from",from);
   const pc=peers[from]; if(pc) await pc.setRemoteDescription(new RTCSessionDescription(sdp));
 });
-
 socket.on('webrtc-ice-candidate',async({from,candidate})=>{
+  console.log("❄️ ICE candidate from",from);
   const pc=peers[from]; if(pc && candidate) await pc.addIceCandidate(new RTCIceCandidate(candidate));
 });
-
 socket.on('peer-left',({peerId})=>{
+  console.log("❌ Peer left",peerId);
   const tile=document.getElementById('tile-'+peerId);
   if(tile) tile.remove();
   if(peers[peerId]) peers[peerId].close();
   delete peers[peerId];
 });
-
-socket.on("peer-avatar", ({ peerId, avatar, name }) => {
-  createSmallTile(peerId, name + " (Avatar)", null, avatar);
-  setMainSpeaker(peerId, name + " (Avatar)", null, avatar);
+socket.on("peer-avatar", ({ peerId, avatar, name })=>{
+  createSmallTile(peerId, name+" (Avatar)", null, avatar);
+  setMainSpeaker(peerId, name+" (Avatar)", null, avatar);
 });
 
-// ---------------- Controls ----------------
+// Controls
 document.getElementById('muteBtn').onclick=()=>{
   if(localStream){
     const t = localStream.getAudioTracks()[0];
-    if(t){ t.enabled = !t.enabled; }
+    if(t) t.enabled = !t.enabled;
   }
 };
-
 document.getElementById('videoBtn').onclick=()=>{
   if(localStream){
     const t = localStream.getVideoTracks()[0];
-    if(t){ t.enabled = !t.enabled; }
+    if(t) t.enabled = !t.enabled;
   }
 };
-
 document.getElementById('screenBtn').onclick=async()=>{
   try{
     const screen=await navigator.mediaDevices.getDisplayMedia({video:true});
@@ -411,58 +370,31 @@ document.getElementById('screenBtn').onclick=async()=>{
     };
   }catch(e){ console.log("Screen share cancelled."); }
 };
-
 document.getElementById('avatarBtn').onclick=()=>{
   window.location.href = `avatar.html?room=${encodeURIComponent(roomId)}&name=${encodeURIComponent(name)}`;
 };
-// add this function near the top <script>
-async function saveMeetingSummary(title, summary) {
-  try {
-    const res = await fetch('/save-summary', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title, summary })
-    });
-    const data = await res.json();
-    console.log('📩 Save summary response:', data);
-  } catch (err) {
-    console.error('❌ Failed to save summary:', err);
-  }
-}
 
-// modify leave button
-document.getElementById('leaveBtn').onclick = async () => {
-  const title = prompt("Enter meeting title:") || "Untitled Meeting";
-  const summary = "This is a test summary because speech-to-text is not added yet.";
-
-  await saveMeetingSummary(title, summary);
-
-  Object.values(peers).forEach(pc => pc.close());
-  if(localStream) localStream.getTracks().forEach(t => t.stop());
-  window.location.href = '/index.html';
-};
-
-
+// Unified leave button
 document.getElementById('leaveBtn').onclick=()=>{
-  if(recognition) recognition.stop(); // stop STT
+  console.log("🚪 Leaving meeting");
+  if(recognition) recognition.stop();
   Object.values(peers).forEach(pc=>pc.close());
   if(localStream) localStream.getTracks().forEach(t=>t.stop());
 
-  // 🔥 Save transcript summary if avatar mode
   if(meetingTranscript.trim().length > 0){
     fetch("/save-summary", {
       method: "POST",
       headers: {"Content-Type":"application/json"},
       body: JSON.stringify({ meetingId: roomId, transcript: meetingTranscript })
-    }).then(res=>res.json())
-      .then(data=>console.log("Summary saved:", data))
-      .catch(err=>console.error("Save summary error:", err));
+    })
+    .then(res=>res.json())
+    .then(data=>console.log("✅ Summary saved:", data))
+    .catch(err=>console.error("❌ Save summary error:", err));
   }
-
   window.location.href='/index.html';
 };
 
-// ---------------- Chat ----------------
+// Chat
 const chatMessages=document.getElementById('chat-messages');
 const chatInput=document.getElementById('chatText');
 document.getElementById('sendChat').onclick=()=>{
