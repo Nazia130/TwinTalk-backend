@@ -121,7 +121,6 @@
 
 <header>Meeting Room <span id="meetingTimer">00:00:00</span></header>
 <div id="top-strip"></div>
-
 <div id="main-speaker">
   <div class="name-label" id="mainSpeakerName"></div>
 </div>
@@ -146,31 +145,14 @@
 const socket = io();
 const params = new URLSearchParams(window.location.search);
 const roomId = params.get('room') || 'default';
-let name = params.get('name') || prompt("Enter your name:") || "Guest";
+let name = params.get('name') || "Guest";
+let userEmail = JSON.parse(sessionStorage.getItem("user"))?.email || "unknown";
+
 const useAvatar = params.get('useAvatar') === 'true';
 const savedAvatar = localStorage.getItem('userAvatar');
-
 let localStream;
 const peers = {};
 let meetingTranscript = "";
-
-const rtcConfig = {
-  iceServers: [
-    { urls: ["stun:bn-turn1.xirsys.com"] },
-    {
-      username: "9vPc46D2ulxFRkRBW-g2drEOHQp3FYwqstrpoR1Ar-SRTS3NmWDUuFDl33686Tu0AAAAAGjiKYtzeWVkYW5heml5YQ==",
-      credential: "b4003654-a1c3-11f0-a3eb-0242ac140004",
-      urls: [
-        "turn:bn-turn1.xirsys.com:80?transport=udp",
-        "turn:bn-turn1.xirsys.com:3478?transport=udp",
-        "turn:bn-turn1.xirsys.com:80?transport=tcp",
-        "turn:bn-turn1.xirsys.com:3478?transport=tcp",
-        "turns:bn-turn1.xirsys.com:443?transport=tcp",
-        "turns:bn-turn1.xirsys.com:5349?transport=tcp"
-      ]
-    }
-  ]
-};
 
 // Timer
 const timerDisplay = document.getElementById('meetingTimer');
@@ -222,12 +204,11 @@ function setMainSpeaker(id,label,stream,avatarURL){
       <div class="name-label">${label}</div>`;
     mainSpeaker.querySelector('video').srcObject = stream;
   } else if(avatarURL){
-    mainSpeaker.innerHTML = `<img src="${avatarURL}">
-      <div class="name-label">${label}</div>`;
+    mainSpeaker.innerHTML = `<img src="${avatarURL}"><div class="name-label">${label}</div>`;
   }
 }
 
-// Media
+// Media init
 async function initMedia(){
   try{
     if(useAvatar && savedAvatar){
@@ -264,12 +245,11 @@ function startSpeechRecognition(){
 
 // WebRTC
 function createPeerConnection(peerId){
-  const pc = new RTCPeerConnection(rtcConfig);
+  const pc = new RTCPeerConnection();
   if(localStream){
     localStream.getTracks().forEach(t=>pc.addTrack(t,localStream));
   }
   pc.ontrack = e=>{
-    console.log("📹 Track from", peerId);
     createSmallTile(peerId,'User '+peerId.slice(0,5),e.streams[0],null);
     setMainSpeaker(peerId,'User '+peerId.slice(0,5),e.streams[0],null);
   };
@@ -277,7 +257,6 @@ function createPeerConnection(peerId){
     if(e.candidate) socket.emit('webrtc-ice-candidate',{to:peerId,candidate:e.candidate});
   };
   pc.onconnectionstatechange=()=>{
-    console.log("🔗 State",peerId,pc.connectionState);
     if(['disconnected','failed','closed'].includes(pc.connectionState)){
       const tile=document.getElementById('tile-'+peerId);
       if(tile) tile.remove(); pc.close(); delete peers[peerId];
@@ -291,25 +270,19 @@ async function callPeer(peerId){
   const pc = createPeerConnection(peerId);
   const offer = await pc.createOffer();
   await pc.setLocalDescription(offer);
-  console.log("➡️ Sending offer to", peerId);
   socket.emit('webrtc-offer',{to:peerId,sdp:offer});
 }
 
-// Socket events
+// Socket
 socket.on('connect',async()=>{
-  console.log("✅ Connected to signalling server");
   await initMedia();
   socket.emit('join-room',{roomId,name});
 });
 socket.on('existing-peers',async({peers:existing})=>{
-  console.log("Existing peers:",existing);
   for(const p of existing) await callPeer(p);
 });
-socket.on('peer-joined',({peerId})=>{
-  console.log("👤 Peer joined:",peerId);
-});
+socket.on('peer-joined',({peerId})=>{});
 socket.on('webrtc-offer',async({from,sdp})=>{
-  console.log("⬅️ Offer from",from);
   const pc=createPeerConnection(from);
   await pc.setRemoteDescription(new RTCSessionDescription(sdp));
   const answer=await pc.createAnswer();
@@ -317,15 +290,12 @@ socket.on('webrtc-offer',async({from,sdp})=>{
   socket.emit('webrtc-answer',{to:from,sdp:answer});
 });
 socket.on('webrtc-answer',async({from,sdp})=>{
-  console.log("📩 Answer from",from);
   const pc=peers[from]; if(pc) await pc.setRemoteDescription(new RTCSessionDescription(sdp));
 });
 socket.on('webrtc-ice-candidate',async({from,candidate})=>{
-  console.log("❄️ ICE candidate from",from);
   const pc=peers[from]; if(pc && candidate) await pc.addIceCandidate(new RTCIceCandidate(candidate));
 });
 socket.on('peer-left',({peerId})=>{
-  console.log("❌ Peer left",peerId);
   const tile=document.getElementById('tile-'+peerId);
   if(tile) tile.remove();
   if(peers[peerId]) peers[peerId].close();
@@ -337,46 +307,7 @@ socket.on("peer-avatar", ({ peerId, avatar, name })=>{
 });
 
 // Controls
-document.getElementById('muteBtn').onclick=()=>{
-  if(localStream){
-    const t = localStream.getAudioTracks()[0];
-    if(t) t.enabled = !t.enabled;
-  }
-};
-document.getElementById('videoBtn').onclick=()=>{
-  if(localStream){
-    const t = localStream.getVideoTracks()[0];
-    if(t) t.enabled = !t.enabled;
-  }
-};
-document.getElementById('screenBtn').onclick=async()=>{
-  try{
-    const screen=await navigator.mediaDevices.getDisplayMedia({video:true});
-    const track=screen.getVideoTracks()[0];
-    for(const pc of Object.values(peers)){
-      const sender=pc.getSenders().find(s=>s.track.kind==='video');
-      if(sender) sender.replaceTrack(track);
-    }
-    setMainSpeaker('me',name+' (You)',screen,null);
-    track.onended=()=>{
-      if(localStream){
-        const camTrack=localStream.getVideoTracks()[0];
-        for(const pc of Object.values(peers)){
-          const sender=pc.getSenders().find(s=>s.track.kind==='video');
-          if(sender) sender.replaceTrack(camTrack);
-        }
-        setMainSpeaker('me',name+' (You)',localStream,null);
-      }
-    };
-  }catch(e){ console.log("Screen share cancelled."); }
-};
-document.getElementById('avatarBtn').onclick=()=>{
-  window.location.href = `avatar.html?room=${encodeURIComponent(roomId)}&name=${encodeURIComponent(name)}`;
-};
-
-// Unified leave button
 document.getElementById('leaveBtn').onclick=()=>{
-  console.log("🚪 Leaving meeting");
   if(recognition) recognition.stop();
   Object.values(peers).forEach(pc=>pc.close());
   if(localStream) localStream.getTracks().forEach(t=>t.stop());
@@ -385,7 +316,7 @@ document.getElementById('leaveBtn').onclick=()=>{
     fetch("/save-summary", {
       method: "POST",
       headers: {"Content-Type":"application/json"},
-      body: JSON.stringify({ meetingId: roomId, transcript: meetingTranscript })
+      body: JSON.stringify({ meetingId: roomId, transcript: meetingTranscript, userEmail })
     })
     .then(res=>res.json())
     .then(data=>console.log("✅ Summary saved:", data))
@@ -394,20 +325,20 @@ document.getElementById('leaveBtn').onclick=()=>{
   window.location.href='/index.html';
 };
 
-// Chat
-const chatMessages=document.getElementById('chat-messages');
-const chatInput=document.getElementById('chatText');
+document.getElementById('avatarBtn').onclick=()=>{
+  window.location.href = `avatar.html?room=${encodeURIComponent(roomId)}&name=${encodeURIComponent(name)}`;
+};
+
 document.getElementById('sendChat').onclick=()=>{
-  const msg=chatInput.value.trim();
+  const msg=document.getElementById('chatText').value.trim();
   if(!msg) return;
   socket.emit('chat-message',{roomId,name,message:msg});
-  chatInput.value='';
+  document.getElementById('chatText').value='';
 };
 socket.on('chat-message',({name:sender,message})=>{
   const d=document.createElement('div');
   d.textContent=`${sender}: ${message}`;
-  chatMessages.appendChild(d);
-  chatMessages.scrollTop=chatMessages.scrollHeight;
+  document.getElementById('chat-messages').appendChild(d);
 });
 </script>
 </body>

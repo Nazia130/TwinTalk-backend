@@ -10,95 +10,38 @@
     margin: 0;
     padding: 20px;
   }
-
-  h1 {
-    text-align: center;
-    color: #4a148c;
-  }
-
-  .history-container {
-    max-width: 800px;
-    margin: 0 auto;
-  }
-
+  h1 { text-align: center; color: #4a148c; }
+  .history-container { max-width: 800px; margin: 0 auto; }
   .meeting-card {
-    background: #fff;
-    border-radius: 8px;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-    margin-bottom: 15px;
-    padding: 15px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 10px;
+    background: #fff; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    margin-bottom: 15px; padding: 15px; display: flex; justify-content: space-between; align-items: center;
   }
-
-  .meeting-info {
-    flex: 1;
-  }
-
-  .meeting-info h3 {
-    margin: 0;
-    color: #333;
-  }
-
-  .meeting-info p {
-    margin: 4px 0;
-    color: #555;
-    font-size: 14px;
-  }
-
-  .btn-container {
-    display: flex;
-    gap: 8px;
-  }
-
+  .meeting-info h3 { margin: 0; color: #333; }
+  .meeting-info p { margin: 4px 0; color: #555; font-size: 14px; }
+  .btn-container { display: flex; gap: 8px; }
   .view-btn, .delete-btn {
-    border: none;
-    padding: 8px 14px;
-    border-radius: 5px;
-    cursor: pointer;
-    font-size: 14px;
-    color: #fff;
+    border: none; padding: 8px 14px; border-radius: 5px; cursor: pointer; font-size: 14px; color: #fff;
   }
-
-  .view-btn {
-    background: #6a0dad;
-  }
-  .view-btn:hover {
-    background: #4a148c;
-  }
-
-  .delete-btn {
-    background: #cc1534;
-  }
-  .delete-btn:hover {
-    background: #a30020;
-  }
-
-  .empty-msg {
-    text-align: center;
-    color: #777;
-    font-size: 16px;
-    margin-top: 40px;
-  }
+  .view-btn { background: #6a0dad; }
+  .delete-btn { background: #cc1534; }
+  .empty-msg { text-align: center; color: #777; font-size: 16px; margin-top: 40px; }
 </style>
 </head>
 <body>
-
 <h1>📜 Meeting History</h1>
-
-<div class="history-container" id="historyContainer">
-  <p class="empty-msg">Loading history...</p>
-</div>
+<div class="history-container" id="historyContainer"><p class="empty-msg">Loading history...</p></div>
 
 <script>
 async function loadHistory() {
   const container = document.getElementById('historyContainer');
-  container.innerHTML = "<p class='empty-msg'>Loading history...</p>";
+  const userEmail = JSON.parse(sessionStorage.getItem("user"))?.email;
+  if (!userEmail) {
+    container.innerHTML = "<p class='empty-msg'>Please login first.</p>";
+    return;
+  }
 
   try {
-    const res = await fetch('/history');
+    const res = await fetch(`/history?email=${encodeURIComponent(userEmail)}`);
     const data = await res.json();
 
     if (!data.length) {
@@ -110,51 +53,31 @@ async function loadHistory() {
     data.forEach((item, index) => {
       const card = document.createElement('div');
       card.className = 'meeting-card';
-
       card.innerHTML = `
         <div class="meeting-info">
-          <h3>${item.title || "Untitled Meeting"}</h3>
-          <p><strong>Meeting ID:</strong> ${index + 1}</p>
-          <p><strong>Date:</strong> ${item.date || "Unknown"}</p>
+          <h3>${item.meetingId}</h3>
+          <p><strong>Date:</strong> ${item.date}</p>
+          <p><strong>Summary:</strong><br>${item.summary.replace(/\n/g,"<br>")}</p>
         </div>
         <div class="btn-container">
-          <button class="view-btn" onclick="viewNotes(${index})">View Notes</button>
           <button class="delete-btn" onclick="deleteNote(${index})">Delete</button>
         </div>
       `;
-
       container.appendChild(card);
     });
   } catch (err) {
     container.innerHTML = "<p class='empty-msg'>❌ Error loading history</p>";
-    console.error(err);
   }
-}
-
-function viewNotes(index) {
-  window.location.href = `notes.html?i=${index}`;
 }
 
 async function deleteNote(index) {
-  if (!confirm("Are you sure you want to delete this note?")) return;
-
-  try {
-    const res = await fetch(`/history/${index}`, { method: "DELETE" });
-    const result = await res.json();
-    if (res.ok) {
-      alert("🗑 " + result.message);
-      loadHistory(); // refresh list
-    } else {
-      alert("❌ " + (result.message || "Failed to delete"));
-    }
-  } catch (err) {
-    alert("❌ Error deleting note");
-    console.error(err);
-  }
+  const userEmail = JSON.parse(sessionStorage.getItem("user"))?.email;
+  if (!confirm("Delete this note?")) return;
+  await fetch(`/history/${index}?email=${encodeURIComponent(userEmail)}`, { method: "DELETE" });
+  loadHistory();
 }
 
 loadHistory();
 </script>
-
 </body>
 </html>
