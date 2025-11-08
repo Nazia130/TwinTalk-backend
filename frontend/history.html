@@ -14,11 +14,11 @@
   .history-container { max-width: 800px; margin: 0 auto; }
   .meeting-card {
     background: #fff; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-    margin-bottom: 15px; padding: 15px; display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 15px; padding: 15px; display: flex; justify-content: space-between; align-items: flex-start;
   }
   .meeting-info h3 { margin: 0; color: #333; }
-  .meeting-info p { margin: 4px 0; color: #555; font-size: 14px; }
-  .btn-container { display: flex; gap: 8px; }
+  .meeting-info p { margin: 4px 0; color: #555; font-size: 14px; word-wrap: break-word; }
+  .btn-container { display: flex; gap: 8px; align-items: center; }
   .view-btn, .delete-btn {
     border: none; padding: 8px 14px; border-radius: 5px; cursor: pointer; font-size: 14px; color: #fff;
   }
@@ -29,55 +29,130 @@
 </head>
 <body>
 <h1>📜 Meeting History</h1>
-<div class="history-container" id="historyContainer"><p class="empty-msg">Loading history...</p></div>
+<div class="history-container" id="historyContainer">
+  <p class="empty-msg">Loading history...</p>
+</div>
 
-<script>
-async function loadHistory() {
-  const container = document.getElementById('historyContainer');
-  const userEmail = JSON.parse(sessionStorage.getItem("user"))?.email;
-  if (!userEmail) {
-    container.innerHTML = "<p class='empty-msg'>Please login first.</p>";
-    return;
-  }
+<!-- ✅ Supabase Client -->
+<script type="module">
+  import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-  try {
-    const res = await fetch(`/history?email=${encodeURIComponent(userEmail)}`);
-    const data = await res.json();
+  const SUPABASE_URL = "https://qdaegqzevidezclgvpcz.supabase.co";
+  const SUPABASE_KEY =
+    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFkYWVncXpldmlkZXpjbGd2cGN6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjI1ODYyNDEsImV4cCI6MjA3ODE2MjI0MX0.jc7lubD4JhJWmYiHr6gy2hb-up4-cANI47DdDm7wrO0";
 
-    if (!data.length) {
-      container.innerHTML = "<p class='empty-msg'>No history found yet.</p>";
+  const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+  async function loadHistory() {
+    const container = document.getElementById("historyContainer");
+    const user = JSON.parse(sessionStorage.getItem("user") || "{}");
+    const userEmail = (user.email || "").toLowerCase();
+
+    if (!userEmail) {
+      container.innerHTML = "<p class='empty-msg'>Please login first.</p>";
       return;
     }
 
-    container.innerHTML = "";
-    data.forEach((item, index) => {
-      const card = document.createElement('div');
-      card.className = 'meeting-card';
-      card.innerHTML = `
-        <div class="meeting-info">
-          <h3>${item.meetingId}</h3>
-          <p><strong>Date:</strong> ${item.date}</p>
-          <p><strong>Summary:</strong><br>${item.summary.replace(/\n/g,"<br>")}</p>
-        </div>
-        <div class="btn-container">
-          <button class="delete-btn" onclick="deleteNote(${index})">Delete</button>
-        </div>
-      `;
-      container.appendChild(card);
-    });
-  } catch (err) {
-    container.innerHTML = "<p class='empty-msg'>❌ Error loading history</p>";
+    try {
+      const { data, error } = await supabase
+        .from("summaries")
+        .select("*")
+        .eq("user_email", userEmail)
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+
+      if (!data.length) {
+        container.innerHTML =
+          "<p class='empty-msg'>No meeting history found yet.</p>";
+        return;
+      }
+
+      container.innerHTML = "";
+      data.forEach((item, index) => {
+        const card = document.createElement("div");
+        card.className = "meeting-card";
+
+        const summaryText = item.summary || "No summary recorded.";
+        const summaryPreview =
+          summaryText.length > 300
+            ? summaryText.slice(0, 300) + "..."
+            : summaryText;
+
+        const createdAt = new Date(item.created_at).toLocaleString();
+
+        card.innerHTML = `
+          <div class="meeting-info">
+            <h3>${item.meeting_id || "Unnamed Meeting"}</h3>
+            <p><strong>Date:</strong> ${createdAt}</p>
+            <p><strong>Summary:</strong><br>${summaryPreview.replace(
+              /\n/g,
+              "<br>"
+            )}</p>
+          </div>
+          <div class="btn-container">
+            <button class="view-btn" data-index="${index}">View</button>
+            <button class="delete-btn" data-id="${item.id}">Delete</button>
+          </div>
+        `;
+        container.appendChild(card);
+      });
+
+      // Event Listeners (after render)
+      container.querySelectorAll(".view-btn").forEach((btn) =>
+        btn.addEventListener("click", (e) => {
+          const idx = e.target.dataset.index;
+          const note = data[idx];
+          viewFull(note);
+        })
+      );
+
+      container.querySelectorAll(".delete-btn").forEach((btn) =>
+        btn.addEventListener("click", async (e) => {
+          const id = e.target.dataset.id;
+          await deleteNote(id);
+        })
+      );
+    } catch (err) {
+      console.error("History load error:", err);
+      container.innerHTML =
+        "<p class='empty-msg'>❌ Error loading history</p>";
+    }
   }
-}
 
-async function deleteNote(index) {
-  const userEmail = JSON.parse(sessionStorage.getItem("user"))?.email;
-  if (!confirm("Delete this note?")) return;
-  await fetch(`/history/${index}?email=${encodeURIComponent(userEmail)}`, { method: "DELETE" });
+  function viewFull(note) {
+    if (!note) return alert("Note not found.");
+    const popup = window.open("", "_blank", "width=600,height=500,scrollbars=yes");
+    popup.document.write(`
+      <html><head><title>${note.meeting_id}</title>
+      <style>
+        body {font-family: Arial; padding: 20px; line-height: 1.6;}
+        h2 {color: #6a0dad;}
+      </style></head>
+      <body>
+        <h2>Meeting: ${note.meeting_id}</h2>
+        <p><strong>Date:</strong> ${new Date(note.created_at).toLocaleString()}</p>
+        <hr>
+        <pre>${note.summary || "No summary available."}</pre>
+      </body></html>
+    `);
+  }
+
+  async function deleteNote(id) {
+    if (!confirm("Are you sure you want to delete this summary?")) return;
+
+    try {
+      const { error } = await supabase.from("summaries").delete().eq("id", id);
+      if (error) throw error;
+      alert("✅ Summary deleted successfully.");
+      loadHistory();
+    } catch (err) {
+      console.error("Delete failed:", err);
+      alert("❌ Error deleting summary.");
+    }
+  }
+
   loadHistory();
-}
-
-loadHistory();
 </script>
 </body>
 </html>

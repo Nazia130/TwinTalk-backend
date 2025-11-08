@@ -24,92 +24,47 @@
   #meetingTimer { font-weight: normal; color: #0f9d58; margin-left: 10px; }
 
   #top-strip {
-    display: flex;
-    gap: 10px;
-    background: #111;
-    padding: 8px;
-    overflow-x: auto;
-    scrollbar-width: thin;
+    display: flex; gap: 10px;
+    background: #111; padding: 8px;
+    overflow-x: auto; scrollbar-width: thin;
   }
   .small-tile {
-    flex: 0 0 120px;
-    height: 90px;
-    background: #2a2a2a;
-    border-radius: 8px;
-    position: relative;
-    overflow: hidden;
-    display: flex;
-    justify-content: center;
-    align-items: center;
+    flex: 0 0 120px; height: 90px;
+    background: #2a2a2a; border-radius: 8px;
+    position: relative; overflow: hidden;
+    display: flex; justify-content: center; align-items: center;
   }
-  .small-tile video, .small-tile img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
+  .small-tile video, .small-tile img { width: 100%; height: 100%; object-fit: cover; }
   .name-label {
-    position: absolute;
-    bottom: 5px; left: 50%;
+    position: absolute; bottom: 5px; left: 50%;
     transform: translateX(-50%);
-    background: rgba(0,0,0,0.6);
-    padding: 2px 6px;
-    border-radius: 12px;
-    font-size: 12px;
+    background: rgba(0,0,0,0.6); padding: 2px 6px; border-radius: 12px; font-size: 12px;
   }
 
   #main-speaker {
-    flex: 1;
-    display: flex;
-    background: #000;
-    justify-content: center;
-    align-items: center;
-    position: relative;
+    flex: 1; display: flex; background: #000;
+    justify-content: center; align-items: center; position: relative;
   }
   #main-speaker video, #main-speaker img {
-    max-width: 95%;
-    max-height: 95%;
-    border-radius: 10px;
-    background: #000;
-    object-fit: cover;
+    max-width: 95%; max-height: 95%; border-radius: 10px; background: #000; object-fit: cover;
   }
-  #main-speaker .name-label {
-    top: 10px;
-    bottom: auto;
-    background: rgba(0,0,0,0.7);
-  }
+  #main-speaker .name-label { top: 10px; bottom: auto; background: rgba(0,0,0,0.7); }
 
   footer {
-    background: #202020;
-    padding: 8px 0;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    gap: 16px;
+    background: #202020; padding: 8px 0;
+    display: flex; justify-content: center; align-items: center; gap: 16px;
   }
   footer button {
-    background: transparent;
-    border: none;
-    color: #fff;
-    font-size: 18px;
-    cursor: pointer;
-    padding: 8px 14px;
-    border-radius: 6px;
+    background: transparent; border: none; color: #fff; font-size: 18px; cursor: pointer;
+    padding: 8px 14px; border-radius: 6px;
   }
   footer button:hover { background: rgba(255,255,255,0.1); }
   .end-btn { background: #cc1534; border-radius: 20px; font-weight: bold; }
 
   #chatbox {
-    position: absolute;
-    right: 10px;
-    bottom: 60px;
-    width: 250px;
-    height: 250px;
-    background: #fff;
-    color: #000;
-    border-radius: 8px;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
+    position: absolute; right: 10px; bottom: 60px; width: 250px; height: 250px;
+    background: #fff; color: #000; border-radius: 8px;
+    display: flex; flex-direction: column; overflow: hidden;
   }
   #chat-messages { flex: 1; padding: 6px; overflow-y: auto; font-size: 13px; }
   #chat-input { display: flex; border-top: 1px solid #ccc; }
@@ -121,9 +76,7 @@
 
 <header>Meeting Room <span id="meetingTimer">00:00:00</span></header>
 <div id="top-strip"></div>
-<div id="main-speaker">
-  <div class="name-label" id="mainSpeakerName"></div>
-</div>
+<div id="main-speaker"><div class="name-label" id="mainSpeakerName"></div></div>
 
 <footer>
   <button id="muteBtn">🎤 Mute</button>
@@ -140,19 +93,88 @@
     <button id="sendChat">Send</button>
   </div>
 </div>
+<script type="module">
+  import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+  const SUPABASE_URL = "https://qdaegqzevidezclgvpcz.supabase.co";
+  const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFkYWVncXpldmlkZXpjbGd2cGN6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjI1ODYyNDEsImV4cCI6MjA3ODE2MjI0MX0.jc7lubD4JhJWmYiHr6gy2hb-up4-cANI47DdDm7wrO0";
+
+  const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+  // Function used to save summaries
+  window.saveSummaryToSupabase = async function (meetingId, transcript, userEmail) {
+    try {
+      const { data, error } = await supabase
+        .from("summaries")
+        .insert([
+          {
+            user_email: userEmail,
+            meeting_id: meetingId,
+            summary: transcript,
+          },
+        ]);
+      if (error) throw error;
+      console.log("✅ Summary saved to Supabase:", data);
+    } catch (err) {
+      console.error("❌ Supabase insert failed:", err);
+    }
+  };
+</script>
+
 
 <script>
+/* --------------------------------------
+   Full meeting logic (preserves all prior behavior)
+   - Signalling via socket.io
+   - WebRTC (with rtcConfig / TURN)
+   - Avatar mode (replace outgoing video with avatar canvas)
+   - Speech-to-text when avatar mode on
+   - Chat -> transcript
+   - Save transcript to Supabase on leave (per-user)
+----------------------------------------*/
 const socket = io();
 const params = new URLSearchParams(window.location.search);
 const roomId = params.get('room') || 'default';
-let name = params.get('name') || "Guest";
-let userEmail = JSON.parse(sessionStorage.getItem("user"))?.email || "unknown";
 
+// session user (from auth flow)
+const sessionUser = (() => { try { return JSON.parse(sessionStorage.getItem("user")); } catch(e){ return null; } })();
+let name =
+  params.get('name') ||
+  sessionUser?.name ||
+  (sessionUser?.email ? sessionUser.email.split('@')[0] : "Guest");
+
+const userEmail = sessionUser?.email || "unknown";
+
+// Avatar flow params
 const useAvatar = params.get('useAvatar') === 'true';
 const savedAvatar = localStorage.getItem('userAvatar');
-let localStream;
+
+let localStream = null;
 const peers = {};
 let meetingTranscript = "";
+let avatarMode = false;
+let originalVideoTrack = null;
+let avatarStream = null;
+let canvas = null, ctx = null;
+
+// RTC config (reinstated original Xirsys TURN/STUN servers)
+const rtcConfig = {
+  iceServers: [
+    { urls: ["stun:bn-turn1.xirsys.com"] },
+    {
+      username: "9vPc46D2ulxFRkRBW-g2drEOHQp3FYwqstrpoR1Ar-SRTS3NmWDUuFDl33686Tu0AAAAAGjiKYtzeWVkYW5heml5YQ==",
+      credential: "b4003654-a1c3-11f0-a3eb-0242ac140004",
+      urls: [
+        "turn:bn-turn1.xirsys.com:80?transport=udp",
+        "turn:bn-turn1.xirsys.com:3478?transport=udp",
+        "turn:bn-turn1.xirsys.com:80?transport=tcp",
+        "turn:bn-turn1.xirsys.com:3478?transport=tcp",
+        "turns:bn-turn1.xirsys.com:443?transport=tcp",
+        "turns:bn-turn1.xirsys.com:5349?transport=tcp"
+      ]
+    }
+  ]
+};
 
 // Timer
 const timerDisplay = document.getElementById('meetingTimer');
@@ -165,7 +187,7 @@ setInterval(()=>{
   timerDisplay.textContent = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
 },1000);
 
-// UI helpers
+// UI helpers (keeps your original markup)
 function createSmallTile(id,label,stream,avatarURL){
   let tile = document.getElementById('tile-'+id);
   if(!tile){
@@ -198,33 +220,128 @@ function createSmallTile(id,label,stream,avatarURL){
 }
 
 function setMainSpeaker(id,label,stream,avatarURL){
-  const mainSpeaker = document.getElementById('main-speaker');
+  const main = document.getElementById('main-speaker');
   if(stream){
-    mainSpeaker.innerHTML = `<video autoplay playsinline ${id==='me'?'muted':''}></video>
+    main.innerHTML = `<video autoplay playsinline ${id==='me'?'muted':''}></video>
       <div class="name-label">${label}</div>`;
-    mainSpeaker.querySelector('video').srcObject = stream;
+    main.querySelector('video').srcObject = stream;
   } else if(avatarURL){
-    mainSpeaker.innerHTML = `<img src="${avatarURL}"><div class="name-label">${label}</div>`;
+    main.innerHTML = `<img src="${avatarURL}"><div class="name-label">${label}</div>`;
   }
 }
 
-// Media init
+// Media init (tries full audio+video; if user wants avatar-only and camera denied, we try audio-only)
 async function initMedia(){
   try{
-    if(useAvatar && savedAvatar){
-      createSmallTile('me', name+' (Avatar)', null, savedAvatar);
-      setMainSpeaker('me', name+' (Avatar)', null, savedAvatar);
-      socket.emit("set-avatar",{roomId, avatar: savedAvatar, name});
-      startSpeechRecognition();
-    } else {
-      localStream = await navigator.mediaDevices.getUserMedia({video:true,audio:true});
-      createSmallTile('me', name+' (You)', localStream, null);
-      setMainSpeaker('me', name+' (You)', localStream, null);
+    localStream = await navigator.mediaDevices.getUserMedia({video:true,audio:true});
+    createSmallTile('me', name+' (You)', localStream, null);
+    setMainSpeaker('me', name+' (You)', localStream, null);
+
+    // store original video track
+    originalVideoTrack = localStream.getVideoTracks()[0] || null;
+
+    if (useAvatar && savedAvatar) {
+      // enable avatar but keep audio (replace outgoing video with avatar canvas)
+      await enableAvatarMode(savedAvatar);
     }
-  }catch(e){ alert("Camera/Mic error: "+e); }
+  }catch(e){
+    // if user denies video but wants avatar mode, try audio-only so STT works
+    console.warn("getUserMedia(video+audio) failed:", e);
+    if (useAvatar && savedAvatar) {
+      try {
+        localStream = await navigator.mediaDevices.getUserMedia({audio:true});
+        // attach only audio track to a 'me' tile visually show avatar instead of camera
+        createSmallTile('me', name+' (Avatar)', null, savedAvatar);
+        setMainSpeaker('me', name+' (Avatar)', null, savedAvatar);
+        // we won't have a video track to replace for peers; but we still send audio tracks when creating peers
+        avatarMode = true;
+        startSpeechRecognition();
+        socket.emit("set-avatar",{ roomId, avatar: savedAvatar, name });
+      } catch(err2){
+        console.warn("audio-only also failed:", err2);
+        alert("Camera/Mic access required for meeting features.");
+      }
+    } else {
+      alert("Camera/Mic error: " + e.message);
+    }
+  }
 }
 
-// Speech-to-text
+// Avatar Mode (replace outgoing video track with avatar canvas)
+async function enableAvatarMode(avatarURL){
+  // ensure we have audio at least
+  if (!localStream) {
+    try {
+      localStream = await navigator.mediaDevices.getUserMedia({audio:true});
+    } catch(e) {
+      console.warn("Unable to get audio for avatar mode:", e);
+    }
+  }
+
+  // prepare canvas
+  if (!canvas) {
+    canvas = document.createElement('canvas');
+    canvas.width = 640; canvas.height = 360;
+    ctx = canvas.getContext('2d');
+  }
+
+  const img = new Image();
+  img.crossOrigin = "anonymous";
+  img.src = avatarURL;
+  await img.decode();
+
+  // draw once (static avatar). If you want animation later, can draw repeatedly
+  ctx.fillStyle = "#000"; ctx.fillRect(0,0,canvas.width,canvas.height);
+  ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+  avatarStream = canvas.captureStream(15); // 15 fps
+  const avatarTrack = avatarStream.getVideoTracks()[0];
+
+  // remember original video track for restore
+  if (!originalVideoTrack) {
+    const vt = localStream?.getVideoTracks?.()[0];
+    if (vt) originalVideoTrack = vt;
+  }
+
+  // replace track for each peer
+  for(const pc of Object.values(peers)){
+    const sender = pc.getSenders().find(s => s.track && s.track.kind === "video");
+    if (sender && avatarTrack) {
+      try { await sender.replaceTrack(avatarTrack); } catch(e){ console.warn("replaceTrack failed", e); }
+    }
+  }
+
+  // update local UI
+  createSmallTile('me', name+' (Avatar)', null, avatarURL);
+  setMainSpeaker('me', name+' (Avatar)', null, avatarURL);
+
+  avatarMode = true;
+  startSpeechRecognition();
+  socket.emit("set-avatar",{ roomId, avatar: avatarURL, name });
+}
+
+async function disableAvatarMode(){
+  if (!localStream || !originalVideoTrack) {
+    // nothing to restore
+    avatarMode = false;
+    if (recognition) recognition.stop();
+    return;
+  }
+
+  for(const pc of Object.values(peers)){
+    const sender = pc.getSenders().find(s => s.track && s.track.kind === "video");
+    if (sender) {
+      try { await sender.replaceTrack(originalVideoTrack); } catch(e){ console.warn("replaceTrack restore failed", e); }
+    }
+  }
+
+  createSmallTile('me', name+' (You)', localStream, null);
+  setMainSpeaker('me', name+' (You)', localStream, null);
+  avatarMode = false;
+  if (recognition) recognition.stop();
+}
+
+// Speech-to-text (browser-native)
 let recognition;
 function startSpeechRecognition(){
   if(!('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)){
@@ -233,7 +350,9 @@ function startSpeechRecognition(){
   }
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   recognition = new SR();
-  recognition.lang = 'en-IN'; recognition.continuous = true; recognition.interimResults = true;
+  recognition.lang = 'en-IN';
+  recognition.continuous = true;
+  recognition.interimResults = true;
   recognition.onresult = e => {
     for(let i=e.resultIndex;i<e.results.length;i++){
       if(e.results[i].isFinal) meetingTranscript += e.results[i][0].transcript + ". ";
@@ -243,103 +362,183 @@ function startSpeechRecognition(){
   recognition.start();
 }
 
-// WebRTC
+// WebRTC helpers (createPeerConnection uses rtcConfig)
 function createPeerConnection(peerId){
-  const pc = new RTCPeerConnection();
+  const pc = new RTCPeerConnection(rtcConfig);
+  // attach local tracks (audio always, video if present)
   if(localStream){
-    localStream.getTracks().forEach(t=>pc.addTrack(t,localStream));
+    localStream.getTracks().forEach(t => pc.addTrack(t, localStream));
   }
-  pc.ontrack = e=>{
-    createSmallTile(peerId,'User '+peerId.slice(0,5),e.streams[0],null);
-    setMainSpeaker(peerId,'User '+peerId.slice(0,5),e.streams[0],null);
+  // If avatarMode is active and we have avatarStream, also ensure video sender uses avatar track
+  pc.ontrack = e => {
+    // display remote track as before
+    createSmallTile(peerId, 'User '+peerId.slice(0,5), e.streams[0], null);
+    setMainSpeaker(peerId, 'User '+peerId.slice(0,5), e.streams[0], null);
   };
-  pc.onicecandidate = e=>{
-    if(e.candidate) socket.emit('webrtc-ice-candidate',{to:peerId,candidate:e.candidate});
+  pc.onicecandidate = e => {
+    if(e.candidate) socket.emit('webrtc-ice-candidate',{ to: peerId, candidate: e.candidate });
   };
-  pc.onconnectionstatechange=()=>{
+  pc.onconnectionstatechange = () => {
     if(['disconnected','failed','closed'].includes(pc.connectionState)){
-      const tile=document.getElementById('tile-'+peerId);
-      if(tile) tile.remove(); pc.close(); delete peers[peerId];
+      const tile = document.getElementById('tile-'+peerId);
+      if(tile) tile.remove();
+      try { pc.close(); } catch(e){}
+      delete peers[peerId];
     }
   };
   peers[peerId] = pc;
   return pc;
 }
 
+// make outgoing offer
 async function callPeer(peerId){
   const pc = createPeerConnection(peerId);
   const offer = await pc.createOffer();
   await pc.setLocalDescription(offer);
-  socket.emit('webrtc-offer',{to:peerId,sdp:offer});
+  socket.emit('webrtc-offer',{ to: peerId, sdp: offer });
 }
 
-// Socket
-socket.on('connect',async()=>{
+// Signalling events
+socket.on('connect', async () => {
   await initMedia();
-  socket.emit('join-room',{roomId,name});
+  socket.emit('join-room', { roomId, name });
 });
-socket.on('existing-peers',async({peers:existing})=>{
-  for(const p of existing) await callPeer(p);
+
+socket.on('existing-peers', async ({ peers: existing }) => {
+  for (const p of existing) await callPeer(p);
 });
-socket.on('peer-joined',({peerId})=>{});
-socket.on('webrtc-offer',async({from,sdp})=>{
-  const pc=createPeerConnection(from);
+
+socket.on('peer-joined', ({ peerId, name: peerName }) => {
+  // optional UI or console notice
+  console.log('peer joined', peerId, peerName);
+});
+
+socket.on('webrtc-offer', async ({ from, sdp }) => {
+  const pc = createPeerConnection(from);
   await pc.setRemoteDescription(new RTCSessionDescription(sdp));
-  const answer=await pc.createAnswer();
+  const answer = await pc.createAnswer();
   await pc.setLocalDescription(answer);
-  socket.emit('webrtc-answer',{to:from,sdp:answer});
+  socket.emit('webrtc-answer', { to: from, sdp: answer });
 });
-socket.on('webrtc-answer',async({from,sdp})=>{
-  const pc=peers[from]; if(pc) await pc.setRemoteDescription(new RTCSessionDescription(sdp));
+
+socket.on('webrtc-answer', async ({ from, sdp }) => {
+  const pc = peers[from];
+  if (pc) await pc.setRemoteDescription(new RTCSessionDescription(sdp));
 });
-socket.on('webrtc-ice-candidate',async({from,candidate})=>{
-  const pc=peers[from]; if(pc && candidate) await pc.addIceCandidate(new RTCIceCandidate(candidate));
+
+socket.on('webrtc-ice-candidate', async ({ from, candidate }) => {
+  const pc = peers[from];
+  if (pc && candidate) await pc.addIceCandidate(new RTCIceCandidate(candidate));
 });
-socket.on('peer-left',({peerId})=>{
-  const tile=document.getElementById('tile-'+peerId);
-  if(tile) tile.remove();
-  if(peers[peerId]) peers[peerId].close();
-  delete peers[peerId];
+
+socket.on('peer-left', ({ peerId }) => {
+  const tile = document.getElementById('tile-'+peerId);
+  if (tile) tile.remove();
+  if (peers[peerId]) {
+    try { peers[peerId].close(); } catch(e){}
+    delete peers[peerId];
+  }
 });
-socket.on("peer-avatar", ({ peerId, avatar, name })=>{
+
+socket.on('peer-avatar', ({ peerId, avatar, name }) => {
   createSmallTile(peerId, name+" (Avatar)", null, avatar);
   setMainSpeaker(peerId, name+" (Avatar)", null, avatar);
 });
 
 // Controls
-document.getElementById('leaveBtn').onclick=()=>{
-  if(recognition) recognition.stop();
-  Object.values(peers).forEach(pc=>pc.close());
-  if(localStream) localStream.getTracks().forEach(t=>t.stop());
-
-  if(meetingTranscript.trim().length > 0){
-    fetch("/save-summary", {
-      method: "POST",
-      headers: {"Content-Type":"application/json"},
-      body: JSON.stringify({ meetingId: roomId, transcript: meetingTranscript, userEmail })
-    })
-    .then(res=>res.json())
-    .then(data=>console.log("✅ Summary saved:", data))
-    .catch(err=>console.error("❌ Save summary error:", err));
+document.getElementById('muteBtn').onclick = () => {
+  if (localStream) {
+    const t = localStream.getAudioTracks()[0];
+    if (t) t.enabled = !t.enabled;
   }
-  window.location.href='/index.html';
 };
 
-document.getElementById('avatarBtn').onclick=()=>{
-  window.location.href = `avatar.html?room=${encodeURIComponent(roomId)}&name=${encodeURIComponent(name)}`;
+document.getElementById('videoBtn').onclick = () => {
+  if (avatarMode) {
+    // when avatar mode on, this button toggles back to camera
+    disableAvatarMode();
+  } else if (localStream) {
+    const t = localStream.getVideoTracks()[0];
+    if (t) t.enabled = !t.enabled;
+  }
 };
 
-document.getElementById('sendChat').onclick=()=>{
-  const msg=document.getElementById('chatText').value.trim();
-  if(!msg) return;
-  socket.emit('chat-message',{roomId,name,message:msg});
-  document.getElementById('chatText').value='';
+document.getElementById('screenBtn').onclick = async () => {
+  try {
+    const screen = await navigator.mediaDevices.getDisplayMedia({ video: true });
+    const track = screen.getVideoTracks()[0];
+    for(const pc of Object.values(peers)){
+      const sender = pc.getSenders().find(s => s.track && s.track.kind === 'video');
+      if (sender) sender.replaceTrack(track);
+    }
+    setMainSpeaker('me', name+' (You)', screen, null);
+    track.onended = () => {
+      if (localStream) {
+        const camTrack = avatarMode ? (avatarStream?.getVideoTracks?.()[0] || localStream.getVideoTracks()[0])
+                                    : localStream.getVideoTracks()[0];
+        for(const pc of Object.values(peers)){
+          const sender = pc.getSenders().find(s => s.track && s.track.kind === 'video');
+          if (sender) sender.replaceTrack(camTrack);
+        }
+        if (avatarMode && savedAvatar) {
+          setMainSpeaker('me', name+' (Avatar)', null, savedAvatar);
+        } else {
+          setMainSpeaker('me', name+' (You)', localStream, null);
+        }
+      }
+    };
+  } catch(e) {
+    console.log("Screen share cancelled.", e);
+  }
 };
-socket.on('chat-message',({name:sender,message})=>{
-  const d=document.createElement('div');
-  d.textContent=`${sender}: ${message}`;
-  document.getElementById('chat-messages').appendChild(d);
+
+document.getElementById('avatarBtn').onclick = async () => {
+  if (!avatarMode && savedAvatar) {
+    await enableAvatarMode(savedAvatar);
+  } else if (avatarMode) {
+    await disableAvatarMode();
+  } else {
+    window.location.href = `avatar.html?room=${encodeURIComponent(roomId)}&name=${encodeURIComponent(name)}`;
+  }
+};
+
+// Leave: stop everything and save transcript to Supabase
+document.getElementById('leaveBtn').onclick = async () => {
+  if (recognition) recognition.stop();
+  Object.values(peers).forEach(pc => pc.close());
+  if (localStream) localStream.getTracks().forEach(t => t.stop());
+
+  if (meetingTranscript.trim().length > 0 && userEmail !== "unknown") {
+    await window.saveSummaryToSupabase(roomId, meetingTranscript, userEmail);
+  } else {
+    console.warn("⚠️ Nothing to save or unknown user");
+  }
+
+  window.location.href = '/history.html';
+};
+
+
+// Chat wiring (also added into meetingTranscript)
+const chatMessages = document.getElementById('chat-messages');
+const chatInput = document.getElementById('chatText');
+
+document.getElementById('sendChat').onclick = () => {
+  const msg = chatInput.value.trim();
+  if (!msg) return;
+  socket.emit('chat-message', { roomId, name, message: msg });
+  chatInput.value = '';
+};
+
+socket.on('chat-message', ({ name: sender, message }) => {
+  const d = document.createElement('div');
+  d.textContent = `${sender}: ${message}`;
+  chatMessages.appendChild(d);
+  chatMessages.scrollTop = chatMessages.scrollHeight;
+  meetingTranscript += `${sender} says ${message}. `;
 });
+
+// optional: expose meetingTranscript for debugging
+window.__meetingTranscript = () => meetingTranscript;
 </script>
 </body>
 </html>

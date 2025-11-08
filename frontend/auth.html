@@ -5,13 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>TwinTalk - Auth</title>
   <style>
-    /* your full CSS stays unchanged */
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-      font-family: 'Segoe UI', sans-serif;
-    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', sans-serif; }
     body {
       background: url('https://img.freepik.com/premium-photo/thoughtful-robot-white-background-ai-generative_955712-4604.jpg?w=2000') no-repeat center center fixed;
       background-size: cover;
@@ -22,26 +16,28 @@
       position: relative;
     }
     .overlay { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(255, 255, 255, 0.1); z-index: 0; }
-    .auth-wrapper { display: flex; width: 900px; height: 550px; background-color: rgba(255, 255, 255, 0.9); box-shadow: 0 0 20px rgba(0,0,0,0.1); border-radius: 10px; overflow: hidden; position: relative; z-index: 1; transform: translateX(260px);}
-    .left-panel { width: 50%; background-color: #4b2aad; color: #fff; padding: 40px; display: flex; flex-direction: column; justify-content: center;}
-    .left-panel h1 { font-size: 72px; font-weight: 800; line-height: 1; margin-bottom: 20px;}
-    .left-panel p { font-size: 16px; margin-bottom: 30px; line-height: 1.5;}
-    .left-panel ul { list-style: none; font-size: 14px;}
-    .left-panel ul li { margin-bottom: 10px; position: relative; padding-left: 20px;}
-    .left-panel ul li::before { content: "✔"; position: absolute; left: 0; color: #fff;}
-    .right-panel { width: 50%; padding: 40px; display: flex; flex-direction: column; justify-content: center;}
-    .tabs { display: flex; margin-bottom: 20px;}
-    .tab { flex: 1; text-align: center; padding: 10px; cursor: pointer; font-weight: bold; border-bottom: 2px solid transparent;}
-    .tab.active { border-bottom: 2px solid #ad2aad; color: #4b2aad;}
-    .form-title { font-size: 24px; margin-bottom: 10px;}
-    .form-subtitle { font-size: 14px; margin-bottom: 20px; color: #666;}
-    form input { width: 100%; padding: 12px; margin-bottom: 15px; border: 1px solid #ccc; border-radius: 5px; font-size: 14px;}
-    form button { width: 100%; padding: 12px; background-color: #4b2aad; color: #fff; border: none; border-radius: 5px; font-size: 16px; cursor: pointer;}
-    form button:hover { background-color: #3a1f8f;}
-    .terms { font-size: 12px; color: #999; margin-top: 10px; text-align: center;}
-    .logo-circle { position: absolute; top: 20px; right: 20px; background-color: #4b2aad; color: #fff; width: 40px; height: 40px; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-weight: bold; font-size: 16px; z-index: 2;}
-    .sparkle { position: absolute; width: 8px; height: 8px; background: radial-gradient(circle, #ff0, #f0f, #0ff, #0f0, #f00); border-radius: 50%; pointer-events: none; animation: fade 0.6s forwards; z-index: 9999;}
-    @keyframes fade { to { transform: translateY(-20px) scale(0); opacity: 0; } }
+    .auth-wrapper {
+      display: flex; width: 900px; height: 550px; background-color: rgba(255, 255, 255, 0.9);
+      box-shadow: 0 0 20px rgba(0,0,0,0.1); border-radius: 10px; overflow: hidden;
+      position: relative; z-index: 1; transform: translateX(260px);
+    }
+    .left-panel { width: 50%; background-color: #4b2aad; color: #fff; padding: 40px; display: flex; flex-direction: column; justify-content: center; }
+    .left-panel h1 { font-size: 72px; font-weight: 800; line-height: 1; margin-bottom: 20px; }
+    .left-panel p { font-size: 16px; margin-bottom: 30px; line-height: 1.5; }
+    .left-panel ul { list-style: none; font-size: 14px; }
+    .left-panel ul li { margin-bottom: 10px; position: relative; padding-left: 20px; }
+    .left-panel ul li::before { content: "✔"; position: absolute; left: 0; color: #fff; }
+    .right-panel { width: 50%; padding: 40px; display: flex; flex-direction: column; justify-content: center; }
+    .tabs { display: flex; margin-bottom: 20px; }
+    .tab { flex: 1; text-align: center; padding: 10px; cursor: pointer; font-weight: bold; border-bottom: 2px solid transparent; }
+    .tab.active { border-bottom: 2px solid #ad2aad; color: #4b2aad; }
+    .form-title { font-size: 24px; margin-bottom: 10px; }
+    .form-subtitle { font-size: 14px; margin-bottom: 20px; color: #666; }
+    form input { width: 100%; padding: 12px; margin-bottom: 15px; border: 1px solid #ccc; border-radius: 5px; font-size: 14px; }
+    form button { width: 100%; padding: 12px; background-color: #4b2aad; color: #fff; border: none; border-radius: 5px; font-size: 16px; cursor: pointer; }
+    form button:hover { background-color: #3a1f8f; }
+    .terms { font-size: 12px; color: #999; margin-top: 10px; text-align: center; }
+    .logo-circle { position: absolute; top: 20px; right: 20px; background-color: #4b2aad; color: #fff; width: 40px; height: 40px; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-weight: bold; font-size: 16px; z-index: 2; }
   </style>
 </head>
 <body>
@@ -53,23 +49,24 @@
       <p>Connect, communicate, and collaborate with people around the world in real-time.</p>
       <ul>
         <li>Instant messaging & video calls</li>
-        <li>Answer audio or video calls when unavailable</li>
+        <li>AI Avatar for unavailable moments</li>
         <li>Secure end-to-end encryption</li>
         <li>Cross-platform compatibility</li>
       </ul>
     </div>
     <div class="right-panel">
       <div class="tabs">
-        <div class="tab active" onclick="switchTab('signin')">Sign In</div>
-        <div class="tab" onclick="switchTab('signup')">Sign Up</div>
+        <div class="tab active" id="signinTab">Sign In</div>
+        <div class="tab" id="signupTab">Sign Up</div>
       </div>
+
       <div id="formTitle" class="form-title">Welcome back</div>
       <div id="formSubtitle" class="form-subtitle">Sign in to your TalkTwin account</div>
 
       <form id="authForm">
-        <input type="text" id="username" name="name" placeholder="Choose a username" />
-        <input type="email" id="email" name="email" placeholder="Enter your email" required />
-        <input type="password" id="password" name="password" placeholder="Enter your password" required />
+        <input type="text" id="username" placeholder="Enter your name" style="display:none" />
+        <input type="email" id="email" placeholder="Enter your email" required />
+        <input type="password" id="password" placeholder="Enter your password" required />
         <button type="submit">Sign In</button>
       </form>
 
@@ -78,41 +75,48 @@
   </div>
 
   <script>
-    let isLogin = true;
+    let mode = "signin"; // default mode
 
-    function switchTab(mode) {
-      isLogin = mode === 'signin';
+    const signinTab = document.getElementById("signinTab");
+    const signupTab = document.getElementById("signupTab");
+    const formTitle = document.getElementById("formTitle");
+    const formSubtitle = document.getElementById("formSubtitle");
+    const usernameField = document.getElementById("username");
+    const submitBtn = document.querySelector("button");
 
-      document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
-      document.querySelector(`.tab:nth-child(${isLogin ? 1 : 2})`).classList.add('active');
+    signinTab.onclick = () => switchMode("signin");
+    signupTab.onclick = () => switchMode("signup");
 
-      document.getElementById("formTitle").innerText = isLogin ? "Welcome back" : "Create account";
-      document.getElementById("formSubtitle").innerText = isLogin
-        ? "Sign in to your TalkTwin account"
-        : "Join TalkTwin and start connecting";
-
-      const usernameInput = document.getElementById("username");
-      if (isLogin) {
-        usernameInput.style.display = "none";
-        usernameInput.removeAttribute("required");
+    function switchMode(m) {
+      mode = m;
+      if (m === "signin") {
+        signinTab.classList.add("active");
+        signupTab.classList.remove("active");
+        usernameField.style.display = "none";
+        formTitle.textContent = "Welcome back";
+        formSubtitle.textContent = "Sign in to your TalkTwin account";
+        submitBtn.textContent = "Sign In";
       } else {
-        usernameInput.style.display = "block";
-        usernameInput.setAttribute("required", "true");
+        signupTab.classList.add("active");
+        signinTab.classList.remove("active");
+        usernameField.style.display = "block";
+        formTitle.textContent = "Create Account";
+        formSubtitle.textContent = "Join TalkTwin and start connecting";
+        submitBtn.textContent = "Sign Up";
       }
-
-      document.querySelector("button").innerText = isLogin ? "Sign In" : "Create Account";
     }
 
-    switchTab('signin'); // default tab
+    // Default tab
+    switchMode("signin");
 
     document.getElementById("authForm").addEventListener("submit", async (e) => {
       e.preventDefault();
-      const name = document.getElementById("username").value;
-      const email = document.getElementById("email").value;
-      const password = document.getElementById("password").value;
+      const name = usernameField.value.trim();
+      const email = document.getElementById("email").value.trim().toLowerCase();
+      const password = document.getElementById("password").value.trim();
 
-      const endpoint = isLogin ? "/login" : "/signup";
-      const payload = isLogin ? { email, password } : { name, email, password };
+      const endpoint = mode === "signup" ? "/signup" : "/login";
+      const payload = mode === "signup" ? { name, email, password } : { email, password };
 
       try {
         const res = await fetch(endpoint, {
@@ -120,43 +124,27 @@
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload)
         });
-
-        const text = await res.text();
-        let data;
-        try { data = JSON.parse(text); } catch { data = { message: text }; }
+        const data = await res.json();
 
         if (res.ok) {
-          if (!isLogin) {
-            alert("Signup successful, please login now.");
-            switchTab('signin'); // after signup go back to login
+          if (mode === "signup") {
+            alert("✅ Signup successful! Please login now.");
+            switchMode("signin");
           } else {
-            sessionStorage.setItem("user", JSON.stringify({ email }));
+            alert("✅ Login successful!");
+            sessionStorage.setItem("user", JSON.stringify({ name: data.user?.name || name, email }));
             window.location.href = "/index.html";
           }
         } else {
-          alert(data.message || "Error occurred");
+          alert(data.message || "❌ Invalid credentials.");
         }
       } catch (err) {
-        alert("Network error: " + err.message);
+        alert("⚠️ Network error: " + err.message);
       }
     });
 
-    // Auto-redirect if already logged in
-    if (sessionStorage.getItem("user")) {
-      window.location.href = "/index.html";
-    }
-
-    // Glitter cursor effect
-    document.addEventListener('mousemove', function(e) {
-      const sparkle = document.createElement('div');
-      sparkle.className = 'sparkle';
-      sparkle.style.left = e.pageX + 'px';
-      sparkle.style.top = e.pageY + 'px';
-      const colors = ['#ff3', '#f0f', '#0ff', '#0f0', '#f33', '#3ff'];
-      sparkle.style.background = `radial-gradient(circle, ${colors[Math.floor(Math.random()*colors.length)]}, #fff)`;
-      document.body.appendChild(sparkle);
-      setTimeout(() => sparkle.remove(), 600);
-    });
+    const existingUser = sessionStorage.getItem("user");
+    if (existingUser) window.location.href = "/index.html";
   </script>
 </body>
 </html>

@@ -1,6 +1,4 @@
-// =========================
-//  server.js (per-user histories + fixed avatar logic)
-// =========================
+// server.js – TwinTalk full server (auth + signalling + history)
 const express = require("express");
 const http = require("http");
 const { Server } = require("socket.io");
@@ -13,218 +11,262 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: "*" } });
 
-const frontendPath = path.join(__dirname, "frontend");
-const signupFile = path.join(__dirname, "signup.csv");
+// ---------- CONFIG / PATHS ----------
+const tryPaths = [
+  path.join(__dirname, "frontend"),
+  path.join(__dirname, "../frontend"),
+  path.join(__dirname, "./public"),
+  __dirname
+];
+let frontendPath = tryPaths.find(p => fs.existsSync(p) && fs.statSync(p).isDirectory()) || path.join(__dirname, "frontend");
+console.log("ℹ️ Using frontend path:", frontendPath);
 
-// Middleware
+const signupFile = path.join(__dirname, "signup.csv");
+const historyFile = path.join(__dirname, "history.csv");
+
+// ---------- MIDDLEWARE ----------
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
+
+// ---------- CSV HELPERS ----------
+function ensureFile(filePath) {
+  if (!fs.existsSync(filePath)) fs.writeFileSync(filePath, "", "utf8");
+}
+function readUsers() {
+  ensureFile(signupFile);
+  const raw = fs.readFileSync(signupFile, "utf8").replace(/\r/g, "").trim();
+  if (!raw) return [];
+  return raw.split("\n").map(line => {
+    const parts = line.split(",");
+    return {
+      name: (parts[0] || "").trim(),
+      email: ((parts[1] || "").trim() || "").toLowerCase(),
+      password: (parts[2] || "").trim()
+    };
+  }).filter(u => u.email);
+}
+function appendUser({ name, email, password }) {
+  ensureFile(signupFile);
+  const line = `${name.replace(/,/g," ")} , ${email.toLowerCase()} , ${password.replace(/[\r\n]/g," ")}\n`;
+  fs.appendFileSync(signupFile, line, "utf8");
+}
+
+// ---------- ROUTES ----------
+
+// ✅ Serve auth.html first (always as homepage)
+app.get("/", (req, res) => {
+  const authPath = path.join(frontendPath, "auth.html");
+  if (fs.existsSync(authPath)) {
+    return res.sendFile(authPath);
+  }
+  res.sendFile(path.join(frontendPath, "index.html"));
+});
+
+// ✅ Static serve after root route
 app.use(express.static(frontendPath));
 
-// -------- Serve auth.html first --------
-app.get("/", (req, res) => {
-  res.sendFile(path.join(frontendPath, "auth.html"));
-});
-
-// ----------------------
-// 🔐 AUTH ROUTES
-// ----------------------
+// ---------- SIGNUP ----------
 app.post("/signup", (req, res) => {
-  const { name, email, password } = req.body;
-  if (!name || !email || !password)
-    return res.status(400).json({ message: "All fields required" });
+  try {
+    let { name, email, password } = req.body || {};
+    name = (name || "").trim();
+    email = (email || "").trim().toLowerCase();
+    password = (password || "").trim();
 
-  const userLine = `${name},${email},${password}\n`;
-  fs.appendFile(signupFile, userLine, (err) => {
-    if (err) return res.status(500).json({ message: "Signup failed" });
-    console.log("✅ Signed up:", email);
-    res.json({ message: "Signup successful" });
-  });
+    if (!name || !email || !password)
+      return res.status(400).json({ message: "All fields required" });
+
+    const users = readUsers();
+    if (users.find(u => u.email === email))
+      return res.status(400).json({ message: "User already signed up, please sign in." });
+
+    appendUser({ name, email, password });
+    console.log("✅ New signup:", email);
+    return res.json({ success: true, message: "Signup successful, please sign in." });
+  } catch (err) {
+    console.error("Signup error:", err);
+    return res.status(500).json({ message: "Signup failed" });
+  }
 });
 
+// ---------- LOGIN ----------
 app.post("/login", (req, res) => {
-  const { email, password } = req.body;
-  if (!email || !password)
-    return res.status(400).json({ message: "Email and password required" });
+  try {
+    let { email, password } = req.body || {};
+    email = (email || "").trim().toLowerCase();
+    password = (password || "").trim();
 
-  fs.readFile(signupFile, "utf8", (err, data) => {
-    if (err) return res.status(500).json({ message: "Login failed" });
+    if (!email || !password)
+      return res.status(400).json({ message: "Email and password required." });
 
-    const users = data
-      .trim()
-      .split("\n")
-      .map((line) => {
-        const [name, userEmail, userPass] = line.split(",");
-        return { name, email: userEmail, password: userPass };
+    const users = readUsers();
+    const found = users.find(u => u.email === email && u.password === password);
+
+    if (found) {
+      console.log("✅ Login:", email);
+      return res.json({
+        success: true,
+        message: "Login successful",
+        user: { name: found.name, email: found.email }
       });
-
-    const user = users.find(
-      (u) => u.email === email && u.password === password
-    );
-    if (user) {
-      console.log("✅ Logged in:", email);
-      res.json({ success: true, message: "Login successful", user });
     } else {
-      res.json({ success: false, message: "Invalid credentials" });
+      return res.status(401).json({ message: "Invalid email or password." });
     }
-  });
+  } catch (err) {
+    console.error("Login error:", err);
+    return res.status(500).json({ message: "Login failed" });
+  }
 });
 
-// ----------------------
-// 💬 CONTACT FORM
-// ----------------------
+// ---------- CONTACT (optional) ----------
 app.post("/contact", async (req, res) => {
-  const { name, email, message } = req.body;
+  const { name, email, message } = req.body || {};
   if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS)
-    return res.status(500).send("Email env variables not set.");
+    return res.status(500).send("Email env vars not set.");
   try {
     const transporter = nodemailer.createTransport({
       service: "gmail",
-      auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS },
+      auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS }
     });
     await transporter.sendMail({
       from: email,
       to: process.env.EMAIL_USER,
-      subject: `Contact Form: ${name}`,
-      text: message,
+      subject: `Contact: ${name}`,
+      text: message || ""
     });
-    res.send("✅ Message sent successfully!");
+    res.send("✅ Message sent");
   } catch (err) {
-    console.error("❌ Email error:", err);
-    res.status(500).send("Failed to send message.");
+    console.error("Email send error:", err);
+    res.status(500).send("Failed to send");
   }
 });
 
-// ----------------------
-// 🧠 SIMPLE SUMMARIZER
-// ----------------------
+// ---------- SIMPLE SUMMARIZER + HISTORY ----------
 function simpleSummarize(text) {
-  const clean = text.replace(/\n/g, " ").replace(/[^a-zA-Z0-9. ]/g, " ");
-  const sentences = clean.split(/[.?!]/).map((s) => s.trim()).filter(Boolean);
+  const clean = (text || "").replace(/\n/g, " ").replace(/[^a-zA-Z0-9. ]/g, " ");
+  const sentences = clean.split(/[.?!]/).map(s => s.trim()).filter(Boolean);
+  if (!sentences.length) return "No content.";
   const freq = {};
-  clean
-    .toLowerCase()
-    .split(/\s+/)
-    .forEach((w) => {
-      if (w.length > 3) freq[w] = (freq[w] || 0) + 1;
-    });
-
-  const scored = sentences.map((s) => {
+  clean.toLowerCase().split(/\s+/).forEach(w => {
+    if (w.length > 3) freq[w] = (freq[w] || 0) + 1;
+  });
+  const scored = sentences.map(s => {
     let score = 0;
-    s.toLowerCase()
-      .split(/\s+/)
-      .forEach((w) => (score += freq[w] || 0));
+    s.toLowerCase().split(/\s+/).forEach(w => (score += freq[w] || 0));
     return { s, score };
   });
   scored.sort((a, b) => b.score - a.score);
-  return (
-    scored.slice(0, 5).map((x) => "• " + x.s.trim()).join("\n") ||
-    "No significant content."
-  );
-}
-
-// ----------------------
-// 🗂️ PER-USER HISTORY
-// ----------------------
-function getUserHistoryFile(email) {
-  const safeEmail = email.replace(/[@.]/g, "_");
-  return path.join(__dirname, `history_${safeEmail}.csv`);
+  return scored
+    .slice(0, 4)
+    .map(x => "• " + x.s)
+    .join("\n");
 }
 
 app.post("/save-summary", (req, res) => {
-  const { meetingId, transcript, userEmail } = req.body;
-  if (!meetingId || !transcript || !userEmail)
-    return res
-      .status(400)
-      .json({ message: "meetingId, transcript, and userEmail required" });
+  try {
+    const { meetingId, transcript, userEmail } = req.body || {};
+    if (!meetingId || !transcript || !userEmail)
+      return res.status(400).json({ message: "Missing fields" });
 
-  const summary = simpleSummarize(transcript);
-  const date = new Date().toLocaleString("en-IN", { hour12: false });
-  const historyFile = getUserHistoryFile(userEmail);
-  const row = `"${date}","${meetingId}","${summary.replace(/"/g, "'")}"\n`;
-
-  fs.appendFile(historyFile, row, (err) => {
-    if (err) return res.status(500).json({ message: "Save failed" });
-    console.log(`✅ Summary saved for [${meetingId}] by ${userEmail}`);
-    res.json({ message: "Summary saved", summary });
-  });
+    const summary = simpleSummarize(transcript);
+    const date = new Date().toLocaleString("en-IN", { hour12: false });
+    const row = `"${String(userEmail).toLowerCase()}","${date}","${String(
+      meetingId
+    ).replace(/"/g, "'")}","${String(summary).replace(/"/g, "'")}"\n`;
+    fs.appendFileSync(historyFile, row, "utf8");
+    console.log(`📝 Saved summary for ${userEmail} [${meetingId}]`);
+    return res.json({ success: true, summary });
+  } catch (err) {
+    console.error("save-summary error:", err);
+    return res.status(500).json({ message: "Save failed" });
+  }
 });
 
 app.get("/history", (req, res) => {
-  const email = req.query.email;
-  if (!email) return res.status(400).json({ message: "Email required" });
+  try {
+    const email = (req.query.email || "").trim().toLowerCase();
+    if (!email) return res.json([]);
+    if (!fs.existsSync(historyFile)) return res.json([]);
 
-  const historyFile = getUserHistoryFile(email);
-  if (!fs.existsSync(historyFile)) return res.json([]);
-
-  fs.readFile(historyFile, "utf8", (err, data) => {
-    if (err) return res.status(500).json({ message: "Read error" });
-    const rows = data
-      .trim()
+    const raw = fs.readFileSync(historyFile, "utf8").replace(/\r/g, "").trim();
+    if (!raw) return res.json([]);
+    const rows = raw
       .split("\n")
-      .map((line) => {
-        const [date, meetingId, summary] = line
+      .map(line => {
+        const parts = line
           .split(/,(?=(?:[^"]*"[^"]*")*[^"]*$)/)
-          .map((s) => s.replace(/(^"|"$)/g, ""));
-        return { date, meetingId, summary };
-      });
-    res.json(rows);
-  });
+          .map(s => s.replace(/(^"|"$)/g, ""));
+        return {
+          userEmail: (parts[0] || "").toLowerCase(),
+          date: parts[1] || "",
+          meetingId: parts[2] || "",
+          summary: parts[3] || ""
+        };
+      })
+      .filter(r => r.userEmail === email);
+    return res.json(rows);
+  } catch (err) {
+    console.error("history read error:", err);
+    return res.status(500).json({ message: "Read error" });
+  }
 });
 
 app.delete("/history/:index", (req, res) => {
-  const { email } = req.query;
-  const idx = parseInt(req.params.index);
-  if (!email) return res.status(400).json({ message: "Email required" });
-  const historyFile = getUserHistoryFile(email);
+  try {
+    const email = (req.query.email || "").trim().toLowerCase();
+    const idx = parseInt(req.params.index, 10);
+    if (!email || Number.isNaN(idx))
+      return res.status(400).json({ message: "Invalid params" });
+    if (!fs.existsSync(historyFile))
+      return res.status(404).json({ message: "No history" });
 
-  if (!fs.existsSync(historyFile))
-    return res.status(404).json({ message: "No history file" });
+    const raw = fs
+      .readFileSync(historyFile, "utf8")
+      .replace(/\r/g, "")
+      .split("\n")
+      .filter(Boolean);
 
-  fs.readFile(historyFile, "utf8", (err, data) => {
-    if (err) return res.status(500).json({ message: "Read error" });
-    let rows = data.trim().split("\n");
-    if (idx < 0 || idx >= rows.length)
+    const userEntries = raw
+      .map((line, i) => ({ line, i }))
+      .filter(
+        obj =>
+          (obj.line
+            .split(/,(?=(?:[^"]*"[^"]*")*[^"]*$)/)[0] || "")
+            .replace(/(^"|"$)/g, "")
+            .toLowerCase() === email
+      );
+
+    if (idx < 0 || idx >= userEntries.length)
       return res.status(404).json({ message: "Entry not found" });
 
-    rows.splice(idx, 1);
-    fs.writeFile(historyFile, rows.join("\n") + "\n", (err) => {
-      if (err) return res.status(500).json({ message: "Delete failed" });
-      console.log(`🗑 Deleted history entry [${idx}] for ${email}`);
-      res.json({ message: "Deleted successfully" });
-    });
-  });
+    const removeIndex = userEntries[idx].i;
+    raw.splice(removeIndex, 1);
+    fs.writeFileSync(historyFile, raw.join("\n") + (raw.length ? "\n" : ""), "utf8");
+    console.log(`🗑 Deleted history ${idx} for ${email}`);
+    return res.json({ message: "Deleted" });
+  } catch (err) {
+    console.error("delete history error:", err);
+    return res.status(500).json({ message: "Delete failed" });
+  }
 });
 
-// ----------------------
-// 🔌 SOCKET.IO (WebRTC)
-// ----------------------
-io.on("connection", (socket) => {
-  console.log("🔗 Connected:", socket.id);
+// ---------- SOCKET.IO (signalling) ----------
+io.on("connection", socket => {
+  console.log("🔗 Socket connected:", socket.id);
 
-  socket.on("join-room", (arg1, arg2, arg3) => {
-    let roomId, name;
-    if (arg1 && typeof arg1 === "object") {
-      roomId = arg1.roomId;
-      name = arg1.name;
-    } else {
-      roomId = arg1;
-      name = arg3;
-    }
-    if (!roomId) roomId = "default";
-    if (!name) name = "Guest";
-
+  socket.on("join-room", data => {
+    const { roomId, name } = data || {};
+    if (!roomId) return;
     socket.join(roomId);
     socket.data.roomId = roomId;
-    socket.data.name = name;
+    socket.data.name = name || "Guest";
 
     const room = io.sockets.adapter.rooms.get(roomId);
-    const peers = room ? [...room].filter((id) => id !== socket.id) : [];
+    const peers = room ? [...room].filter(id => id !== socket.id) : [];
 
     socket.emit("existing-peers", { peers });
-    socket.to(roomId).emit("peer-joined", { peerId: socket.id, name });
-
-    console.log(`👥 [${roomId}] ${name} joined.`);
+    socket.to(roomId).emit("peer-joined", { peerId: socket.id, name: socket.data.name });
+    console.log(`👥 ${socket.data.name} joined ${roomId} (peers: ${peers.length})`);
   });
 
   socket.on("webrtc-offer", ({ to, sdp }) =>
@@ -248,14 +290,10 @@ io.on("connection", (socket) => {
   socket.on("disconnect", () => {
     const roomId = socket.data.roomId;
     if (roomId) socket.to(roomId).emit("peer-left", { peerId: socket.id });
-    console.log(`❌ Disconnected: ${socket.id}`);
+    console.log("❌ Socket disconnected:", socket.id);
   });
 });
 
-// ----------------------
-// 🚀 START SERVER
-// ----------------------
+// ---------- START ----------
 const PORT = process.env.PORT || 4000;
-server.listen(PORT, () =>
-  console.log(`🚀 Server running on http://localhost:${PORT}`)
-);
+server.listen(PORT, () => console.log(`🚀 Server running at http://localhost:${PORT}`));
