@@ -74,9 +74,32 @@
     </div>
   </div>
 
-  <script>
-    let mode = "signin"; // default mode
+  <!-- 🔥 Firebase Auth Integration -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
+    import { 
+      getAuth, 
+      onAuthStateChanged, 
+      createUserWithEmailAndPassword, 
+      signInWithEmailAndPassword, 
+      updateProfile 
+    } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
 
+    const firebaseConfig = {
+      apiKey: "AIzaSyBcrgAsbXlBtL_YQHMCqE4ppYODOInTB0g",
+      authDomain: "twintalk-35672.firebaseapp.com",
+      projectId: "twintalk-35672",
+      storageBucket: "twintalk-35672.firebasestorage.app",
+      messagingSenderId: "373581191413",
+      appId: "1:373581191413:web:f3bb95f18f20dfe62b4dbc",
+      measurementId: "G-CJMY9LJZ7Q"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+
+    // Tab switching logic
+    let mode = "signin";
     const signinTab = document.getElementById("signinTab");
     const signupTab = document.getElementById("signupTab");
     const formTitle = document.getElementById("formTitle");
@@ -106,52 +129,48 @@
       }
     }
 
-    // Default tab
+    // Default to Sign-In view
     switchMode("signin");
 
-    // ✅ NEW redirect logic (preserves meeting link)
-    function redirectAfterAuth(user) {
-      sessionStorage.setItem("user", JSON.stringify(user));
-      const redirectUrl = sessionStorage.getItem("postLoginRedirect") || "/index.html";
-      sessionStorage.removeItem("postLoginRedirect");
-      window.location.href = redirectUrl;
-    }
-
+    // Handle sign in/up
     document.getElementById("authForm").addEventListener("submit", async (e) => {
       e.preventDefault();
       const name = usernameField.value.trim();
       const email = document.getElementById("email").value.trim().toLowerCase();
       const password = document.getElementById("password").value.trim();
 
-      const endpoint = mode === "signup" ? "/signup" : "/login";
-      const payload = mode === "signup" ? { name, email, password } : { email, password };
-
       try {
-        const res = await fetch(endpoint, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload)
-        });
-        const data = await res.json();
-
-        if (res.ok) {
-          if (mode === "signup") {
-            alert("✅ Signup successful! Please login now.");
-            switchMode("signin");
-          } else {
-            alert("✅ Login successful!");
-            redirectAfterAuth({ name: data.user?.name || name, email });
-          }
+        if (mode === "signup") {
+          const userCred = await createUserWithEmailAndPassword(auth, email, password);
+          await updateProfile(userCred.user, { displayName: name });
+          alert("✅ Signup successful! Please sign in now.");
+          switchMode("signin");
         } else {
-          alert(data.message || "❌ Invalid credentials.");
+          const userCred = await signInWithEmailAndPassword(auth, email, password);
+          const user = userCred.user;
+          sessionStorage.setItem("user", JSON.stringify({ name: user.displayName || email.split('@')[0], email }));
+          redirectAfterAuth();
         }
       } catch (err) {
-        alert("⚠️ Network error: " + err.message);
+        alert("⚠️ " + (err.message || "Authentication error."));
       }
     });
 
-    const existingUser = sessionStorage.getItem("user");
-    if (existingUser) window.location.href = "/index.html";
+    // Redirect after login
+    function redirectAfterAuth() {
+      const redirectUrl = sessionStorage.getItem("postLoginRedirect") || "/index.html";
+      sessionStorage.removeItem("postLoginRedirect");
+      window.location.href = redirectUrl;
+    }
+
+    // Auto-skip auth page if already signed in
+    onAuthStateChanged(auth, (user) => {
+      if (user) {
+        console.log("Already signed in as", user.email);
+        sessionStorage.setItem("user", JSON.stringify({ name: user.displayName || user.email.split('@')[0], email: user.email }));
+        redirectAfterAuth();
+      }
+    });
   </script>
 </body>
 </html>

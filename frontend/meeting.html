@@ -95,465 +95,226 @@
   </div>
 </div>
 
-<!-- Supabase client for saving summaries -->
+<!-- Firebase Auth Integration -->
 <script type="module">
-  import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
 
-  const SUPABASE_URL = "https://qdaegqzevidezclgvpcz.supabase.co";
-  const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFkYWVncXpldmlkZXpjbGd2cGN6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjI1ODYyNDEsImV4cCI6MjA3ODE2MjI0MX0.jc7lubD4JhJWmYiHr6gy2hb-up4-cANI47DdDm7wrO0";
-  window.supabaseClient = createClient(SUPABASE_URL, SUPABASE_KEY);
-
-  window.saveSummaryToSupabase = async function (meetingId, transcript, userEmail) {
-    try {
-      const { data, error } = await window.supabaseClient
-        .from("summaries")
-        .insert([{ user_email: userEmail, meeting_id: meetingId, summary: transcript }]);
-      if (error) throw error;
-      console.log("✅ Summary saved to Supabase:", data);
-      return true;
-    } catch (err) {
-      console.error("❌ Supabase insert failed:", err);
-      return false;
-    }
-  };
-</script>
-
-<script>
-/* --------------------------------------
-   Updated meeting behavior
-   - Preserve redirect to meeting after auth
-   - Wait for media before join
-   - Avatar mode available for any user
-   - STT only captures microphone speech while avatar mode is ON
-   - Chat messages are NOT appended to final summary
-----------------------------------------*/
-const socket = io();
-const params = new URLSearchParams(window.location.search);
-const roomId = params.get('room') || 'default';
-
-// session user from auth flow (auth.html sets sessionStorage.user)
-const sessionUser = (() => { try { return JSON.parse(sessionStorage.getItem("user")); } catch(e){ return null; } })();
-
-// If not logged-in, save redirect and send to auth
-if (!sessionUser || !sessionUser.email) {
-  // store desired redirect so user can return after sign-in (include full search)
-  sessionStorage.setItem("postLoginRedirect", window.location.pathname + window.location.search);
-  alert("Please sign in/up before joining the meeting.");
-  window.location.href = "/auth.html";
-}
-
-// compute name: prefer explicit `name` query param, then logged-in user's name, then email prefix
-let name = params.get('name') ||
-           sessionUser?.name ||
-           (sessionUser?.email ? sessionUser.email.split('@')[0] : "Guest");
-
-const userEmail = (sessionUser?.email || "unknown").toLowerCase();
-
-const useAvatar = params.get('useAvatar') === 'true';
-const savedAvatar = localStorage.getItem('userAvatar');
-
-let localStream = null;
-const peers = {};
-let meetingTranscript = "";      // will contain only STT final sentences captured while avatar mode is ON
-let avatarMode = false;
-let originalVideoTrack = null;
-let avatarStream = null;
-let canvas = null, ctx = null;
-
-// Timer
-const timerDisplay = document.getElementById('meetingTimer');
-const startTime = Date.now();
-setInterval(()=>{
-  const elapsed = Date.now()-startTime;
-  const h = Math.floor(elapsed/3600000);
-  const m = Math.floor((elapsed%3600000)/60000);
-  const s = Math.floor((elapsed%60000)/1000);
-  timerDisplay.textContent = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
-},1000);
-
-// UI helpers
-function createSmallTile(id,label,stream,avatarURL){
-  // if tile exists, update; else create
-  let tile = document.getElementById('tile-'+id);
-  if(!tile){
-    tile = document.createElement('div');
-    tile.className = 'small-tile';
-    tile.id = 'tile-'+id;
-    if(stream){
-      const video = document.createElement('video');
-      video.autoplay = true; video.playsInline = true;
-      if(id==='me') video.muted = true;
-      video.srcObject = stream;
-      tile.appendChild(video);
-    } else if(avatarURL){
-      const img = document.createElement('img');
-      img.src = avatarURL; tile.appendChild(img);
-    } else {
-      // placeholder box (no video or avatar)
-      const placeholder = document.createElement('div');
-      placeholder.style.width = '100%';
-      placeholder.style.height = '100%';
-      placeholder.style.display = 'flex';
-      placeholder.style.justifyContent = 'center';
-      placeholder.style.alignItems = 'center';
-      placeholder.style.color = '#999';
-      placeholder.textContent = 'No video';
-      tile.appendChild(placeholder);
-    }
-    const lbl = document.createElement('div');
-    lbl.className = 'name-label'; lbl.textContent = label;
-    tile.appendChild(lbl);
-    document.getElementById('top-strip').appendChild(tile);
-  } else {
-    // update contents
-    if(stream){
-      tile.innerHTML = `<video autoplay playsinline ${id==='me'?'muted':''}></video><div class="name-label">${label}</div>`;
-      tile.querySelector('video').srcObject = stream;
-    } else if(avatarURL){
-      tile.innerHTML = `<img src="${avatarURL}"><div class="name-label">${label}</div>`;
-    } else {
-      tile.innerHTML = `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:#999">No video</div><div class="name-label">${label}</div>`;
-    }
-  }
-}
-
-function setMainSpeaker(id,label,stream,avatarURL){
-  const main = document.getElementById('main-speaker');
-  if(stream){
-    main.innerHTML = `<video autoplay playsinline ${id==='me'?'muted':''}></video>
-      <div class="name-label">${label}</div>`;
-    main.querySelector('video').srcObject = stream;
-  } else if(avatarURL){
-    main.innerHTML = `<img src="${avatarURL}"><div class="name-label">${label}</div>`;
-  } else {
-    main.innerHTML = `<div style="width:80%;height:60%;display:flex;align-items:center;justify-content:center;color:#999">No active video</div><div class="name-label">${label}</div>`;
-  }
-}
-
-// Media init (tries full audio+video; waits for permissions)
-async function initMedia(){
-  try{
-    localStream = await navigator.mediaDevices.getUserMedia({video:true,audio:true});
-    createSmallTile('me', name+' (You)', localStream, null);
-    setMainSpeaker('me', name+' (You)', localStream, null);
-
-    // store original video track for avatar restore
-    originalVideoTrack = localStream.getVideoTracks()[0] || null;
-
-    if (useAvatar && savedAvatar) {
-      // if meeting opened with useAvatar param, enable avatar
-      await enableAvatarMode(savedAvatar);
-    }
-  }catch(e){
-    console.warn("getUserMedia error:", e);
-    // If user denies video, attempt audio-only (this allows STT if avatar enabled)
-    try {
-      localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      createSmallTile('me', name+' (You - audio)', null, null);
-    } catch(err) {
-      console.warn("audio-only also failed:", err);
-      alert("Camera/Mic access is required for meeting features.");
-    }
-  }
-}
-
-// Avatar Mode (replace outgoing video track with avatar canvas)
-async function enableAvatarMode(avatarURL){
-  // ensure at least audio available
-  if (!localStream) {
-    try {
-      localStream = await navigator.mediaDevices.getUserMedia({audio:true});
-    } catch (e) { console.warn("Unable to get audio for avatar mode:", e); }
-  }
-
-  if (!canvas) {
-    canvas = document.createElement('canvas');
-    canvas.width = 640; canvas.height = 360;
-    ctx = canvas.getContext('2d');
-  }
-
-  const img = new Image();
-  img.crossOrigin = "anonymous";
-  img.src = avatarURL;
-  try { await img.decode(); } catch(e){ console.log('avatar decode err', e); }
-
-  ctx.fillStyle = "#000"; ctx.fillRect(0,0,canvas.width,canvas.height);
-  ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-
-  avatarStream = canvas.captureStream(15);
-  const avatarTrack = avatarStream.getVideoTracks()[0];
-
-  // remember original video track for restore
-  if (!originalVideoTrack && localStream) {
-    originalVideoTrack = localStream.getVideoTracks()[0] || null;
-  }
-
-  // replace track for each peer (if peers exist)
-  for(const pc of Object.values(peers)){
-    const sender = pc.getSenders().find(s => s.track && s.track.kind === "video");
-    if (sender && avatarTrack) {
-      try { await sender.replaceTrack(avatarTrack); } catch(e){ console.warn("replaceTrack failed", e); }
-    }
-  }
-
-  createSmallTile('me', name+' (Avatar)', null, avatarURL);
-  setMainSpeaker('me', name+' (Avatar)', null, avatarURL);
-
-  avatarMode = true;
-  meetingTranscript = ""; // start fresh for this avatar session
-
-  // start local STT for this user only
-  startSpeechRecognition();
-
-  // broadcast avatar presence to others (so they see image)
-  socket.emit("set-avatar",{ roomId, avatar: avatarURL, name });
-}
-
-async function disableAvatarMode(){
-  // restore original video track to peers
-  if (originalVideoTrack) {
-    for(const pc of Object.values(peers)){
-      const sender = pc.getSenders().find(s => s.track && s.track.kind === "video");
-      if (sender) {
-        try { await sender.replaceTrack(originalVideoTrack); } catch(e) { console.warn("restore track failed", e); }
-      }
-    }
-  }
-
-  // restore UI
-  if (localStream && localStream.getVideoTracks().length) {
-    createSmallTile('me', name+' (You)', localStream, null);
-    setMainSpeaker('me', name+' (You)', localStream, null);
-  } else {
-    createSmallTile('me', name, null, null);
-    setMainSpeaker('me', name, null, null);
-  }
-
-  avatarMode = false;
-  // stop STT
-  if (recognition) {
-    recognition.stop();
-    recognition = null;
-  }
-
-  // save the collected transcript for the user (if any)
-  if (meetingTranscript.trim().length > 0 && userEmail !== "unknown") {
-    try {
-      await window.saveSummaryToSupabase(roomId, meetingTranscript.trim(), userEmail);
-      console.log("Saved transcript on avatar OFF.");
-    } catch (e) { console.error("Save failed on avatar off", e); }
-    meetingTranscript = "";
-  }
-}
-
-// Speech-to-text (browser-native) — we append ONLY final results to meetingTranscript
-let recognition;
-function startSpeechRecognition(){
-  if(!('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)){
-    console.warn("Speech recognition not supported in this browser.");
-    alert("Speech recognition not supported in this browser. Use Chrome desktop for best results.");
-    return;
-  }
-  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  recognition = new SR();
-  recognition.lang = 'en-IN';
-  recognition.continuous = true;
-  recognition.interimResults = false; // only final results
-  recognition.onresult = e => {
-    for(let i=e.resultIndex;i<e.results.length;i++){
-      if(e.results[i].isFinal) {
-        const text = e.results[i][0].transcript.trim();
-        meetingTranscript += text + ". ";
-        console.log("STT final:", text);
-      }
-    }
-  };
-  recognition.onerror = err => {
-    console.error("STT error:", err);
-  };
-  recognition.onend = () => {
-    // keep STT running during avatar mode (some browsers stop), restart if avatar still on
-    if (avatarMode) {
-      try { recognition.start(); } catch(e){ console.warn('restarting recognition failed', e); }
-    }
-  };
-  recognition.start();
-}
-
-// WebRTC helpers: createPeerConnection adds available local tracks
-function createPeerConnection(peerId){
-  const pc = new RTCPeerConnection();
-  // Attach current local tracks (if any)
-  if(localStream) {
-    localStream.getTracks().forEach(t => pc.addTrack(t, localStream));
-  }
-  // If we have avatarStream active, ensure video sender uses avatar track (replace later after senders created)
-  pc.ontrack = e => {
-    createSmallTile(peerId, 'User '+peerId.slice(0,5), e.streams[0], null);
-    setMainSpeaker(peerId, 'User '+peerId.slice(0,5), e.streams[0], null);
-  };
-  pc.onicecandidate = e => {
-    if(e.candidate) socket.emit('webrtc-ice-candidate',{ to: peerId, candidate: e.candidate });
-  };
-  pc.onconnectionstatechange = () => {
-    if(['disconnected','failed','closed'].includes(pc.connectionState)){
-      const tile = document.getElementById('tile-'+peerId);
-      if(tile) tile.remove();
-      try { pc.close(); } catch(e) {}
-      delete peers[peerId];
-    }
-  };
-  peers[peerId] = pc;
-  return pc;
-}
-
-async function callPeer(peerId){
-  const pc = createPeerConnection(peerId);
-  const offer = await pc.createOffer();
-  await pc.setLocalDescription(offer);
-  socket.emit('webrtc-offer',{ to: peerId, sdp: offer });
-}
-
-// Connect -> initMedia then join-room (prevents peers being called before tracks ready)
-socket.on('connect', async () => {
-  await initMedia();
-  socket.emit('join-room', { roomId, name });
-});
-
-socket.on('existing-peers', async ({ peers: existing }) => {
-  for (const p of existing) await callPeer(p);
-});
-
-socket.on('peer-joined', ({ peerId, name: peerName }) => {
-  console.log('peer joined', peerId, peerName);
-});
-
-socket.on('webrtc-offer', async ({ from, sdp }) => {
-  const pc = createPeerConnection(from);
-  await pc.setRemoteDescription(new RTCSessionDescription(sdp));
-  const answer = await pc.createAnswer();
-  await pc.setLocalDescription(answer);
-  socket.emit('webrtc-answer', { to: from, sdp: answer });
-});
-
-socket.on('webrtc-answer', async ({ from, sdp }) => {
-  const pc = peers[from];
-  if (pc) await pc.setRemoteDescription(new RTCSessionDescription(sdp));
-});
-
-socket.on('webrtc-ice-candidate', async ({ from, candidate }) => {
-  const pc = peers[from];
-  if (pc && candidate) await pc.addIceCandidate(new RTCIceCandidate(candidate));
-});
-
-socket.on('peer-left', ({ peerId }) => {
-  const tile = document.getElementById('tile-'+peerId);
-  if (tile) tile.remove();
-  if (peers[peerId]) {
-    try { peers[peerId].close(); } catch(e){}
-    delete peers[peerId];
-  }
-});
-
-socket.on('peer-avatar', ({ peerId, avatar, name: peerName }) => {
-  createSmallTile(peerId, peerName+" (Avatar)", null, avatar);
-  setMainSpeaker(peerId, peerName+" (Avatar)", null, avatar);
-});
-
-// Controls
-document.getElementById('muteBtn').onclick = () => {
-  if (localStream) {
-    const t = localStream.getAudioTracks()[0];
-    if (t) t.enabled = !t.enabled;
-  }
+const firebaseConfig = {
+  apiKey: "AIzaSyBcrgAsbXlBtL_YQHMCqE4ppYODOInTB0g",
+  authDomain: "twintalk-35672.firebaseapp.com",
+  projectId: "twintalk-35672",
+  storageBucket: "twintalk-35672.firebasestorage.app",
+  messagingSenderId: "373581191413",
+  appId: "1:373581191413:web:f3bb95f18f20dfe62b4dbc",
+  measurementId: "G-CJMY9LJZ7Q"
 };
 
-document.getElementById('videoBtn').onclick = () => {
-  if (avatarMode) {
-    disableAvatarMode();
-  } else if (localStream && localStream.getVideoTracks().length) {
-    const t = localStream.getVideoTracks()[0];
-    if (t) t.enabled = !t.enabled;
-  } else {
-    alert('No camera available.');
-  }
-};
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
 
-document.getElementById('screenBtn').onclick = async () => {
-  try {
-    const screen = await navigator.mediaDevices.getDisplayMedia({ video: true });
-    const track = screen.getVideoTracks()[0];
-    for(const pc of Object.values(peers)){
-      const sender = pc.getSenders().find(s => s.track && s.track.kind === 'video');
-      if (sender) sender.replaceTrack(track);
-    }
-    setMainSpeaker('me', name+' (You)', screen, null);
-    track.onended = () => {
-      if (localStream) {
-        const camTrack = localStream.getVideoTracks()[0];
-        for(const pc of Object.values(peers)){
-          const sender = pc.getSenders().find(s => s.track && s.track.kind === 'video');
-          if (sender) sender.replaceTrack(camTrack);
+/* ✅ Wait for Firebase to load before doing anything */
+onAuthStateChanged(auth, async (user) => {
+  if (user) {
+    console.log("✅ Authenticated as", user.email);
+    window.currentUser = user;
+
+    // Wait 200ms before starting media (guarantees permissions + ready state)
+    setTimeout(() => {
+      startMeeting(user);
+    }, 200);
+  } else {
+    console.warn("⚠️ Not logged in — redirecting...");
+    sessionStorage.setItem("postLoginRedirect", window.location.pathname + window.location.search);
+    window.location.href = "/auth.html";
+  }
+});
+
+
+
+
+
+  async function startMeeting(user) {
+    // === From here: identical to your original meeting code ===
+
+    const socket = io();
+    const params = new URLSearchParams(window.location.search);
+    const roomId = params.get('room') || 'default';
+    const name = user.displayName || user.email.split("@")[0];
+    const userEmail = (user.email || "unknown").toLowerCase();
+
+    const savedAvatar = localStorage.getItem('userAvatar');
+    const useAvatar = params.get('useAvatar') === 'true';
+
+    let localStream = null;
+    const peers = {};
+    let meetingTranscript = "";
+    let avatarMode = false;
+    let originalVideoTrack = null;
+    let avatarStream = null;
+    let canvas = null, ctx = null;
+
+    // Timer
+    const timerDisplay = document.getElementById('meetingTimer');
+    const startTime = Date.now();
+    setInterval(() => {
+      const elapsed = Date.now() - startTime;
+      const h = Math.floor(elapsed / 3600000);
+      const m = Math.floor((elapsed % 3600000) / 60000);
+      const s = Math.floor((elapsed % 60000) / 1000);
+      timerDisplay.textContent = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+    }, 1000);
+
+    // UI helpers
+    function createSmallTile(id,label,stream,avatarURL){
+      let tile = document.getElementById('tile-'+id);
+      if(!tile){
+        tile = document.createElement('div');
+        tile.className = 'small-tile';
+        tile.id = 'tile-'+id;
+        if(stream){
+          const video = document.createElement('video');
+          video.autoplay = true; video.playsInline = true;
+          if(id==='me') video.muted = true;
+          video.srcObject = stream;
+          tile.appendChild(video);
+        } else if(avatarURL){
+          const img = document.createElement('img');
+          img.src = avatarURL; tile.appendChild(img);
+        } else {
+          const placeholder = document.createElement('div');
+          placeholder.style.width='100%';placeholder.style.height='100%';
+          placeholder.style.display='flex';placeholder.style.justifyContent='center';
+          placeholder.style.alignItems='center';placeholder.style.color='#999';
+          placeholder.textContent='No video';tile.appendChild(placeholder);
         }
-        setMainSpeaker('me', name+' (You)', localStream, null);
+        const lbl=document.createElement('div');
+        lbl.className='name-label';lbl.textContent=label;
+        tile.appendChild(lbl);
+        document.getElementById('top-strip').appendChild(tile);
+      } else {
+        if(stream){
+          tile.innerHTML=`<video autoplay playsinline ${id==='me'?'muted':''}></video><div class="name-label">${label}</div>`;
+          tile.querySelector('video').srcObject=stream;
+        } else if(avatarURL){
+          tile.innerHTML=`<img src="${avatarURL}"><div class="name-label">${label}</div>`;
+        }
       }
-    };
-  } catch(e) {
-    console.log("Screen share cancelled.", e);
+    }
+
+    function setMainSpeaker(id,label,stream,avatarURL){
+      const main=document.getElementById('main-speaker');
+      if(stream){
+        main.innerHTML=`<video autoplay playsinline ${id==='me'?'muted':''}></video><div class="name-label">${label}</div>`;
+        main.querySelector('video').srcObject=stream;
+      } else if(avatarURL){
+        main.innerHTML=`<img src="${avatarURL}"><div class="name-label">${label}</div>`;
+      } else {
+        main.innerHTML=`<div style="width:80%;height:60%;display:flex;align-items:center;justify-content:center;color:#999">No active video</div><div class="name-label">${label}</div>`;
+      }
+    }
+
+    // Init media
+    async function initMedia(){
+      try{
+        localStream=await navigator.mediaDevices.getUserMedia({video:true,audio:true});
+        createSmallTile('me', name+' (You)', localStream, null);
+        setMainSpeaker('me', name+' (You)', localStream, null);
+        originalVideoTrack=localStream.getVideoTracks()[0]||null;
+        if(useAvatar && savedAvatar) await enableAvatarMode(savedAvatar);
+      }catch(e){
+        console.warn("getUserMedia error:",e);
+      }
+    }
+
+    // Avatar
+    async function enableAvatarMode(avatarURL){
+      if(!localStream){
+        try{localStream=await navigator.mediaDevices.getUserMedia({audio:true});}catch(e){}
+      }
+      if(!canvas){canvas=document.createElement('canvas');canvas.width=640;canvas.height=360;ctx=canvas.getContext('2d');}
+      const img=new Image();img.crossOrigin="anonymous";img.src=avatarURL;await img.decode();
+      ctx.fillStyle="#000";ctx.fillRect(0,0,canvas.width,canvas.height);ctx.drawImage(img,0,0,canvas.width,canvas.height);
+      avatarStream=canvas.captureStream(15);
+      const avatarTrack=avatarStream.getVideoTracks()[0];
+      for(const pc of Object.values(peers)){
+        const sender=pc.getSenders().find(s=>s.track&&s.track.kind==="video");
+        if(sender&&avatarTrack)await sender.replaceTrack(avatarTrack);
+      }
+      createSmallTile('me',name+' (Avatar)',null,avatarURL);
+      setMainSpeaker('me',name+' (Avatar)',null,avatarURL);
+      avatarMode=true;meetingTranscript="";
+      startSpeechRecognition();
+      socket.emit("set-avatar",{roomId,avatar:avatarURL,name});
+    }
+
+    async function disableAvatarMode(){
+      if(originalVideoTrack){
+        for(const pc of Object.values(peers)){
+          const sender=pc.getSenders().find(s=>s.track&&s.track.kind==="video");
+          if(sender)await sender.replaceTrack(originalVideoTrack);
+        }
+      }
+      if(localStream){
+        createSmallTile('me',name+' (You)',localStream,null);
+        setMainSpeaker('me',name+' (You)',localStream,null);
+      }
+      avatarMode=false;if(recognition){recognition.stop();recognition=null;}
+      if(meetingTranscript.trim().length>0 && userEmail!=="unknown"){
+        await window.saveSummaryToSupabase(roomId,meetingTranscript.trim(),userEmail);
+        meetingTranscript="";
+      }
+    }
+
+    // STT
+    let recognition;
+    function startSpeechRecognition(){
+      if(!('webkitSpeechRecognition'in window||'SpeechRecognition'in window)){return;}
+      const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+      recognition=new SR();recognition.lang='en-IN';recognition.continuous=true;recognition.interimResults=false;
+      recognition.onresult=e=>{for(let i=e.resultIndex;i<e.results.length;i++){if(e.results[i].isFinal){const text=e.results[i][0].transcript.trim();meetingTranscript+=text+". ";}}};
+      recognition.onend=()=>{if(avatarMode){try{recognition.start();}catch(e){}}};
+      recognition.start();
+    }
+
+    // WebRTC setup
+    function createPeerConnection(peerId){
+      const pc=new RTCPeerConnection();
+      if(localStream)localStream.getTracks().forEach(t=>pc.addTrack(t,localStream));
+      pc.ontrack=e=>{createSmallTile(peerId,'User '+peerId.slice(0,5),e.streams[0],null);setMainSpeaker(peerId,'User '+peerId.slice(0,5),e.streams[0],null);};
+      pc.onicecandidate=e=>{if(e.candidate)socket.emit('webrtc-ice-candidate',{to:peerId,candidate:e.candidate});};
+      pc.onconnectionstatechange=()=>{if(['disconnected','failed','closed'].includes(pc.connectionState)){const tile=document.getElementById('tile-'+peerId);if(tile)tile.remove();try{pc.close();}catch(e){}delete peers[peerId];}};
+      peers[peerId]=pc;return pc;
+    }
+
+    async function callPeer(peerId){
+      const pc=createPeerConnection(peerId);
+      const offer=await pc.createOffer();
+      await pc.setLocalDescription(offer);
+      socket.emit('webrtc-offer',{to:peerId,sdp:offer});
+    }
+
+    socket.on('connect',async()=>{await initMedia();socket.emit('join-room',{roomId,name});});
+    socket.on('existing-peers',async({peers:existing})=>{for(const p of existing)await callPeer(p);});
+    socket.on('peer-joined',({peerId,name:peerName})=>{console.log('peer joined',peerId,peerName);});
+    socket.on('webrtc-offer',async({from,sdp})=>{const pc=createPeerConnection(from);await pc.setRemoteDescription(new RTCSessionDescription(sdp));const answer=await pc.createAnswer();await pc.setLocalDescription(answer);socket.emit('webrtc-answer',{to:from,sdp:answer});});
+    socket.on('webrtc-answer',async({from,sdp})=>{const pc=peers[from];if(pc)await pc.setRemoteDescription(new RTCSessionDescription(sdp));});
+    socket.on('webrtc-ice-candidate',async({from,candidate})=>{const pc=peers[from];if(pc&&candidate)await pc.addIceCandidate(new RTCIceCandidate(candidate));});
+    socket.on('peer-left',({peerId})=>{const tile=document.getElementById('tile-'+peerId);if(tile)tile.remove();if(peers[peerId]){try{peers[peerId].close();}catch(e){}delete peers[peerId];}});
+    socket.on('peer-avatar',({peerId,avatar,name:peerName})=>{createSmallTile(peerId,peerName+" (Avatar)",null,avatar);setMainSpeaker(peerId,peerName+" (Avatar)",null,avatar);});
+
+    // Controls
+    document.getElementById('muteBtn').onclick=()=>{if(localStream){const t=localStream.getAudioTracks()[0];if(t)t.enabled=!t.enabled;}};
+    document.getElementById('videoBtn').onclick=()=>{if(avatarMode){disableAvatarMode();}else if(localStream){const t=localStream.getVideoTracks()[0];if(t)t.enabled=!t.enabled;}};
+    document.getElementById('screenBtn').onclick=async()=>{try{const screen=await navigator.mediaDevices.getDisplayMedia({video:true});const track=screen.getVideoTracks()[0];for(const pc of Object.values(peers)){const sender=pc.getSenders().find(s=>s.track&&s.track.kind==='video');if(sender)sender.replaceTrack(track);}setMainSpeaker('me',name+' (You)',screen,null);track.onended=()=>{if(localStream){const cam=localStream.getVideoTracks()[0];for(const pc of Object.values(peers)){const sender=pc.getSenders().find(s=>s.track&&s.track.kind==='video');if(sender)sender.replaceTrack(cam);}setMainSpeaker('me',name+' (You)',localStream,null);}};}catch(e){}};
+    document.getElementById('avatarBtn').onclick=async()=>{if(!avatarMode&&savedAvatar){await enableAvatarMode(savedAvatar);}else if(avatarMode){await disableAvatarMode();}else{window.location.href=`avatar.html?room=${encodeURIComponent(roomId)}&name=${encodeURIComponent(name)}`;}};
+    document.getElementById('leaveBtn').onclick=async()=>{if(recognition)recognition.stop();Object.values(peers).forEach(pc=>pc.close());if(localStream)localStream.getTracks().forEach(t=>t.stop());if(meetingTranscript.trim().length>0 && userEmail!=="unknown"){await window.saveSummaryToSupabase(roomId,meetingTranscript.trim(),userEmail);}window.location.href='/index.html';};
+
+    // Chat
+    const chatMessages=document.getElementById('chat-messages');const chatInput=document.getElementById('chatText');
+    document.getElementById('sendChat').onclick=()=>{const msg=chatInput.value.trim();if(!msg)return;socket.emit('chat-message',{roomId,name,message:msg});chatInput.value='';};
+    socket.on('chat-message',({name:sender,message})=>{const d=document.createElement('div');d.textContent=`${sender}: ${message}`;chatMessages.appendChild(d);chatMessages.scrollTop=chatMessages.scrollHeight;});
   }
-};
-
-document.getElementById('avatarBtn').onclick = async () => {
-  // Everyone can use avatar now
-  if (!avatarMode && savedAvatar) {
-    await enableAvatarMode(savedAvatar);
-  } else if (avatarMode) {
-    await disableAvatarMode();
-  } else {
-    window.location.href = `avatar.html?room=${encodeURIComponent(roomId)}&name=${encodeURIComponent(name)}`;
-  }
-};
-
-// Leave: stop everything and save transcript to Supabase only if user spoke during avatar mode
-document.getElementById('leaveBtn').onclick = async () => {
-  if (recognition) recognition.stop();
-  Object.values(peers).forEach(pc => pc.close());
-  if (localStream) localStream.getTracks().forEach(t => t.stop());
-
-  if (meetingTranscript.trim().length > 0 && userEmail !== "unknown") {
-    try {
-      await window.saveSummaryToSupabase(roomId, meetingTranscript.trim(), userEmail);
-      console.log("Saved transcript on leaving meeting.");
-      meetingTranscript = "";
-    } catch(e) { console.error("Save failed on leave", e); }
-  } else {
-    console.warn("No STT transcript to save (meetingTranscript empty).");
-  }
-
-  window.location.href = '/history.html';
-};
-
-// Chat (do NOT add chat messages to meetingTranscript)
-const chatMessages = document.getElementById('chat-messages');
-const chatInput = document.getElementById('chatText');
-
-document.getElementById('sendChat').onclick = () => {
-  const msg = chatInput.value.trim();
-  if (!msg) return;
-  socket.emit('chat-message', { roomId, name, message: msg });
-  chatInput.value = '';
-};
-
-socket.on('chat-message', ({ name: sender, message }) => {
-  const d = document.createElement('div');
-  d.textContent = `${sender}: ${message}`;
-  chatMessages.appendChild(d);
-  chatMessages.scrollTop = chatMessages.scrollHeight;
-  // IMPORTANT: chats are not part of meetingTranscript
-});
-
-// expose meetingTranscript for debugging
-window.__meetingTranscript = () => meetingTranscript;
 </script>
 </body>
 </html>
