@@ -161,6 +161,32 @@
       background: #f0f0f0;
       border-radius: 4px;
     }
+
+    /* Join form (for manual entry) */
+    .join-form {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: white;
+      color: black;
+      padding: 15px;
+      border-radius: 10px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+    }
+    .join-form input {
+      padding: 6px;
+      margin: 5px;
+      border-radius: 5px;
+      border: 1px solid #ccc;
+    }
+    .join-form button {
+      padding: 6px 10px;
+      background: #007bff;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+    }
   </style>
 </head>
 <body>
@@ -210,12 +236,20 @@
     </div>
   </div>
 
+  <!-- Small join form (for manual entry) -->
+  <div class="join-form">
+    <input type="text" id="meeting-link-input" placeholder="Enter meeting link or ID">
+    <input type="text" id="join-name-input" placeholder="Enter your name">
+    <button onclick="joinWithForm()">Join</button>
+  </div>
+
   <script src="/socket.io/socket.io.js"></script>
   <script>
     // --- Check login ---
     const user = JSON.parse(sessionStorage.getItem("user") || "{}");
     if (!user.email) {
       alert("Please log in first to join a meeting.");
+      sessionStorage.setItem("postLoginRedirect", window.location.pathname + window.location.search);
       window.location.href = "/auth.html";
     }
 
@@ -227,7 +261,7 @@
     // --- Fetch meeting details ---
     const params = new URLSearchParams(window.location.search);
     const roomId = params.get("room") || "default";
-    const sessionName = params.get("name") || user.name || "Guest";
+    const sessionName = params.get("name") || user.name || user.email.split("@")[0];
     const savedAvatar = localStorage.getItem("userAvatar");
     if (savedAvatar) avatar.src = savedAvatar;
 
@@ -253,8 +287,9 @@
         video.srcObject = screenStream;
       } catch (err) { alert("Screen share cancelled."); }
     }
+
     function goToAvatar() {
-      window.location.href = `avatar.html?room=${roomId}&name=${encodeURIComponent(sessionName)}`;
+      window.location.href = `avatar.html?room=${encodeURIComponent(roomId)}&name=${encodeURIComponent(sessionName)}`;
     }
 
     function endMeeting() {
@@ -315,8 +350,23 @@
         .join(" ");
     });
 
-    // --- Join Room ---
+    // --- Join by link ---
     socket.emit("join-room", { roomId, name: sessionName });
+
+    // --- Join with form (manual entry) ---
+    function joinWithForm() {
+      const inputLink = document.getElementById('meeting-link-input').value.trim();
+      const givenName = document.getElementById('join-name-input').value.trim() || sessionName;
+      if (!inputLink) return alert('Enter meeting link or ID');
+
+      try {
+        const u = new URL(inputLink);
+        const rid = u.searchParams.get('room') || u.searchParams.get('id') || u.pathname.split('/').pop() || inputLink;
+        window.location.href = `meeting.html?room=${encodeURIComponent(rid)}&name=${encodeURIComponent(givenName)}`;
+      } catch (e) {
+        window.location.href = `meeting.html?room=${encodeURIComponent(inputLink)}&name=${encodeURIComponent(givenName)}`;
+      }
+    }
   </script>
 </body>
 </html>

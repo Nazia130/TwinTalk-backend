@@ -18,7 +18,10 @@ const tryPaths = [
   path.join(__dirname, "./public"),
   __dirname
 ];
-let frontendPath = tryPaths.find(p => fs.existsSync(p) && fs.statSync(p).isDirectory()) || path.join(__dirname, "frontend");
+let frontendPath =
+  tryPaths.find(
+    (p) => fs.existsSync(p) && fs.statSync(p).isDirectory()
+  ) || path.join(__dirname, "frontend");
 console.log("ℹ️ Using frontend path:", frontendPath);
 
 const signupFile = path.join(__dirname, "signup.csv");
@@ -36,18 +39,24 @@ function readUsers() {
   ensureFile(signupFile);
   const raw = fs.readFileSync(signupFile, "utf8").replace(/\r/g, "").trim();
   if (!raw) return [];
-  return raw.split("\n").map(line => {
-    const parts = line.split(",");
-    return {
-      name: (parts[0] || "").trim(),
-      email: ((parts[1] || "").trim() || "").toLowerCase(),
-      password: (parts[2] || "").trim()
-    };
-  }).filter(u => u.email);
+  return raw
+    .split("\n")
+    .map((line) => {
+      const parts = line.split(",");
+      return {
+        name: (parts[0] || "").trim(),
+        email: ((parts[1] || "").trim() || "").toLowerCase(),
+        password: (parts[2] || "").trim(),
+      };
+    })
+    .filter((u) => u.email);
 }
 function appendUser({ name, email, password }) {
   ensureFile(signupFile);
-  const line = `${name.replace(/,/g," ")} , ${email.toLowerCase()} , ${password.replace(/[\r\n]/g," ")}\n`;
+  const line = `${name.replace(/,/g, " ")} , ${email.toLowerCase()} , ${password.replace(
+    /[\r\n]/g,
+    " "
+  )}\n`;
   fs.appendFileSync(signupFile, line, "utf8");
 }
 
@@ -77,8 +86,10 @@ app.post("/signup", (req, res) => {
       return res.status(400).json({ message: "All fields required" });
 
     const users = readUsers();
-    if (users.find(u => u.email === email))
-      return res.status(400).json({ message: "User already signed up, please sign in." });
+    if (users.find((u) => u.email === email))
+      return res
+        .status(400)
+        .json({ message: "User already signed up, please sign in." });
 
     appendUser({ name, email, password });
     console.log("✅ New signup:", email);
@@ -100,14 +111,16 @@ app.post("/login", (req, res) => {
       return res.status(400).json({ message: "Email and password required." });
 
     const users = readUsers();
-    const found = users.find(u => u.email === email && u.password === password);
+    const found = users.find(
+      (u) => u.email === email && u.password === password
+    );
 
     if (found) {
       console.log("✅ Login:", email);
       return res.json({
         success: true,
         message: "Login successful",
-        user: { name: found.name, email: found.email }
+        user: { name: found.name, email: found.email },
       });
     } else {
       return res.status(401).json({ message: "Invalid email or password." });
@@ -118,7 +131,7 @@ app.post("/login", (req, res) => {
   }
 });
 
-// ---------- CONTACT (optional) ----------
+// ---------- CONTACT ----------
 app.post("/contact", async (req, res) => {
   const { name, email, message } = req.body || {};
   if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS)
@@ -126,13 +139,13 @@ app.post("/contact", async (req, res) => {
   try {
     const transporter = nodemailer.createTransport({
       service: "gmail",
-      auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS }
+      auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS },
     });
     await transporter.sendMail({
       from: email,
       to: process.env.EMAIL_USER,
       subject: `Contact: ${name}`,
-      text: message || ""
+      text: message || "",
     });
     res.send("✅ Message sent");
   } catch (err) {
@@ -144,21 +157,26 @@ app.post("/contact", async (req, res) => {
 // ---------- SIMPLE SUMMARIZER + HISTORY ----------
 function simpleSummarize(text) {
   const clean = (text || "").replace(/\n/g, " ").replace(/[^a-zA-Z0-9. ]/g, " ");
-  const sentences = clean.split(/[.?!]/).map(s => s.trim()).filter(Boolean);
+  const sentences = clean.split(/[.?!]/).map((s) => s.trim()).filter(Boolean);
   if (!sentences.length) return "No content.";
   const freq = {};
-  clean.toLowerCase().split(/\s+/).forEach(w => {
-    if (w.length > 3) freq[w] = (freq[w] || 0) + 1;
-  });
-  const scored = sentences.map(s => {
+  clean
+    .toLowerCase()
+    .split(/\s+/)
+    .forEach((w) => {
+      if (w.length > 3) freq[w] = (freq[w] || 0) + 1;
+    });
+  const scored = sentences.map((s) => {
     let score = 0;
-    s.toLowerCase().split(/\s+/).forEach(w => (score += freq[w] || 0));
+    s.toLowerCase()
+      .split(/\s+/)
+      .forEach((w) => (score += freq[w] || 0));
     return { s, score };
   });
   scored.sort((a, b) => b.score - a.score);
   return scored
     .slice(0, 4)
-    .map(x => "• " + x.s)
+    .map((x) => "• " + x.s)
     .join("\n");
 }
 
@@ -192,18 +210,18 @@ app.get("/history", (req, res) => {
     if (!raw) return res.json([]);
     const rows = raw
       .split("\n")
-      .map(line => {
+      .map((line) => {
         const parts = line
           .split(/,(?=(?:[^"]*"[^"]*")*[^"]*$)/)
-          .map(s => s.replace(/(^"|"$)/g, ""));
+          .map((s) => s.replace(/(^"|"$)/g, ""));
         return {
           userEmail: (parts[0] || "").toLowerCase(),
           date: parts[1] || "",
           meetingId: parts[2] || "",
-          summary: parts[3] || ""
+          summary: parts[3] || "",
         };
       })
-      .filter(r => r.userEmail === email);
+      .filter((r) => r.userEmail === email);
     return res.json(rows);
   } catch (err) {
     console.error("history read error:", err);
@@ -229,7 +247,7 @@ app.delete("/history/:index", (req, res) => {
     const userEntries = raw
       .map((line, i) => ({ line, i }))
       .filter(
-        obj =>
+        (obj) =>
           (obj.line
             .split(/,(?=(?:[^"]*"[^"]*")*[^"]*$)/)[0] || "")
             .replace(/(^"|"$)/g, "")
@@ -241,7 +259,11 @@ app.delete("/history/:index", (req, res) => {
 
     const removeIndex = userEntries[idx].i;
     raw.splice(removeIndex, 1);
-    fs.writeFileSync(historyFile, raw.join("\n") + (raw.length ? "\n" : ""), "utf8");
+    fs.writeFileSync(
+      historyFile,
+      raw.join("\n") + (raw.length ? "\n" : ""),
+      "utf8"
+    );
     console.log(`🗑 Deleted history ${idx} for ${email}`);
     return res.json({ message: "Deleted" });
   } catch (err) {
@@ -251,22 +273,37 @@ app.delete("/history/:index", (req, res) => {
 });
 
 // ---------- SOCKET.IO (signalling) ----------
-io.on("connection", socket => {
+const roomNames = {}; // store { socketId: { name, roomId } }
+
+io.on("connection", (socket) => {
   console.log("🔗 Socket connected:", socket.id);
 
-  socket.on("join-room", data => {
+  socket.on("join-room", (data) => {
     const { roomId, name } = data || {};
     if (!roomId) return;
     socket.join(roomId);
-    socket.data.roomId = roomId;
-    socket.data.name = name || "Guest";
+    roomNames[socket.id] = { name: name || "Guest", roomId };
 
+    // collect peers with names
     const room = io.sockets.adapter.rooms.get(roomId);
-    const peers = room ? [...room].filter(id => id !== socket.id) : [];
+    const peers =
+      room && room.size
+        ? [...room].filter((id) => id !== socket.id).map((id) => ({
+            peerId: id,
+            name: roomNames[id]?.name || "Participant",
+          }))
+        : [];
 
+    // send existing peers (with names) to the new joiner
     socket.emit("existing-peers", { peers });
-    socket.to(roomId).emit("peer-joined", { peerId: socket.id, name: socket.data.name });
-    console.log(`👥 ${socket.data.name} joined ${roomId} (peers: ${peers.length})`);
+
+    // tell others about this joiner
+    socket.to(roomId).emit("peer-joined", {
+      peerId: socket.id,
+      name: roomNames[socket.id].name,
+    });
+
+    console.log(`👥 ${roomNames[socket.id].name} joined ${roomId} (${peers.length} peers)`);
   });
 
   socket.on("webrtc-offer", ({ to, sdp }) =>
@@ -288,12 +325,19 @@ io.on("connection", socket => {
   );
 
   socket.on("disconnect", () => {
-    const roomId = socket.data.roomId;
-    if (roomId) socket.to(roomId).emit("peer-left", { peerId: socket.id });
-    console.log("❌ Socket disconnected:", socket.id);
+    const data = roomNames[socket.id];
+    if (data?.roomId) {
+      socket
+        .to(data.roomId)
+        .emit("peer-left", { peerId: socket.id, name: data.name });
+      console.log(`❌ ${data.name} left ${data.roomId}`);
+    }
+    delete roomNames[socket.id];
   });
 });
 
 // ---------- START ----------
 const PORT = process.env.PORT || 4000;
-server.listen(PORT, () => console.log(`🚀 Server running at http://localhost:${PORT}`));
+server.listen(PORT, () =>
+  console.log(`🚀 Server running at http://localhost:${PORT}`)
+);
