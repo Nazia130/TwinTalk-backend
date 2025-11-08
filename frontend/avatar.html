@@ -5,22 +5,66 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Select Avatar</title>
   <style>
-    body { font-family: Arial, sans-serif; background:#181818; color:#fff; text-align:center; padding:18px; }
-    h1 { color:#6a0dad; }
-    h3 { margin-top:25px; color:#ddd; }
-    .presets { display:flex; justify-content:center; gap:14px; flex-wrap:wrap; margin-bottom:14px; }
-    .presets img, .presets model-viewer { width:120px; height:120px; object-fit:cover; border-radius:12px; cursor:pointer; border:2px solid transparent; background:#000; }
-    .presets img:hover, .presets model-viewer:hover { border-color:#6a0dad; }
+    body {
+      font-family: Arial, sans-serif;
+      background: #181818;
+      color: #fff;
+      text-align: center;
+      padding: 18px;
+    }
+    h1 { color: #6a0dad; }
+    h3 { margin-top: 25px; color: #ddd; }
+    .presets {
+      display: flex;
+      justify-content: center;
+      gap: 14px;
+      flex-wrap: wrap;
+      margin-bottom: 14px;
+    }
+    .presets img, .presets model-viewer {
+      width: 120px;
+      height: 120px;
+      object-fit: cover;
+      border-radius: 12px;
+      cursor: pointer;
+      border: 2px solid transparent;
+      background: #000;
+    }
+    .presets img:hover, .presets model-viewer:hover {
+      border-color: #6a0dad;
+    }
 
-    #video { width:320px; height:240px; border-radius:8px; background:#000; display:block; margin:12px auto; }
-    #canvas { display:none; width:320px; height:240px; border-radius:8px; margin:12px auto; }
+    #video {
+      width: 320px;
+      height: 240px;
+      border-radius: 8px;
+      background: #000;
+      display: block;
+      margin: 12px auto;
+    }
+    #canvas {
+      display: none;
+      width: 320px;
+      height: 240px;
+      border-radius: 8px;
+      margin: 12px auto;
+    }
 
-    button { padding:10px 14px; border-radius:8px; border:none; background:#6a0dad; color:#fff; cursor:pointer; margin:6px; }
-    button.gray { background:#555; }
-    button:hover { background:#520c9c; }
+    button {
+      padding: 10px 14px;
+      border-radius: 8px;
+      border: none;
+      background: #6a0dad;
+      color: #fff;
+      cursor: pointer;
+      margin: 6px;
+      transition: background 0.3s;
+    }
+    button.gray { background: #555; }
+    button:hover { background: #520c9c; }
   </style>
 
-  <!-- ✅ Add model-viewer support -->
+  <!-- ✅ 3D Avatar Support -->
   <script type="module" src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"></script>
 </head>
 <body>
@@ -52,40 +96,62 @@
   </div>
 
 <script>
+  /* -------------------------
+     1️⃣ Auth Guard
+  -------------------------- */
+  const user = (() => { try { return JSON.parse(sessionStorage.getItem("user")); } catch(e){ return null; } })();
+  if (!user || !user.email) {
+    alert("Please login first to select an avatar.");
+    window.location.href = "auth.html";
+  }
+
+  /* -------------------------
+     2️⃣ Params & Elements
+  -------------------------- */
   const params = new URLSearchParams(window.location.search);
   const roomId = params.get('room') || '';
-  const userName = params.get('name') || localStorage.getItem('username') || 'Guest';
+  const userName = params.get('name') || user.name || user.email.split('@')[0];
 
   const video = document.getElementById('video');
   const canvas = document.getElementById('canvas');
   const ctx = canvas.getContext('2d');
   let stream = null;
 
-  // Start webcam preview
+  /* -------------------------
+     3️⃣ Start webcam preview
+  -------------------------- */
   navigator.mediaDevices.getUserMedia({ video:true, audio:false })
     .then(s => { stream = s; video.srcObject = s; })
     .catch(e => { console.warn("Camera not available:", e); });
 
-  // Choose preset image avatar
+  /* -------------------------
+     4️⃣ Choose preset avatar
+  -------------------------- */
   function selectPreset(src){
     localStorage.setItem('userAvatar', src);
-    window.location.href = `meeting.html?room=${encodeURIComponent(roomId)}&name=${encodeURIComponent(userName)}&useAvatar=true`;
+    cleanupStream();
+    redirectToMeeting(true);
   }
 
-  // Choose GLB 3D avatar
+  /* -------------------------
+     5️⃣ Choose 3D GLB avatar
+  -------------------------- */
   function selectGLB(path){
     localStorage.setItem('userAvatar', path);
-    window.location.href = `meeting.html?room=${encodeURIComponent(roomId)}&name=${encodeURIComponent(userName)}&useAvatar=true`;
+    cleanupStream();
+    redirectToMeeting(true);
   }
 
-  // Capture webcam snapshot & apply cartoon effect
+  /* -------------------------
+     6️⃣ Capture webcam as cartoon avatar
+  -------------------------- */
   function capture(){
     if(!video.videoWidth){ alert("Camera not ready."); return; }
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
-    ctx.drawImage(video,0,0,canvas.width,canvas.height);
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-    // Cartoon effect
+    // simple cartoon effect (reduce colors)
     const imgData = ctx.getImageData(0,0,canvas.width,canvas.height);
     const d = imgData.data, levels = 6;
     for(let i=0;i<d.length;i+=4){
@@ -100,20 +166,35 @@
     canvas.style.display = 'block';
   }
 
-  // Save captured snapshot as avatar
+  /* -------------------------
+     7️⃣ Save captured snapshot
+  -------------------------- */
   function saveCaptured(){
     const dataUrl = canvas.toDataURL('image/png');
     localStorage.setItem('userAvatar', dataUrl);
-    if(stream) stream.getTracks().forEach(t=>t.stop());
-    window.location.href = `meeting.html?room=${encodeURIComponent(roomId)}&name=${encodeURIComponent(userName)}&useAvatar=true`;
+    cleanupStream();
+    redirectToMeeting(true);
   }
 
-  // Go back without saving
+  /* -------------------------
+     8️⃣ Back button handler
+  -------------------------- */
   function goBack(){
-    if(stream) stream.getTracks().forEach(t=>t.stop());
-    window.location.href = `meeting.html?room=${encodeURIComponent(roomId)}&name=${encodeURIComponent(userName)}`;
+    cleanupStream();
+    redirectToMeeting(false);
+  }
+
+  /* -------------------------
+     9️⃣ Helpers
+  -------------------------- */
+  function cleanupStream(){
+    if(stream) stream.getTracks().forEach(t => t.stop());
+  }
+
+  function redirectToMeeting(useAvatar){
+    const url = `meeting.html?room=${encodeURIComponent(roomId)}&name=${encodeURIComponent(userName)}${useAvatar ? "&useAvatar=true" : ""}`;
+    window.location.href = url;
   }
 </script>
 </body>
 </html>
-x

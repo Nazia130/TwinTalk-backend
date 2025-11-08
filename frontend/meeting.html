@@ -93,71 +93,64 @@
     <button id="sendChat">Send</button>
   </div>
 </div>
+
+<!-- Supabase client (module) -->
 <script type="module">
   import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
   const SUPABASE_URL = "https://qdaegqzevidezclgvpcz.supabase.co";
   const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFkYWVncXpldmlkZXpjbGd2cGN6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjI1ODYyNDEsImV4cCI6MjA3ODE2MjI0MX0.jc7lubD4JhJWmYiHr6gy2hb-up4-cANI47DdDm7wrO0";
 
-  const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+  window.supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-  // Function used to save summaries
   window.saveSummaryToSupabase = async function (meetingId, transcript, userEmail) {
     try {
-      const { data, error } = await supabase
-        .from("summaries")
-        .insert([
-          {
-            user_email: userEmail,
-            meeting_id: meetingId,
-            summary: transcript,
-          },
-        ]);
+      const payload = {
+        user_email: userEmail,
+        meeting_id: meetingId,
+        summary: transcript
+      };
+      const { data, error } = await window.supabase.from("summaries").insert([payload]);
       if (error) throw error;
       console.log("✅ Summary saved to Supabase:", data);
+      return { success: true, data };
     } catch (err) {
       console.error("❌ Supabase insert failed:", err);
+      return { success: false, error: err };
     }
   };
 </script>
 
-
 <script>
-/* --------------------------------------
-   Full meeting logic (preserves all prior behavior)
-   - Signalling via socket.io
-   - WebRTC (with rtcConfig / TURN)
-   - Avatar mode (replace outgoing video with avatar canvas)
-   - Speech-to-text when avatar mode on
-   - Chat -> transcript
-   - Save transcript to Supabase on leave (per-user)
-----------------------------------------*/
-const socket = io();
+/* Full meeting logic (WebRTC + socket.io + avatar + STT + supabase save) */
+
+/* ---------------------------
+   1) Auth guard (must be logged-in)
+   --------------------------- */
+const sessionUser = (() => {
+  try { return JSON.parse(sessionStorage.getItem("user")); } catch(e) { return null; }
+})();
+if (!sessionUser || !sessionUser.email) {
+  alert("Please login first to join meetings.");
+  window.location.href = "/auth.html";
+}
+
+/* ---------------------------
+   2) Basic vars / params
+   --------------------------- */
 const params = new URLSearchParams(window.location.search);
 const roomId = params.get('room') || 'default';
+let name = params.get('name') || sessionUser.name || sessionUser.email.split('@')[0];
+const userEmail = sessionUser.email;
 
-// session user (from auth flow)
-const sessionUser = (() => { try { return JSON.parse(sessionStorage.getItem("user")); } catch(e){ return null; } })();
-let name =
-  params.get('name') ||
-  sessionUser?.name ||
-  (sessionUser?.email ? sessionUser.email.split('@')[0] : "Guest");
-
-const userEmail = sessionUser?.email || "unknown";
-
-// Avatar flow params
 const useAvatar = params.get('useAvatar') === 'true';
 const savedAvatar = localStorage.getItem('userAvatar');
 
-let localStream = null;
-const peers = {};
-let meetingTranscript = "";
-let avatarMode = false;
-let originalVideoTrack = null;
-let avatarStream = null;
-let canvas = null, ctx = null;
+const socket = io();
 
-// RTC config (reinstated original Xirsys TURN/STUN servers)
+/* ---------------------------
+   3) RTC config (TURN/STUN) - keep your existing working one (Xirsys example)
+   --------------------------- */
 const rtcConfig = {
   iceServers: [
     { urls: ["stun:bn-turn1.xirsys.com"] },
@@ -176,175 +169,70 @@ const rtcConfig = {
   ]
 };
 
-// Timer
+/* ---------------------------
+   4) UI timer
+   --------------------------- */
 const timerDisplay = document.getElementById('meetingTimer');
 const startTime = Date.now();
-setInterval(()=>{
-  const elapsed = Date.now()-startTime;
-  const h = Math.floor(elapsed/3600000);
-  const m = Math.floor((elapsed%3600000)/60000);
-  const s = Math.floor((elapsed%60000)/1000);
+setInterval(()=> {
+  const elapsed = Date.now() - startTime;
+  const h = Math.floor(elapsed/3600000), m = Math.floor((elapsed%3600000)/60000), s = Math.floor((elapsed%60000)/1000);
   timerDisplay.textContent = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
-},1000);
+}, 1000);
 
-// UI helpers (keeps your original markup)
-function createSmallTile(id,label,stream,avatarURL){
+/* ---------------------------
+   5) Media / avatar / STT state
+   --------------------------- */
+let localStream = null;
+let originalVideoTrack = null;
+let avatarStream = null;
+let canvas = null, ctx = null;
+let avatarMode = false;
+let recognition = null;
+let meetingTranscript = ""; // collects STT + chat text
+const peers = {}; // peerId -> RTCPeerConnection
+
+/* ---------------------------
+   6) UI helpers (preserve your layout)
+   --------------------------- */
+function createSmallTile(id, label, stream = null, avatarURL = null) {
   let tile = document.getElementById('tile-'+id);
-  if(!tile){
-    tile = document.createElement('div');
-    tile.className = 'small-tile';
-    tile.id = 'tile-'+id;
-    if(stream){
-      const video = document.createElement('video');
-      video.autoplay = true; video.playsInline = true;
-      if(id==='me') video.muted = true;
-      video.srcObject = stream;
-      tile.appendChild(video);
-    } else if(avatarURL){
-      const img = document.createElement('img');
-      img.src = avatarURL; tile.appendChild(img);
+  if (!tile) {
+    tile = document.createElement('div'); tile.className = 'small-tile'; tile.id = 'tile-'+id;
+    if (stream) {
+      const v = document.createElement('video'); v.autoplay = true; v.playsInline = true; if (id==='me') v.muted = true;
+      v.srcObject = stream; tile.appendChild(v);
+    } else if (avatarURL) {
+      const img = document.createElement('img'); img.src = avatarURL; tile.appendChild(img);
     }
-    const lbl = document.createElement('div');
-    lbl.className = 'name-label'; lbl.textContent = label;
-    tile.appendChild(lbl);
+    const lbl = document.createElement('div'); lbl.className = 'name-label'; lbl.textContent = label; tile.appendChild(lbl);
     document.getElementById('top-strip').appendChild(tile);
   } else {
-    if(stream){
-      tile.innerHTML = `<video autoplay playsinline ${id==='me'?'muted':''}></video>
-                        <div class="name-label">${label}</div>`;
+    // update content
+    if (stream) {
+      tile.innerHTML = `<video autoplay playsinline ${id==='me'?'muted':''}></video><div class="name-label">${label}</div>`;
       tile.querySelector('video').srcObject = stream;
-    } else if(avatarURL){
+    } else if (avatarURL) {
       tile.innerHTML = `<img src="${avatarURL}"><div class="name-label">${label}</div>`;
     }
   }
 }
 
-function setMainSpeaker(id,label,stream,avatarURL){
+function setMainSpeaker(id, label, stream = null, avatarURL = null) {
   const main = document.getElementById('main-speaker');
-  if(stream){
-    main.innerHTML = `<video autoplay playsinline ${id==='me'?'muted':''}></video>
-      <div class="name-label">${label}</div>`;
+  if (stream) {
+    main.innerHTML = `<video autoplay playsinline ${id==='me'?'muted':''}></video><div class="name-label">${label}</div>`;
     main.querySelector('video').srcObject = stream;
-  } else if(avatarURL){
+  } else if (avatarURL) {
     main.innerHTML = `<img src="${avatarURL}"><div class="name-label">${label}</div>`;
   }
 }
 
-// Media init (tries full audio+video; if user wants avatar-only and camera denied, we try audio-only)
-async function initMedia(){
-  try{
-    localStream = await navigator.mediaDevices.getUserMedia({video:true,audio:true});
-    createSmallTile('me', name+' (You)', localStream, null);
-    setMainSpeaker('me', name+' (You)', localStream, null);
-
-    // store original video track
-    originalVideoTrack = localStream.getVideoTracks()[0] || null;
-
-    if (useAvatar && savedAvatar) {
-      // enable avatar but keep audio (replace outgoing video with avatar canvas)
-      await enableAvatarMode(savedAvatar);
-    }
-  }catch(e){
-    // if user denies video but wants avatar mode, try audio-only so STT works
-    console.warn("getUserMedia(video+audio) failed:", e);
-    if (useAvatar && savedAvatar) {
-      try {
-        localStream = await navigator.mediaDevices.getUserMedia({audio:true});
-        // attach only audio track to a 'me' tile visually show avatar instead of camera
-        createSmallTile('me', name+' (Avatar)', null, savedAvatar);
-        setMainSpeaker('me', name+' (Avatar)', null, savedAvatar);
-        // we won't have a video track to replace for peers; but we still send audio tracks when creating peers
-        avatarMode = true;
-        startSpeechRecognition();
-        socket.emit("set-avatar",{ roomId, avatar: savedAvatar, name });
-      } catch(err2){
-        console.warn("audio-only also failed:", err2);
-        alert("Camera/Mic access required for meeting features.");
-      }
-    } else {
-      alert("Camera/Mic error: " + e.message);
-    }
-  }
-}
-
-// Avatar Mode (replace outgoing video track with avatar canvas)
-async function enableAvatarMode(avatarURL){
-  // ensure we have audio at least
-  if (!localStream) {
-    try {
-      localStream = await navigator.mediaDevices.getUserMedia({audio:true});
-    } catch(e) {
-      console.warn("Unable to get audio for avatar mode:", e);
-    }
-  }
-
-  // prepare canvas
-  if (!canvas) {
-    canvas = document.createElement('canvas');
-    canvas.width = 640; canvas.height = 360;
-    ctx = canvas.getContext('2d');
-  }
-
-  const img = new Image();
-  img.crossOrigin = "anonymous";
-  img.src = avatarURL;
-  await img.decode();
-
-  // draw once (static avatar). If you want animation later, can draw repeatedly
-  ctx.fillStyle = "#000"; ctx.fillRect(0,0,canvas.width,canvas.height);
-  ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-
-  avatarStream = canvas.captureStream(15); // 15 fps
-  const avatarTrack = avatarStream.getVideoTracks()[0];
-
-  // remember original video track for restore
-  if (!originalVideoTrack) {
-    const vt = localStream?.getVideoTracks?.()[0];
-    if (vt) originalVideoTrack = vt;
-  }
-
-  // replace track for each peer
-  for(const pc of Object.values(peers)){
-    const sender = pc.getSenders().find(s => s.track && s.track.kind === "video");
-    if (sender && avatarTrack) {
-      try { await sender.replaceTrack(avatarTrack); } catch(e){ console.warn("replaceTrack failed", e); }
-    }
-  }
-
-  // update local UI
-  createSmallTile('me', name+' (Avatar)', null, avatarURL);
-  setMainSpeaker('me', name+' (Avatar)', null, avatarURL);
-
-  avatarMode = true;
-  startSpeechRecognition();
-  socket.emit("set-avatar",{ roomId, avatar: avatarURL, name });
-}
-
-async function disableAvatarMode(){
-  if (!localStream || !originalVideoTrack) {
-    // nothing to restore
-    avatarMode = false;
-    if (recognition) recognition.stop();
-    return;
-  }
-
-  for(const pc of Object.values(peers)){
-    const sender = pc.getSenders().find(s => s.track && s.track.kind === "video");
-    if (sender) {
-      try { await sender.replaceTrack(originalVideoTrack); } catch(e){ console.warn("replaceTrack restore failed", e); }
-    }
-  }
-
-  createSmallTile('me', name+' (You)', localStream, null);
-  setMainSpeaker('me', name+' (You)', localStream, null);
-  avatarMode = false;
-  if (recognition) recognition.stop();
-}
-
-// Speech-to-text (browser-native)
-let recognition;
-function startSpeechRecognition(){
-  if(!('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)){
+/* ---------------------------
+   7) Speech-to-text (browser) for avatar mode
+   --------------------------- */
+function startSpeechRecognition() {
+  if (!('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) {
     console.warn("Speech recognition not supported in this browser.");
     return;
   }
@@ -353,66 +241,164 @@ function startSpeechRecognition(){
   recognition.lang = 'en-IN';
   recognition.continuous = true;
   recognition.interimResults = true;
-  recognition.onresult = e => {
-    for(let i=e.resultIndex;i<e.results.length;i++){
-      if(e.results[i].isFinal) meetingTranscript += e.results[i][0].transcript + ". ";
+  recognition.onresult = (e) => {
+    for (let i = e.resultIndex; i < e.results.length; i++) {
+      if (e.results[i].isFinal) {
+        meetingTranscript += e.results[i][0].transcript + ". ";
+      }
     }
   };
-  recognition.onerror = err => console.error("STT error:",err);
+  recognition.onerror = (err) => console.error("STT error:", err);
   recognition.start();
 }
 
-// WebRTC helpers (createPeerConnection uses rtcConfig)
-function createPeerConnection(peerId){
-  const pc = new RTCPeerConnection(rtcConfig);
-  // attach local tracks (audio always, video if present)
-  if(localStream){
-    localStream.getTracks().forEach(t => pc.addTrack(t, localStream));
+/* ---------------------------
+   8) Avatar Mode: replace outgoing video with canvas stream
+   --------------------------- */
+async function enableAvatarMode(avatarURL) {
+  // ensure localStream has audio at least
+  if (!localStream) {
+    try { localStream = await navigator.mediaDevices.getUserMedia({ audio: true }); }
+    catch (e) { alert("Audio required for avatar mode: " + e.message); return; }
   }
-  // If avatarMode is active and we have avatarStream, also ensure video sender uses avatar track
-  pc.ontrack = e => {
-    // display remote track as before
-    createSmallTile(peerId, 'User '+peerId.slice(0,5), e.streams[0], null);
-    setMainSpeaker(peerId, 'User '+peerId.slice(0,5), e.streams[0], null);
+
+  // prepare canvas
+  if (!canvas) {
+    canvas = document.createElement('canvas'); canvas.width = 640; canvas.height = 360; ctx = canvas.getContext('2d');
+  }
+
+  const img = new Image(); img.crossOrigin = "anonymous"; img.src = avatarURL;
+  await img.decode().catch(()=>{/* ignore decode errors */});
+  ctx.fillStyle = "#000"; ctx.fillRect(0,0,canvas.width,canvas.height);
+  ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+  avatarStream = canvas.captureStream(15); // 15 fps
+  const avatarTrack = avatarStream.getVideoTracks()[0];
+
+  // remember original video track
+  if (!originalVideoTrack && localStream.getVideoTracks().length) originalVideoTrack = localStream.getVideoTracks()[0];
+
+  // replace sender tracks for all peers
+  for (const pc of Object.values(peers)) {
+    const sender = pc.getSenders().find(s => s.track && s.track.kind === 'video');
+    if (sender && avatarTrack) {
+      try { await sender.replaceTrack(avatarTrack); } catch (e) { console.warn("replaceTrack error", e); }
+    }
+  }
+
+  // update UI: show avatar locally
+  createSmallTile('me', name + ' (Avatar)', null, avatarURL);
+  setMainSpeaker('me', name + ' (Avatar)', null, avatarURL);
+
+  avatarMode = true;
+  startSpeechRecognition();
+  // notify others (optional)
+  socket.emit('set-avatar', { roomId, avatar: avatarURL, name });
+}
+
+async function disableAvatarMode() {
+  if (!localStream || !originalVideoTrack) {
+    avatarMode = false;
+    if (recognition) recognition.stop();
+    return;
+  }
+
+  for (const pc of Object.values(peers)) {
+    const sender = pc.getSenders().find(s => s.track && s.track.kind === 'video');
+    if (sender) {
+      try { await sender.replaceTrack(originalVideoTrack); } catch(e) { console.warn("restore track failed", e); }
+    }
+  }
+
+  createSmallTile('me', name + ' (You)', localStream, null);
+  setMainSpeaker('me', name + ' (You)', localStream, null);
+  avatarMode = false;
+  if (recognition) recognition.stop();
+}
+
+/* ---------------------------
+   9) WebRTC: create peer connection, attach tracks, handlers
+   --------------------------- */
+function createPeerConnection(peerId) {
+  const pc = new RTCPeerConnection(rtcConfig);
+
+  // add local tracks (audio + video if available)
+  if (localStream) localStream.getTracks().forEach(t => pc.addTrack(t, localStream));
+
+  pc.ontrack = (e) => {
+    // show remote stream (first stream)
+    createSmallTile(peerId, 'User ' + peerId.slice(0,5), e.streams[0], null);
+    setMainSpeaker(peerId, 'User ' + peerId.slice(0,5), e.streams[0], null);
   };
-  pc.onicecandidate = e => {
-    if(e.candidate) socket.emit('webrtc-ice-candidate',{ to: peerId, candidate: e.candidate });
+
+  pc.onicecandidate = (e) => {
+    if (e.candidate) socket.emit('webrtc-ice-candidate', { to: peerId, candidate: e.candidate });
   };
+
   pc.onconnectionstatechange = () => {
-    if(['disconnected','failed','closed'].includes(pc.connectionState)){
+    if (['disconnected', 'failed', 'closed'].includes(pc.connectionState)) {
       const tile = document.getElementById('tile-'+peerId);
-      if(tile) tile.remove();
+      if (tile) tile.remove();
       try { pc.close(); } catch(e){}
       delete peers[peerId];
     }
   };
+
   peers[peerId] = pc;
   return pc;
 }
 
-// make outgoing offer
-async function callPeer(peerId){
+async function callPeer(peerId) {
   const pc = createPeerConnection(peerId);
   const offer = await pc.createOffer();
   await pc.setLocalDescription(offer);
-  socket.emit('webrtc-offer',{ to: peerId, sdp: offer });
+  socket.emit('webrtc-offer', { to: peerId, sdp: offer });
 }
 
-// Signalling events
+/* ---------------------------
+   10) Socket signalling handlers
+   --------------------------- */
 socket.on('connect', async () => {
-  await initMedia();
+  // init media first
+  try {
+    // try to get camera+mic; if denied but avatar requested, try audio-only
+    try {
+      localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+    } catch(e) {
+      if (useAvatar && savedAvatar) {
+        localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      } else {
+        throw e;
+      }
+    }
+
+    // store original video track if present
+    originalVideoTrack = localStream.getVideoTracks()[0] || null;
+    createSmallTile('me', name + (avatarMode ? ' (Avatar)' : ' (You)'), localStream, !originalVideoTrack && savedAvatar ? savedAvatar : null);
+    if (originalVideoTrack) setMainSpeaker('me', name + ' (You)', localStream);
+    else if (savedAvatar) setMainSpeaker('me', name + ' (Avatar)', null, savedAvatar);
+
+    // if user opened with avatar param and has savedAvatar, enable avatar mode
+    if (useAvatar && savedAvatar) await enableAvatarMode(savedAvatar);
+  } catch (err) {
+    alert("Camera/Mic error: " + (err && err.message ? err.message : err));
+  }
+
+  // join signalling room
   socket.emit('join-room', { roomId, name });
 });
 
+// existing peers -> create offers
 socket.on('existing-peers', async ({ peers: existing }) => {
   for (const p of existing) await callPeer(p);
 });
 
 socket.on('peer-joined', ({ peerId, name: peerName }) => {
-  // optional UI or console notice
-  console.log('peer joined', peerId, peerName);
+  // optional UI: you can show a notification
+  console.log(`Peer joined ${peerId} (${peerName})`);
 });
 
+// offer -> create answer
 socket.on('webrtc-offer', async ({ from, sdp }) => {
   const pc = createPeerConnection(from);
   await pc.setRemoteDescription(new RTCSessionDescription(sdp));
@@ -421,41 +407,45 @@ socket.on('webrtc-offer', async ({ from, sdp }) => {
   socket.emit('webrtc-answer', { to: from, sdp: answer });
 });
 
+// answer -> set remote description
 socket.on('webrtc-answer', async ({ from, sdp }) => {
   const pc = peers[from];
   if (pc) await pc.setRemoteDescription(new RTCSessionDescription(sdp));
 });
 
+// ICE candidate
 socket.on('webrtc-ice-candidate', async ({ from, candidate }) => {
   const pc = peers[from];
-  if (pc && candidate) await pc.addIceCandidate(new RTCIceCandidate(candidate));
+  if (pc && candidate) {
+    try { await pc.addIceCandidate(new RTCIceCandidate(candidate)); }
+    catch(e) { console.warn("addIceCandidate failed", e); }
+  }
 });
 
+// peer-left
 socket.on('peer-left', ({ peerId }) => {
   const tile = document.getElementById('tile-'+peerId);
   if (tile) tile.remove();
-  if (peers[peerId]) {
-    try { peers[peerId].close(); } catch(e){}
-    delete peers[peerId];
-  }
+  if (peers[peerId]) { try { peers[peerId].close(); } catch(e){} delete peers[peerId]; }
 });
 
-socket.on('peer-avatar', ({ peerId, avatar, name }) => {
-  createSmallTile(peerId, name+" (Avatar)", null, avatar);
-  setMainSpeaker(peerId, name+" (Avatar)", null, avatar);
+// peer-avatar broadcast
+socket.on('peer-avatar', ({ peerId, avatar, name: peerName }) => {
+  createSmallTile(peerId, peerName + " (Avatar)", null, avatar);
+  setMainSpeaker(peerId, peerName + " (Avatar)", null, avatar);
 });
 
-// Controls
+/* ---------------------------
+   11) UI Controls wiring
+   --------------------------- */
 document.getElementById('muteBtn').onclick = () => {
-  if (localStream) {
-    const t = localStream.getAudioTracks()[0];
-    if (t) t.enabled = !t.enabled;
-  }
+  if (!localStream) return;
+  const t = localStream.getAudioTracks()[0];
+  if (t) t.enabled = !t.enabled;
 };
 
 document.getElementById('videoBtn').onclick = () => {
   if (avatarMode) {
-    // when avatar mode on, this button toggles back to camera
     disableAvatarMode();
   } else if (localStream) {
     const t = localStream.getVideoTracks()[0];
@@ -467,27 +457,22 @@ document.getElementById('screenBtn').onclick = async () => {
   try {
     const screen = await navigator.mediaDevices.getDisplayMedia({ video: true });
     const track = screen.getVideoTracks()[0];
-    for(const pc of Object.values(peers)){
+    for (const pc of Object.values(peers)) {
       const sender = pc.getSenders().find(s => s.track && s.track.kind === 'video');
       if (sender) sender.replaceTrack(track);
     }
-    setMainSpeaker('me', name+' (You)', screen, null);
+    setMainSpeaker('me', name + ' (You)', screen, null);
     track.onended = () => {
-      if (localStream) {
-        const camTrack = avatarMode ? (avatarStream?.getVideoTracks?.()[0] || localStream.getVideoTracks()[0])
-                                    : localStream.getVideoTracks()[0];
-        for(const pc of Object.values(peers)){
-          const sender = pc.getSenders().find(s => s.track && s.track.kind === 'video');
-          if (sender) sender.replaceTrack(camTrack);
-        }
-        if (avatarMode && savedAvatar) {
-          setMainSpeaker('me', name+' (Avatar)', null, savedAvatar);
-        } else {
-          setMainSpeaker('me', name+' (You)', localStream, null);
-        }
+      // restore camera/ avatar
+      const camTrack = avatarMode ? (avatarStream?.getVideoTracks?.()[0] || originalVideoTrack) : originalVideoTrack;
+      for (const pc of Object.values(peers)) {
+        const sender = pc.getSenders().find(s => s.track && s.track.kind === 'video');
+        if (sender && camTrack) sender.replaceTrack(camTrack);
       }
+      if (avatarMode && savedAvatar) setMainSpeaker('me', name + ' (Avatar)', null, savedAvatar);
+      else if (originalVideoTrack) setMainSpeaker('me', name + ' (You)', localStream, null);
     };
-  } catch(e) {
+  } catch (e) {
     console.log("Screen share cancelled.", e);
   }
 };
@@ -498,27 +483,42 @@ document.getElementById('avatarBtn').onclick = async () => {
   } else if (avatarMode) {
     await disableAvatarMode();
   } else {
+    // fallback: open avatar selection UI (avatar.html) with current params
     window.location.href = `avatar.html?room=${encodeURIComponent(roomId)}&name=${encodeURIComponent(name)}`;
   }
 };
 
-// Leave: stop everything and save transcript to Supabase
+/* ---------------------------
+   12) Leave meeting -> save transcript to Supabase and redirect to history
+   --------------------------- */
 document.getElementById('leaveBtn').onclick = async () => {
-  if (recognition) recognition.stop();
-  Object.values(peers).forEach(pc => pc.close());
-  if (localStream) localStream.getTracks().forEach(t => t.stop());
-
-  if (meetingTranscript.trim().length > 0 && userEmail !== "unknown") {
-    await window.saveSummaryToSupabase(roomId, meetingTranscript, userEmail);
-  } else {
-    console.warn("⚠️ Nothing to save or unknown user");
+  if (recognition) {
+    try { recognition.stop(); } catch(e) {}
   }
 
-  window.location.href = '/history.html';
+  // close peers + tracks
+  Object.values(peers).forEach(pc => { try { pc.close(); } catch(e){} });
+  if (localStream) localStream.getTracks().forEach(t => { try { t.stop(); } catch(e){} });
+
+  // Save transcript only if user logged in & transcript exists
+  if (meetingTranscript.trim().length && userEmail) {
+    try {
+      await window.saveSummaryToSupabase(roomId, meetingTranscript, userEmail);
+      console.log("Saved summary for", userEmail);
+    } catch (e) {
+      console.error("Failed to save summary", e);
+    }
+  } else {
+    console.warn("No transcript to save or user unknown");
+  }
+
+  // go to history page where user can see their saved summaries
+  window.location.href = "/index.html";
 };
 
-
-// Chat wiring (also added into meetingTranscript)
+/* ---------------------------
+   13) Chat -> transcript wiring
+   --------------------------- */
 const chatMessages = document.getElementById('chat-messages');
 const chatInput = document.getElementById('chatText');
 
@@ -527,18 +527,22 @@ document.getElementById('sendChat').onclick = () => {
   if (!msg) return;
   socket.emit('chat-message', { roomId, name, message: msg });
   chatInput.value = '';
+  // append own message locally
+  const d = document.createElement('div'); d.textContent = `${name}: ${msg}`; chatMessages.appendChild(d);
+  chatMessages.scrollTop = chatMessages.scrollHeight;
+  meetingTranscript += `${name} says ${msg}. `;
 };
 
 socket.on('chat-message', ({ name: sender, message }) => {
-  const d = document.createElement('div');
-  d.textContent = `${sender}: ${message}`;
-  chatMessages.appendChild(d);
-  chatMessages.scrollTop = chatMessages.scrollHeight;
+  const d = document.createElement('div'); d.textContent = `${sender}: ${message}`;
+  chatMessages.appendChild(d); chatMessages.scrollTop = chatMessages.scrollHeight;
   meetingTranscript += `${sender} says ${message}. `;
 });
 
-// optional: expose meetingTranscript for debugging
-window.__meetingTranscript = () => meetingTranscript;
+/* ---------------------------
+   14) Expose transcript for debugging
+   --------------------------- */
+window.__getTranscript = () => meetingTranscript;
 </script>
 </body>
 </html>
