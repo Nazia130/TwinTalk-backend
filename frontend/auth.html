@@ -109,6 +109,14 @@
     // Default tab
     switchMode("signin");
 
+    // ✅ NEW redirect logic (preserves meeting link)
+    function redirectAfterAuth(user) {
+      sessionStorage.setItem("user", JSON.stringify(user));
+      const redirectUrl = sessionStorage.getItem("postLoginRedirect") || "/index.html";
+      sessionStorage.removeItem("postLoginRedirect");
+      window.location.href = redirectUrl;
+    }
+
     document.getElementById("authForm").addEventListener("submit", async (e) => {
       e.preventDefault();
       const name = usernameField.value.trim();
@@ -132,8 +140,7 @@
             switchMode("signin");
           } else {
             alert("✅ Login successful!");
-            sessionStorage.setItem("user", JSON.stringify({ name: data.user?.name || name, email }));
-            window.location.href = "/index.html";
+            redirectAfterAuth({ name: data.user?.name || name, email });
           }
         } else {
           alert(data.message || "❌ Invalid credentials.");

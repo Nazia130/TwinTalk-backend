@@ -121,26 +121,32 @@
 <script>
 /* --------------------------------------
    Updated meeting behavior
+   - Preserve redirect to meeting after auth
+   - Wait for media before join
+   - Avatar mode available for any user
+   - STT only captures microphone speech while avatar mode is ON
+   - Chat messages are NOT appended to final summary
 ----------------------------------------*/
 const socket = io();
 const params = new URLSearchParams(window.location.search);
 const roomId = params.get('room') || 'default';
-const peerNames = {}; // ✅ Added: store all peer names
 
-// session user from auth flow
+// session user from auth flow (auth.html sets sessionStorage.user)
 const sessionUser = (() => { try { return JSON.parse(sessionStorage.getItem("user")); } catch(e){ return null; } })();
 
-// redirect if not logged in
+// If not logged-in, save redirect and send to auth
 if (!sessionUser || !sessionUser.email) {
+  // store desired redirect so user can return after sign-in (include full search)
   sessionStorage.setItem("postLoginRedirect", window.location.pathname + window.location.search);
   alert("Please sign in/up before joining the meeting.");
   window.location.href = "/auth.html";
 }
 
-// determine name
+// compute name: prefer explicit `name` query param, then logged-in user's name, then email prefix
 let name = params.get('name') ||
            sessionUser?.name ||
            (sessionUser?.email ? sessionUser.email.split('@')[0] : "Guest");
+
 const userEmail = (sessionUser?.email || "unknown").toLowerCase();
 
 const useAvatar = params.get('useAvatar') === 'true';
@@ -148,7 +154,7 @@ const savedAvatar = localStorage.getItem('userAvatar');
 
 let localStream = null;
 const peers = {};
-let meetingTranscript = "";
+let meetingTranscript = "";      // will contain only STT final sentences captured while avatar mode is ON
 let avatarMode = false;
 let originalVideoTrack = null;
 let avatarStream = null;
@@ -167,6 +173,7 @@ setInterval(()=>{
 
 // UI helpers
 function createSmallTile(id,label,stream,avatarURL){
+  // if tile exists, update; else create
   let tile = document.getElementById('tile-'+id);
   if(!tile){
     tile = document.createElement('div');
@@ -181,13 +188,32 @@ function createSmallTile(id,label,stream,avatarURL){
     } else if(avatarURL){
       const img = document.createElement('img');
       img.src = avatarURL; tile.appendChild(img);
+    } else {
+      // placeholder box (no video or avatar)
+      const placeholder = document.createElement('div');
+      placeholder.style.width = '100%';
+      placeholder.style.height = '100%';
+      placeholder.style.display = 'flex';
+      placeholder.style.justifyContent = 'center';
+      placeholder.style.alignItems = 'center';
+      placeholder.style.color = '#999';
+      placeholder.textContent = 'No video';
+      tile.appendChild(placeholder);
     }
     const lbl = document.createElement('div');
     lbl.className = 'name-label'; lbl.textContent = label;
     tile.appendChild(lbl);
     document.getElementById('top-strip').appendChild(tile);
   } else {
-    tile.querySelector('.name-label').textContent = label;
+    // update contents
+    if(stream){
+      tile.innerHTML = `<video autoplay playsinline ${id==='me'?'muted':''}></video><div class="name-label">${label}</div>`;
+      tile.querySelector('video').srcObject = stream;
+    } else if(avatarURL){
+      tile.innerHTML = `<img src="${avatarURL}"><div class="name-label">${label}</div>`;
+    } else {
+      tile.innerHTML = `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:#999">No video</div><div class="name-label">${label}</div>`;
+    }
   }
 }
 
@@ -199,40 +225,57 @@ function setMainSpeaker(id,label,stream,avatarURL){
     main.querySelector('video').srcObject = stream;
   } else if(avatarURL){
     main.innerHTML = `<img src="${avatarURL}"><div class="name-label">${label}</div>`;
+  } else {
+    main.innerHTML = `<div style="width:80%;height:60%;display:flex;align-items:center;justify-content:center;color:#999">No active video</div><div class="name-label">${label}</div>`;
   }
 }
 
-// Media
+// Media init (tries full audio+video; waits for permissions)
 async function initMedia(){
   try{
     localStream = await navigator.mediaDevices.getUserMedia({video:true,audio:true});
     createSmallTile('me', name+' (You)', localStream, null);
     setMainSpeaker('me', name+' (You)', localStream, null);
+
+    // store original video track for avatar restore
     originalVideoTrack = localStream.getVideoTracks()[0] || null;
 
-    if (useAvatar && savedAvatar) await enableAvatarMode(savedAvatar);
+    if (useAvatar && savedAvatar) {
+      // if meeting opened with useAvatar param, enable avatar
+      await enableAvatarMode(savedAvatar);
+    }
   }catch(e){
     console.warn("getUserMedia error:", e);
-    alert("Camera/Mic access is required for meeting features.");
+    // If user denies video, attempt audio-only (this allows STT if avatar enabled)
+    try {
+      localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      createSmallTile('me', name+' (You - audio)', null, null);
+    } catch(err) {
+      console.warn("audio-only also failed:", err);
+      alert("Camera/Mic access is required for meeting features.");
+    }
   }
 }
 
-// Avatar Mode
+// Avatar Mode (replace outgoing video track with avatar canvas)
 async function enableAvatarMode(avatarURL){
+  // ensure at least audio available
   if (!localStream) {
     try {
       localStream = await navigator.mediaDevices.getUserMedia({audio:true});
     } catch (e) { console.warn("Unable to get audio for avatar mode:", e); }
   }
+
   if (!canvas) {
     canvas = document.createElement('canvas');
     canvas.width = 640; canvas.height = 360;
     ctx = canvas.getContext('2d');
   }
+
   const img = new Image();
   img.crossOrigin = "anonymous";
   img.src = avatarURL;
-  await img.decode();
+  try { await img.decode(); } catch(e){ console.log('avatar decode err', e); }
 
   ctx.fillStyle = "#000"; ctx.fillRect(0,0,canvas.width,canvas.height);
   ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
@@ -240,10 +283,12 @@ async function enableAvatarMode(avatarURL){
   avatarStream = canvas.captureStream(15);
   const avatarTrack = avatarStream.getVideoTracks()[0];
 
+  // remember original video track for restore
   if (!originalVideoTrack && localStream) {
     originalVideoTrack = localStream.getVideoTracks()[0] || null;
   }
 
+  // replace track for each peer (if peers exist)
   for(const pc of Object.values(peers)){
     const sender = pc.getSenders().find(s => s.track && s.track.kind === "video");
     if (sender && avatarTrack) {
@@ -255,11 +300,17 @@ async function enableAvatarMode(avatarURL){
   setMainSpeaker('me', name+' (Avatar)', null, avatarURL);
 
   avatarMode = true;
+  meetingTranscript = ""; // start fresh for this avatar session
+
+  // start local STT for this user only
   startSpeechRecognition();
+
+  // broadcast avatar presence to others (so they see image)
   socket.emit("set-avatar",{ roomId, avatar: avatarURL, name });
 }
 
 async function disableAvatarMode(){
+  // restore original video track to peers
   if (originalVideoTrack) {
     for(const pc of Object.values(peers)){
       const sender = pc.getSenders().find(s => s.track && s.track.kind === "video");
@@ -268,7 +319,9 @@ async function disableAvatarMode(){
       }
     }
   }
-  if (localStream) {
+
+  // restore UI
+  if (localStream && localStream.getVideoTracks().length) {
     createSmallTile('me', name+' (You)', localStream, null);
     setMainSpeaker('me', name+' (You)', localStream, null);
   } else {
@@ -277,11 +330,13 @@ async function disableAvatarMode(){
   }
 
   avatarMode = false;
+  // stop STT
   if (recognition) {
     recognition.stop();
     recognition = null;
   }
 
+  // save the collected transcript for the user (if any)
   if (meetingTranscript.trim().length > 0 && userEmail !== "unknown") {
     try {
       await window.saveSummaryToSupabase(roomId, meetingTranscript.trim(), userEmail);
@@ -291,19 +346,19 @@ async function disableAvatarMode(){
   }
 }
 
-// STT
+// Speech-to-text (browser-native) — we append ONLY final results to meetingTranscript
 let recognition;
 function startSpeechRecognition(){
   if(!('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)){
     console.warn("Speech recognition not supported in this browser.");
-    alert("Speech recognition not supported in this browser. Try Chrome desktop.");
+    alert("Speech recognition not supported in this browser. Use Chrome desktop for best results.");
     return;
   }
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   recognition = new SR();
   recognition.lang = 'en-IN';
   recognition.continuous = true;
-  recognition.interimResults = false;
+  recognition.interimResults = false; // only final results
   recognition.onresult = e => {
     for(let i=e.resultIndex;i<e.results.length;i++){
       if(e.results[i].isFinal) {
@@ -313,55 +368,68 @@ function startSpeechRecognition(){
       }
     }
   };
-  recognition.onerror = err => { console.error("STT error:", err); };
+  recognition.onerror = err => {
+    console.error("STT error:", err);
+  };
+  recognition.onend = () => {
+    // keep STT running during avatar mode (some browsers stop), restart if avatar still on
+    if (avatarMode) {
+      try { recognition.start(); } catch(e){ console.warn('restarting recognition failed', e); }
+    }
+  };
   recognition.start();
 }
 
-// WebRTC
-function createPeerConnection(peerId, peerName){
+// WebRTC helpers: createPeerConnection adds available local tracks
+function createPeerConnection(peerId){
   const pc = new RTCPeerConnection();
-  if(localStream){
+  // Attach current local tracks (if any)
+  if(localStream) {
     localStream.getTracks().forEach(t => pc.addTrack(t, localStream));
   }
+  // If we have avatarStream active, ensure video sender uses avatar track (replace later after senders created)
   pc.ontrack = e => {
-    createSmallTile(peerId, peerName || ('User '+peerId.slice(0,5)), e.streams[0], null);
-    setMainSpeaker(peerId, peerName || ('User '+peerId.slice(0,5)), e.streams[0], null);
+    createSmallTile(peerId, 'User '+peerId.slice(0,5), e.streams[0], null);
+    setMainSpeaker(peerId, 'User '+peerId.slice(0,5), e.streams[0], null);
   };
   pc.onicecandidate = e => {
     if(e.candidate) socket.emit('webrtc-ice-candidate',{ to: peerId, candidate: e.candidate });
+  };
+  pc.onconnectionstatechange = () => {
+    if(['disconnected','failed','closed'].includes(pc.connectionState)){
+      const tile = document.getElementById('tile-'+peerId);
+      if(tile) tile.remove();
+      try { pc.close(); } catch(e) {}
+      delete peers[peerId];
+    }
   };
   peers[peerId] = pc;
   return pc;
 }
 
-async function callPeer(peerId, peerName){
-  const pc = createPeerConnection(peerId, peerName);
+async function callPeer(peerId){
+  const pc = createPeerConnection(peerId);
   const offer = await pc.createOffer();
   await pc.setLocalDescription(offer);
   socket.emit('webrtc-offer',{ to: peerId, sdp: offer });
 }
 
-// Socket events
+// Connect -> initMedia then join-room (prevents peers being called before tracks ready)
 socket.on('connect', async () => {
   await initMedia();
   socket.emit('join-room', { roomId, name });
 });
 
 socket.on('existing-peers', async ({ peers: existing }) => {
-  for (const p of existing) {
-    peerNames[p] = "User "+p.slice(0,5);
-    await callPeer(p, peerNames[p]);
-  }
+  for (const p of existing) await callPeer(p);
 });
 
 socket.on('peer-joined', ({ peerId, name: peerName }) => {
-  peerNames[peerId] = peerName;
-  createSmallTile(peerId, peerName, null);
   console.log('peer joined', peerId, peerName);
 });
 
 socket.on('webrtc-offer', async ({ from, sdp }) => {
-  const pc = createPeerConnection(from, peerNames[from]);
+  const pc = createPeerConnection(from);
   await pc.setRemoteDescription(new RTCSessionDescription(sdp));
   const answer = await pc.createAnswer();
   await pc.setLocalDescription(answer);
@@ -387,10 +455,9 @@ socket.on('peer-left', ({ peerId }) => {
   }
 });
 
-socket.on('peer-avatar', ({ peerId, avatar, name }) => {
-  peerNames[peerId] = name;
-  createSmallTile(peerId, name+" (Avatar)", null, avatar);
-  setMainSpeaker(peerId, name+" (Avatar)", null, avatar);
+socket.on('peer-avatar', ({ peerId, avatar, name: peerName }) => {
+  createSmallTile(peerId, peerName+" (Avatar)", null, avatar);
+  setMainSpeaker(peerId, peerName+" (Avatar)", null, avatar);
 });
 
 // Controls
@@ -404,9 +471,11 @@ document.getElementById('muteBtn').onclick = () => {
 document.getElementById('videoBtn').onclick = () => {
   if (avatarMode) {
     disableAvatarMode();
-  } else if (localStream) {
+  } else if (localStream && localStream.getVideoTracks().length) {
     const t = localStream.getVideoTracks()[0];
     if (t) t.enabled = !t.enabled;
+  } else {
+    alert('No camera available.');
   }
 };
 
@@ -435,6 +504,7 @@ document.getElementById('screenBtn').onclick = async () => {
 };
 
 document.getElementById('avatarBtn').onclick = async () => {
+  // Everyone can use avatar now
   if (!avatarMode && savedAvatar) {
     await enableAvatarMode(savedAvatar);
   } else if (avatarMode) {
@@ -444,7 +514,7 @@ document.getElementById('avatarBtn').onclick = async () => {
   }
 };
 
-// Leave
+// Leave: stop everything and save transcript to Supabase only if user spoke during avatar mode
 document.getElementById('leaveBtn').onclick = async () => {
   if (recognition) recognition.stop();
   Object.values(peers).forEach(pc => pc.close());
@@ -459,10 +529,11 @@ document.getElementById('leaveBtn').onclick = async () => {
   } else {
     console.warn("No STT transcript to save (meetingTranscript empty).");
   }
+
   window.location.href = '/history.html';
 };
 
-// Chat
+// Chat (do NOT add chat messages to meetingTranscript)
 const chatMessages = document.getElementById('chat-messages');
 const chatInput = document.getElementById('chatText');
 
@@ -478,8 +549,10 @@ socket.on('chat-message', ({ name: sender, message }) => {
   d.textContent = `${sender}: ${message}`;
   chatMessages.appendChild(d);
   chatMessages.scrollTop = chatMessages.scrollHeight;
+  // IMPORTANT: chats are not part of meetingTranscript
 });
 
+// expose meetingTranscript for debugging
 window.__meetingTranscript = () => meetingTranscript;
 </script>
 </body>
