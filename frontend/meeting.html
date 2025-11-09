@@ -806,10 +806,10 @@ async function startMeeting(user) {
     const mainSpeakerName = document.getElementById("mainSpeakerName");
     
     if (avatar) {
-      main.innerHTML = `<img src="${avatar}">`;
+      main.innerHTML = `<img src="${avatar}"><div class="name-label">${label}</div>`;
       mainSpeakerName.textContent = label;
     } else if (stream) {
-      main.innerHTML = `<video playsinline autoplay ${id === "me" ? "muted" : ""}></video>`;
+      main.innerHTML = `<video playsinline autoplay ${id === "me" ? "muted" : ""}></video><div class="name-label">${label}</div>`;
       mainSpeakerName.textContent = label;
       const vid = main.querySelector("video");
       try {
@@ -819,7 +819,7 @@ async function startMeeting(user) {
         console.warn("Failed to set srcObject on main video:", err);
       }
     } else {
-      main.innerHTML = `<div style="width:80%;height:60%;display:flex;align-items:center;justify-content:center;color:#999">No active video</div>`;
+      main.innerHTML = `<div style="width:80%;height:60%;display:flex;align-items:center;justify-content:center;color:#999">No active video</div><div class="name-label">${label}</div>`;
       mainSpeakerName.textContent = label;
     }
 
@@ -1256,6 +1256,7 @@ async function startMeeting(user) {
   });
 
   socket.on("peer-avatar", ({ peerId, avatar, name: peerName }) => {
+      console.log("🔄 Received avatar update from:", peerId, peerName);
       const label = (peerName || peerNames[peerId] || "User") + " (Avatar)";
       createSmallTile(peerId, label, null, avatar);
       
@@ -1270,6 +1271,7 @@ async function startMeeting(user) {
   });
 
   socket.on("avatar-off", ({ peerId, name }) => {
+      console.log("🔄 Received avatar off from:", peerId);
       const stream = peerStreams[peerId];
       createSmallTile(peerId, name || "User", stream);
       
@@ -1364,11 +1366,11 @@ async function startMeeting(user) {
     }
   };
 
-// FIXED: Avatar functionality with toggle
-let avatarStream = null;
-let avatarVideoTrack = null;
+  // FIXED: Avatar functionality with toggle
+  let avatarStream = null;
+  let avatarVideoTrack = null;
 
-document.getElementById("avatarBtn").onclick = async () => {
+  document.getElementById("avatarBtn").onclick = async () => {
     const savedAvatar = localStorage.getItem('userAvatar');
     
     if (avatarMode) {
@@ -1387,9 +1389,9 @@ document.getElementById("avatarBtn").onclick = async () => {
         // No avatar selected, redirect to selection
         redirectToAvatarSelection();
     }
-};
+  };
 
-function redirectToAvatarSelection() {
+  function redirectToAvatarSelection() {
     console.log("🚀 Redirecting to avatar selection page");
     const params = new URLSearchParams(window.location.search);
     const roomId = params.get("room") || "default";
@@ -1399,10 +1401,10 @@ function redirectToAvatarSelection() {
     console.log("🎯 Redirecting to:", avatarUrl);
     
     window.location.href = avatarUrl;
-}
+  }
 
-// FIXED: Enable avatar with working video replacement
-async function enableAvatar(avatarURL) {
+  // FIXED: Enable avatar with working video replacement
+  async function enableAvatar(avatarURL) {
     try {
         console.log("🔄 Enabling avatar:", avatarURL);
         avatarMode = true;
@@ -1520,9 +1522,9 @@ async function enableAvatar(avatarURL) {
         document.getElementById('avatarBtn').classList.remove('active');
         throw error;
     }
-}
+  }
 
-async function disableAvatar() {
+  async function disableAvatar() {
     try {
         console.log("🔄 Disabling avatar...");
         avatarMode = false;
@@ -1578,10 +1580,10 @@ async function disableAvatar() {
     } catch (error) {
         console.error("❌ Failed to disable avatar:", error);
     }
-}
+  }
 
-// FIXED: Check if we should auto-enable avatar when page loads
-function checkAutoEnableAvatar() {
+  // FIXED: Check if we should auto-enable avatar when page loads
+  function checkAutoEnableAvatar() {
     const params = new URLSearchParams(window.location.search);
     const useAvatar = params.get('useAvatar');
     const savedAvatar = localStorage.getItem('userAvatar');
@@ -1603,7 +1605,7 @@ function checkAutoEnableAvatar() {
             }
         }, 2000);
     }
-}
+  }
 
   // Recording button functionality
   document.getElementById("recordBtn").onclick = async () => {
@@ -1673,9 +1675,7 @@ function checkAutoEnableAvatar() {
 
   // Initialize the meeting
   initializeMemo();
-  // Initialize the meeting
-
-checkAutoEnableAvatar(); // Check if we need to auto-enable avatar
+  checkAutoEnableAvatar(); // Check if we need to auto-enable avatar
 }
 </script>
 </body>
