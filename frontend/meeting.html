@@ -161,12 +161,41 @@ async function startMeeting(user) {
     timerDisplay.textContent = `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`;
   }, 1000);
 
-  async function initMedia() {
+ async function initMedia() {
+  try {
+    // ✅ Get local camera & mic
     localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
     originalVideoTrack = localStream.getVideoTracks()[0];
+
+    // ✅ Display yourself
     createSmallTile("me", name + " (You)", localStream);
     setMainSpeaker("me", name + " (You)", localStream);
+
+    // --- 🎧 Merge audio setup (mic + remote) ---
+    window.audioCtx = new AudioContext();
+    window.destination = audioCtx.createMediaStreamDestination();
+
+    // Play mixed output at low volume (lets SpeechRecognition hear everything)
+    const audioPlayer = new Audio();
+    audioPlayer.srcObject = destination.stream;
+    audioPlayer.volume = 0.05;
+    audioPlayer.play();
+
+    // Add local mic to merged audio
+    const micSource = audioCtx.createMediaStreamSource(localStream);
+    micSource.connect(destination);
+
+    // Make available globally so other functions (like avatar STT) can use it
+    window.mergedAudioStream = destination.stream;
+
+    console.log("🔊 Audio merge initialized (local mic ready)");
+
+  } catch (err) {
+    console.error("❌ getUserMedia failed:", err);
+    alert("Please allow microphone and camera access to join the meeting.");
   }
+}
+
 
   function createSmallTile(id, label, stream, avatarURL) {
     let tile = document.getElementById("tile-" + id);
@@ -193,6 +222,9 @@ async function startMeeting(user) {
       main.querySelector("video").srcObject = stream;
     }
   }
+  const remoteAudio = audioCtx.createMediaStreamSource(e.streams[0]);
+remoteAudio.connect(destination);
+
 
   async function enableAvatar(avatarURL) {
     avatarMode = true;
@@ -226,18 +258,48 @@ async function startMeeting(user) {
     socket.emit("avatar-off", { roomId, name });
   }
 
-  function createPeerConnection(peerId) {
-    const pc = new RTCPeerConnection({ iceServers: [{ urls: "stun:stun.l.google.com:19302" }] });
+ function createPeerConnection(peerId) {
+  const pc = new RTCPeerConnection({
+    iceServers: [
+      { urls: "stun:stun.l.google.com:19302" },
+      { urls: "stun:stun1.l.google.com:19302" }
+    ]
+  });
+
+  // ✅ Add your local media tracks
+  if (localStream) {
     localStream.getTracks().forEach(t => pc.addTrack(t, localStream));
-    pc.ontrack = e => {
-      const label = peerNames[peerId] || "User";
-      createSmallTile(peerId, label, e.streams[0]);
-      setMainSpeaker(peerId, label, e.streams[0]);
-    };
-    pc.onicecandidate = e => { if (e.candidate) socket.emit("webrtc-ice-candidate", { to: peerId, candidate: e.candidate }); };
-    peers[peerId] = pc;
-    return pc;
   }
+
+  // ✅ When you get a remote participant's media
+  pc.ontrack = e => {
+    const label = peerNames[peerId] || "User";
+    createSmallTile(peerId, label, e.streams[0]);
+    setMainSpeaker(peerId, label, e.streams[0]);
+
+    // --- 🎧 NEW: Merge remote audio into the combined audio context ---
+    try {
+      if (window.audioCtx && window.destination && e.streams && e.streams[0]) {
+        const remoteAudio = audioCtx.createMediaStreamSource(e.streams[0]);
+        remoteAudio.connect(destination);
+        console.log("🔈 Added remote audio track to merged stream for", peerId);
+      }
+    } catch (err) {
+      console.warn("⚠️ Audio merge (remote) failed:", err);
+    }
+  };
+
+  // ✅ Send ICE candidates for connection
+  pc.onicecandidate = e => {
+    if (e.candidate) {
+      socket.emit("webrtc-ice-candidate", { to: peerId, candidate: e.candidate });
+    }
+  };
+
+  peers[peerId] = pc;
+  return pc;
+}
+
 
   async function callPeer(peerId) {
     const pc = createPeerConnection(peerId);
