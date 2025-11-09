@@ -312,13 +312,15 @@ socket.on("avatar-off", ({ peerId, name }) => {
     else window.location.href = `avatar.html?room=${roomId}&name=${name}`;
   };
 
-  document.getElementById("leaveBtn").onclick = async () => {
-    socket.emit("leave-meeting", { roomId, name });
-    if (recognition) recognition.stop();
-    Object.values(peers).forEach(pc => pc.close());
-    localStream.getTracks().forEach(t => t.stop());
-    window.location.href = "/index.html";
-  };
+ document.getElementById("leaveBtn").onclick = async () => {
+  socket.emit("leave-meeting", { roomId, name });
+  socket.emit("avatar-off", { roomId, name }); // 🔄 ensures avatar clears
+  if (recognition) recognition.stop();
+  Object.values(peers).forEach(pc => pc.close());
+  if (localStream) localStream.getTracks().forEach(t => t.stop());
+  window.location.href = "/index.html";
+};
+
 
   document.getElementById("muteBtn").onclick = () => {
     const t = localStream.getAudioTracks()[0];
