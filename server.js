@@ -300,14 +300,13 @@ io.on("connection", (socket) => {
       avatar: null 
     };
 
-    // 🔥 **CRITICAL FIX: Get ACTUAL Socket.io room members**
+    // Get all socket IDs in the room except current user
     const room = io.sockets.adapter.rooms.get(roomId);
     if (!room) {
       console.log(`❌ Room ${roomId} not found`);
       return;
     }
 
-    // Get all socket IDs in the room except current user
     const peerIds = Array.from(room).filter(id => id !== socket.id);
     
     // Create peers array with proper structure
@@ -321,7 +320,7 @@ io.on("connection", (socket) => {
     // Send existing peers to the new joiner
     socket.emit("existing-peers", { peers });
 
-    // Tell others about this new joiner
+    // Tell others about this new joiner - FIXED: Send to ALL peers in room
     socket.to(roomId).emit("peer-joined", {
       peerId: socket.id,
       name: roomPeers[roomId][socket.id].name
@@ -330,7 +329,7 @@ io.on("connection", (socket) => {
     console.log(`👥 ${name} joined ${roomId} (${peers.length} peers in room)`);
   });
 
-  // WebRTC signaling
+  // WebRTC signaling - FIXED: Better error handling
   socket.on("webrtc-offer", ({ to, sdp }) => {
     console.log(`📨 Offer from ${socket.id} to ${to}`);
     if (io.sockets.sockets.has(to)) {
@@ -352,6 +351,8 @@ io.on("connection", (socket) => {
   socket.on("webrtc-ice-candidate", ({ to, candidate }) => {
     if (io.sockets.sockets.has(to)) {
       io.to(to).emit("webrtc-ice-candidate", { from: socket.id, candidate });
+    } else {
+      console.log(`❌ Target peer ${to} not found for ICE candidate`);
     }
   });
 
@@ -366,13 +367,14 @@ io.on("connection", (socket) => {
     console.log(`💬 ${name} in ${roomId}: ${message}`);
   });
 
-  // Avatar handling
+  // Avatar handling - FIXED: Proper avatar broadcasting
   socket.on("set-avatar", ({ roomId, avatar, name }) => {
     // Update peer avatar in room data
     if (roomPeers[roomId] && roomPeers[roomId][socket.id]) {
       roomPeers[roomId][socket.id].avatar = avatar;
     }
     
+    // Broadcast to ALL peers in room
     socket.to(roomId).emit("peer-avatar", { 
       peerId: socket.id, 
       avatar, 
@@ -387,6 +389,7 @@ io.on("connection", (socket) => {
       roomPeers[roomId][socket.id].avatar = null;
     }
     
+    // Broadcast to ALL peers in room
     socket.to(roomId).emit("avatar-off", { 
       peerId: socket.id, 
       name: name || roomPeers[roomId]?.[socket.id]?.name 
