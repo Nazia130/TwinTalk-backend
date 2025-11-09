@@ -283,19 +283,27 @@ async function startMeeting(user) {
     createSmallTile(peerId, peerName + " (Avatar)", null, avatar);
   });
 
-  socket.on("avatar-off", ({ peerId, name }) => {
-    createSmallTile(peerId, name, null, null);
-  });
+// When a peer explicitly ends meeting
+socket.on("peer-ended", ({ peerId, name }) => {
+  const el = document.getElementById("tile-" + peerId);
+  if (el) el.remove();
+  console.log(`🧹 ${name} ended the meeting, removed their avatar/tile.`);
+});
 
-  socket.on("peer-ended", ({ peerId }) => {
-    const el = document.getElementById("tile-" + peerId);
-    if (el) el.remove();
-  });
+// When a peer leaves (disconnects or closes tab)
+socket.on("peer-left", ({ peerId, name }) => {
+  const el = document.getElementById("tile-" + peerId);
+  if (el) el.remove();
+  console.log(`👋 ${name} left — cleaned up avatar/tile.`);
+});
 
-  socket.on("peer-left", ({ peerId }) => {
-    const el = document.getElementById("tile-" + peerId);
-    if (el) el.remove();
-  });
+// Also when peer disables avatar manually
+socket.on("avatar-off", ({ peerId, name }) => {
+  const el = document.getElementById("tile-" + peerId);
+  if (el) el.remove(); // remove old avatar tile completely
+  createSmallTile(peerId, name, null, null); // recreate plain placeholder
+});
+
 
   // BUTTONS
   document.getElementById("avatarBtn").onclick = async () => {
