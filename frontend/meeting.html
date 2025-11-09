@@ -99,6 +99,9 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
 
+// Supabase client (for summaries)
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
 const firebaseConfig = {
   apiKey: "AIzaSyBcrgAsbXlBtL_YQHMCqE4ppYODOInTB0g",
   authDomain: "twintalk-35672.firebaseapp.com",
@@ -112,8 +115,6 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 
-// Supabase client (for summaries)
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 const SUPABASE_URL = "https://qdaegqzevidezclgvpcz.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFkYWVncXpldmlkZXpjbGd2cGN6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjI1ODYyNDEsImV4cCI6MjA3ODE2MjI0MX0.jc7lubD4JhJWmYiHr6gy2hb-up4-cANI47DdDm7wrO0";
 window.supabaseClient = createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -141,7 +142,7 @@ async function startMeeting(user) {
   const socket = io();
   const params = new URLSearchParams(window.location.search);
   const roomId = params.get("room") || "default";
-  const name = user.displayName || user.email.split("@")[0];
+  const name = user.displayName || (user.email ? user.email.split("@")[0] : "Guest");
   const userEmail = (user.email || "unknown").toLowerCase();
   const savedAvatar = localStorage.getItem("userAvatar");
 
@@ -161,41 +162,56 @@ async function startMeeting(user) {
     timerDisplay.textContent = `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`;
   }, 1000);
 
- async function initMedia() {
-  try {
-    // ✅ Get local camera & mic
-    localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-    originalVideoTrack = localStream.getVideoTracks()[0];
+  // AUDIO MERGE placeholders
+  // audioCtx, destination, mergedAudioStream will be created in initMedia
+  window.audioCtx = null;
+  window.destination = null;
+  window.mergedAudioStream = null;
 
-    // ✅ Display yourself
-    createSmallTile("me", name + " (You)", localStream);
-    setMainSpeaker("me", name + " (You)", localStream);
+  async function initMedia() {
+    try {
+      // get local camera & mic
+      localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      originalVideoTrack = localStream.getVideoTracks()[0] || null;
 
-    // --- 🎧 Merge audio setup (mic + remote) ---
-    window.audioCtx = new AudioContext();
-    window.destination = audioCtx.createMediaStreamDestination();
+      // display local video tile & main speaker
+      createSmallTile("me", name + " (You)", localStream);
+      setMainSpeaker("me", name + " (You)", localStream);
 
-    // Play mixed output at low volume (lets SpeechRecognition hear everything)
-    const audioPlayer = new Audio();
-    audioPlayer.srcObject = destination.stream;
-    audioPlayer.volume = 0.05;
-    audioPlayer.play();
+      // create audio merging context (mic + remote tracks will be connected here)
+      if (!window.audioCtx) {
+        window.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        window.destination = audioCtx.createMediaStreamDestination();
 
-    // Add local mic to merged audio
-    const micSource = audioCtx.createMediaStreamSource(localStream);
-    micSource.connect(destination);
+        // play merged audio quietly so browser may route audio (try/catch because autoplay can be blocked)
+        const audioPlayer = new Audio();
+        audioPlayer.srcObject = destination.stream;
+        audioPlayer.volume = 0.02;
+        audioPlayer.muted = false;
+        audioPlayer.autoplay = true;
+        audioPlayer.playsInline = true;
+        try {
+          await audioPlayer.play();
+        } catch (err) {
+          console.warn("Audio playback blocked (autoplay). That's fine; merge still works.", err);
+        }
+      }
 
-    // Make available globally so other functions (like avatar STT) can use it
-    window.mergedAudioStream = destination.stream;
+      // connect local mic to destination
+      try {
+        const micSource = audioCtx.createMediaStreamSource(localStream);
+        micSource.connect(destination);
+        window.mergedAudioStream = destination.stream;
+        console.log("🔊 Audio merge initialized (local mic ready)");
+      } catch (err) {
+        console.warn("Could not create mic source for audio merge:", err);
+      }
 
-    console.log("🔊 Audio merge initialized (local mic ready)");
-
-  } catch (err) {
-    console.error("❌ getUserMedia failed:", err);
-    alert("Please allow microphone and camera access to join the meeting.");
+    } catch (err) {
+      console.error("❌ getUserMedia failed:", err);
+      alert("Please allow microphone and camera access to join the meeting.");
+    }
   }
-}
-
 
   function createSmallTile(id, label, stream, avatarURL) {
     let tile = document.getElementById("tile-" + id);
@@ -205,11 +221,20 @@ async function startMeeting(user) {
       tile.id = "tile-" + id;
       document.getElementById("top-strip").appendChild(tile);
     }
+
     if (avatarURL) {
       tile.innerHTML = `<img src="${avatarURL}"><div class="name-label">${label}</div>`;
     } else if (stream) {
-      tile.innerHTML = `<video autoplay playsinline ${id === "me" ? "muted" : ""}></video><div class="name-label">${label}</div>`;
-      tile.querySelector("video").srcObject = stream;
+      // use a fresh video element (avoids stale srcObject issues)
+      tile.innerHTML = `<video playsinline autoplay ${id === "me" ? "muted" : ""}></video><div class="name-label">${label}</div>`;
+      const vid = tile.querySelector("video");
+      try {
+        vid.srcObject = stream;
+      } catch (err) {
+        console.warn("Failed to set srcObject on small tile video:", err);
+      }
+    } else {
+      tile.innerHTML = `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:#999">No video</div><div class="name-label">${label}</div>`;
     }
   }
 
@@ -218,13 +243,17 @@ async function startMeeting(user) {
     if (avatar) {
       main.innerHTML = `<img src="${avatar}"><div class="name-label">${label}</div>`;
     } else if (stream) {
-      main.innerHTML = `<video autoplay playsinline ${id === "me" ? "muted" : ""}></video><div class="name-label">${label}</div>`;
-      main.querySelector("video").srcObject = stream;
+      main.innerHTML = `<video playsinline autoplay ${id === "me" ? "muted" : ""}></video><div class="name-label">${label}</div>`;
+      const vid = main.querySelector("video");
+      try {
+        vid.srcObject = stream;
+      } catch (err) {
+        console.warn("Failed to set srcObject on main video:", err);
+      }
+    } else {
+      main.innerHTML = `<div style="width:80%;height:60%;display:flex;align-items:center;justify-content:center;color:#999">No active video</div><div class="name-label">${label}</div>`;
     }
   }
-  const remoteAudio = audioCtx.createMediaStreamSource(e.streams[0]);
-remoteAudio.connect(destination);
-
 
   async function enableAvatar(avatarURL) {
     avatarMode = true;
@@ -234,181 +263,271 @@ remoteAudio.connect(destination);
     const img = new Image();
     img.crossOrigin = "anonymous";
     img.src = avatarURL;
-    await img.decode();
+    try { await img.decode(); } catch(e){ console.warn("avatar decode", e); }
     ctx.fillStyle = "#000"; ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
     const avatarTrack = canvas.captureStream(15).getVideoTracks()[0];
     for (const pc of Object.values(peers)) {
-      const sender = pc.getSenders().find(s => s.track.kind === "video");
-      if (sender) await sender.replaceTrack(avatarTrack);
+      const sender = pc.getSenders().find(s => s.track && s.track.kind === "video");
+      if (sender && avatarTrack) {
+        try { await sender.replaceTrack(avatarTrack); } catch(e){ console.warn("replace avatar track failed", e); }
+      }
     }
     createSmallTile("me", name + " (Avatar)", null, avatarURL);
     setMainSpeaker("me", name + " (Avatar)", null, avatarURL);
     socket.emit("set-avatar", { roomId, avatar: avatarURL, name });
+    // start STT if desired (kept as before)
+    startSpeechRecognitionIfNeeded();
   }
 
   async function disableAvatar() {
     avatarMode = false;
     for (const pc of Object.values(peers)) {
       const sender = pc.getSenders().find(s => s.track && s.track.kind === "video");
-      if (sender && originalVideoTrack) await sender.replaceTrack(originalVideoTrack);
-    }
-    createSmallTile("me", name + " (You)", localStream);
-    setMainSpeaker("me", name + " (You)", localStream);
-    socket.emit("avatar-off", { roomId, name });
-  }
-
- function createPeerConnection(peerId) {
-  const pc = new RTCPeerConnection({
-    iceServers: [
-      { urls: "stun:stun.l.google.com:19302" },
-      { urls: "stun:stun1.l.google.com:19302" }
-    ]
-  });
-
-  // ✅ Add your local media tracks
-  if (localStream) {
-    localStream.getTracks().forEach(t => pc.addTrack(t, localStream));
-  }
-
-  // ✅ When you get a remote participant's media
-  pc.ontrack = e => {
-    const label = peerNames[peerId] || "User";
-    createSmallTile(peerId, label, e.streams[0]);
-    setMainSpeaker(peerId, label, e.streams[0]);
-
-    // --- 🎧 NEW: Merge remote audio into the combined audio context ---
-    try {
-      if (window.audioCtx && window.destination && e.streams && e.streams[0]) {
-        const remoteAudio = audioCtx.createMediaStreamSource(e.streams[0]);
-        remoteAudio.connect(destination);
-        console.log("🔈 Added remote audio track to merged stream for", peerId);
+      if (sender && originalVideoTrack) {
+        try { await sender.replaceTrack(originalVideoTrack); } catch(e){ console.warn("restore track failed", e); }
       }
-    } catch (err) {
-      console.warn("⚠️ Audio merge (remote) failed:", err);
     }
-  };
-
-  // ✅ Send ICE candidates for connection
-  pc.onicecandidate = e => {
-    if (e.candidate) {
-      socket.emit("webrtc-ice-candidate", { to: peerId, candidate: e.candidate });
+    if (localStream) {
+      createSmallTile("me", name + " (You)", localStream);
+      setMainSpeaker("me", name + " (You)", localStream);
     }
-  };
+    socket.emit("avatar-off", { roomId, name });
+    if (recognition) {
+      try { recognition.stop(); } catch(e){ console.warn("recognition stop", e); }
+      recognition = null;
+    }
+    // save summary logic (if any) left as in previous flow
+  }
 
-  peers[peerId] = pc;
-  return pc;
-}
+  // STT helper - starts recognition only when avatarMode true and mergedAudioStream exists
+  function startSpeechRecognitionIfNeeded(){
+    if (!avatarMode) return;
+    if (!('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) {
+      console.warn("SpeechRecognition unsupported");
+      return;
+    }
+    // NOTE: Browser speech recognition listens to microphone only — using mergedAudioStream playback is a workaround but not guaranteed across systems.
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    recognition = new SR();
+    recognition.lang = 'en-IN';
+    recognition.continuous = true;
+    recognition.interimResults = false;
+    recognition.onresult = e => {
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        if (e.results[i].isFinal) {
+          const text = e.results[i][0].transcript.trim();
+          // append to meeting transcript buffer (you can change where it's stored)
+          window.__meetingTranscriptBuffer = (window.__meetingTranscriptBuffer || "") + text + ". ";
+          console.log("STT final:", text);
+        }
+      }
+    };
+    recognition.onerror = err => console.warn("STT error:", err);
+    recognition.onend = () => {
+      if (avatarMode) {
+        try { recognition.start(); } catch(e){ console.warn("restart recognition failed", e); }
+      }
+    };
+    try { recognition.start(); } catch(e){ console.warn("recognition start failed", e); }
+  }
 
+  function createPeerConnection(peerId) {
+    const pc = new RTCPeerConnection({
+      iceServers: [
+        { urls: "stun:stun.l.google.com:19302" },
+        { urls: "stun:stun1.l.google.com:19302" }
+      ]
+    });
+
+    // add local tracks if available
+    if (localStream) {
+      localStream.getTracks().forEach(t => {
+        try { pc.addTrack(t, localStream); } catch(e){ console.warn("addTrack failed:", e); }
+      });
+    }
+
+    pc.ontrack = e => {
+      const label = peerNames[peerId] || "User";
+      // display remote video
+      createSmallTile(peerId, label, e.streams[0]);
+      setMainSpeaker(peerId, label, e.streams[0]);
+
+      // merge remote audio into AudioContext destination (if available)
+      try {
+        if (window.audioCtx && window.destination && e.streams && e.streams[0]) {
+          const remoteSource = audioCtx.createMediaStreamSource(e.streams[0]);
+          remoteSource.connect(destination);
+          window.mergedAudioStream = destination.stream;
+          console.log("🔈 Added remote audio track to merged stream for", peerId);
+        }
+      } catch (err) {
+        console.warn("⚠️ Audio merge (remote) failed:", err);
+      }
+    };
+
+    pc.onicecandidate = e => {
+      if (e.candidate) {
+        socket.emit("webrtc-ice-candidate", { to: peerId, candidate: e.candidate });
+      }
+    };
+
+    pc.onconnectionstatechange = () => {
+      if (['disconnected', 'failed', 'closed'].includes(pc.connectionState)) {
+        const tile = document.getElementById('tile-' + peerId);
+        if (tile) tile.remove();
+        try { pc.close(); } catch(e){}
+        delete peers[peerId];
+        delete peerNames[peerId];
+        console.log("Peer connection closed/removed:", peerId);
+      }
+    };
+
+    peers[peerId] = pc;
+    return pc;
+  }
 
   async function callPeer(peerId) {
     const pc = createPeerConnection(peerId);
-    const offer = await pc.createOffer();
-    await pc.setLocalDescription(offer);
-    socket.emit("webrtc-offer", { to: peerId, sdp: offer });
+    try {
+      const offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
+      socket.emit("webrtc-offer", { to: peerId, sdp: offer });
+    } catch (err) {
+      console.error("callPeer error:", err);
+    }
   }
 
   // SOCKET EVENTS
   socket.on("connect", async () => {
+    console.log("socket connected:", socket.id);
     await initMedia();
     socket.emit("join-room", { roomId, name });
   });
 
   socket.on("existing-peers", async ({ peers: existing }) => {
+    // existing expected to be array of { peerId, name }
+    if (!existing || !existing.length) return;
     for (const p of existing) {
-      peerNames[p.peerId] = p.name;
-      await callPeer(p.peerId);
+      // support both legacy string or object
+      const id = (typeof p === "string") ? p : p.peerId;
+      const nm = (typeof p === "object" && p.name) ? p.name : null;
+      if (nm) peerNames[id] = nm;
+      if (id && id !== socket.id) await callPeer(id);
     }
   });
 
-  socket.on("peer-joined", ({ peerId, name: peerName }) => { peerNames[peerId] = peerName; });
+  socket.on("peer-joined", ({ peerId, name: peerName }) => {
+    peerNames[peerId] = peerName || peerNames[peerId] || "User";
+    console.log('peer joined', peerId, peerName);
+  });
 
   socket.on("webrtc-offer", async ({ from, sdp }) => {
     const pc = createPeerConnection(from);
-    await pc.setRemoteDescription(new RTCSessionDescription(sdp));
-    const answer = await pc.createAnswer();
-    await pc.setLocalDescription(answer);
-    socket.emit("webrtc-answer", { to: from, sdp: answer });
+    try {
+      await pc.setRemoteDescription(new RTCSessionDescription(sdp));
+      const answer = await pc.createAnswer();
+      await pc.setLocalDescription(answer);
+      socket.emit("webrtc-answer", { to: from, sdp: answer });
+    } catch (err) {
+      console.error("webrtc-offer handling failed:", err);
+    }
   });
 
   socket.on("webrtc-answer", async ({ from, sdp }) => {
     const pc = peers[from];
-    if (pc) await pc.setRemoteDescription(new RTCSessionDescription(sdp));
+    if (pc) {
+      try { await pc.setRemoteDescription(new RTCSessionDescription(sdp)); }
+      catch (err) { console.error("setRemoteDescription failed:", err); }
+    }
   });
 
   socket.on("webrtc-ice-candidate", async ({ from, candidate }) => {
     const pc = peers[from];
-    if (pc && candidate) await pc.addIceCandidate(new RTCIceCandidate(candidate));
+    if (pc && candidate) {
+      try { await pc.addIceCandidate(new RTCIceCandidate(candidate)); }
+      catch (err) { console.warn("addIceCandidate failed", err); }
+    }
   });
 
   socket.on("peer-avatar", ({ peerId, avatar, name: peerName }) => {
-    createSmallTile(peerId, peerName + " (Avatar)", null, avatar);
+    createSmallTile(peerId, (peerName || peerNames[peerId] || "User") + " (Avatar)", null, avatar);
   });
 
-// When a peer explicitly ends meeting
-socket.on("peer-ended", ({ peerId, name }) => {
-  const el = document.getElementById("tile-" + peerId);
-  if (el) el.remove();
-  console.log(`🧹 ${name} ended the meeting, removed their avatar/tile.`);
-});
+  // When a peer explicitly ends meeting
+  socket.on("peer-ended", ({ peerId, name }) => {
+    const el = document.getElementById("tile-" + peerId);
+    if (el) el.remove();
+    console.log(`🧹 ${name} ended the meeting, removed their avatar/tile.`);
+  });
 
-// When a peer leaves (disconnects or closes tab)
-socket.on("peer-left", ({ peerId, name }) => {
-  const el = document.getElementById("tile-" + peerId);
-  if (el) el.remove();
-  console.log(`👋 ${name} left — cleaned up avatar/tile.`);
-});
+  // When a peer leaves (disconnects or closes tab)
+  socket.on("peer-left", ({ peerId, name }) => {
+    const el = document.getElementById("tile-" + peerId);
+    if (el) el.remove();
+    console.log(`👋 ${name} left — cleaned up avatar/tile.`);
+  });
 
-// Also when peer disables avatar manually
-socket.on("avatar-off", ({ peerId, name }) => {
-  const el = document.getElementById("tile-" + peerId);
-  if (el) el.remove(); // remove old avatar tile completely
-  createSmallTile(peerId, name, null, null); // recreate plain placeholder
-});
-
+  // Also when peer disables avatar manually
+  socket.on("avatar-off", ({ peerId, name }) => {
+    const el = document.getElementById("tile-" + peerId);
+    if (el) el.remove(); // remove old avatar tile completely
+    createSmallTile(peerId, name || "User", null, null); // recreate plain placeholder
+  });
 
   // BUTTONS
   document.getElementById("avatarBtn").onclick = async () => {
     if (!avatarMode && savedAvatar) await enableAvatar(savedAvatar);
     else if (avatarMode) await disableAvatar();
-    else window.location.href = `avatar.html?room=${roomId}&name=${name}`;
+    else window.location.href = `avatar.html?room=${roomId}&name=${encodeURIComponent(name)}`;
   };
 
- document.getElementById("leaveBtn").onclick = async () => {
-  socket.emit("leave-meeting", { roomId, name });
-  socket.emit("avatar-off", { roomId, name }); // 🔄 ensures avatar clears
-  if (recognition) recognition.stop();
-  Object.values(peers).forEach(pc => pc.close());
-  if (localStream) localStream.getTracks().forEach(t => t.stop());
-  window.location.href = "/index.html";
-};
-
+  document.getElementById("leaveBtn").onclick = async () => {
+    socket.emit("leave-meeting", { roomId, name });
+    socket.emit("avatar-off", { roomId, name }); // ensure avatar clears for others
+    if (recognition) {
+      try { recognition.stop(); } catch(e){ console.warn("recognition stop", e); }
+    }
+    Object.values(peers).forEach(pc => { try { pc.close(); } catch(e){} });
+    if (localStream) localStream.getTracks().forEach(t => { try { t.stop(); } catch(e){} });
+    window.location.href = "/index.html";
+  };
 
   document.getElementById("muteBtn").onclick = () => {
+    if (!localStream) return;
     const t = localStream.getAudioTracks()[0];
     if (t) t.enabled = !t.enabled;
   };
 
   document.getElementById("videoBtn").onclick = () => {
+    if (!localStream) return;
     const t = localStream.getVideoTracks()[0];
     if (t) t.enabled = !t.enabled;
   };
 
   document.getElementById("screenBtn").onclick = async () => {
-    const screen = await navigator.mediaDevices.getDisplayMedia({ video: true });
-    const track = screen.getVideoTracks()[0];
-    for (const pc of Object.values(peers)) {
-      const sender = pc.getSenders().find(s => s.track && s.track.kind === "video");
-      if (sender) sender.replaceTrack(track);
-    }
-    setMainSpeaker("me", name + " (Sharing)", screen);
-    track.onended = () => {
+    try {
+      const screen = await navigator.mediaDevices.getDisplayMedia({ video: true });
+      const track = screen.getVideoTracks()[0];
       for (const pc of Object.values(peers)) {
         const sender = pc.getSenders().find(s => s.track && s.track.kind === "video");
-        if (sender) sender.replaceTrack(originalVideoTrack);
+        if (sender) {
+          try { sender.replaceTrack(track); } catch(e){ console.warn("replaceTrack screen failed", e); }
+        }
       }
-      setMainSpeaker("me", name + " (You)", localStream);
-    };
+      setMainSpeaker("me", name + " (Sharing)", screen);
+      track.onended = () => {
+        for (const pc of Object.values(peers)) {
+          const sender = pc.getSenders().find(s => s.track && s.track.kind === "video");
+          if (sender && originalVideoTrack) {
+            try { sender.replaceTrack(originalVideoTrack); } catch(e){ console.warn("restore track failed", e); }
+          }
+        }
+        setMainSpeaker("me", name + " (You)", localStream);
+      };
+    } catch(e) {
+      console.warn("screen share canceled", e);
+    }
   };
 
   // CHAT
@@ -426,6 +545,10 @@ socket.on("avatar-off", ({ peerId, name }) => {
     chatMessages.appendChild(d);
     chatMessages.scrollTop = chatMessages.scrollHeight;
   });
+
+  // Expose merged stream and transcript buffer for debugging
+  window.__mergedAudioStream = () => window.mergedAudioStream;
+  window.__meetingTranscriptBuffer = window.__meetingTranscriptBuffer || "";
 }
 </script>
 </body>
