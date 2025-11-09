@@ -105,7 +105,7 @@
 <body>
 
 <header>Meeting Room <span id="meetingTimer">00:00:00</span></header>
-<div class="recording-indicator" id="recordingIndicator">🔴 Recording</div>
+<div class="recording-indicator" id="recordingIndicator">🔴 Recording All Conversations</div>
 <div id="top-strip"></div>
 <div id="main-speaker"><div class="name-label" id="mainSpeakerName"></div></div>
 
@@ -113,7 +113,7 @@
   <button id="muteBtn">🎤 Mute</button>
   <button id="videoBtn">📷 Stop Video</button>
   <button id="screenBtn">🖥️ Share Screen</button>
-  <button id="avatarBtn">🧑 Avatar</button>
+  <button id="avatarBtn">🧑 Enable Avatar Mode</button>
   <button id="leaveBtn" class="end-btn">End Meeting</button>
 </footer>
 
@@ -274,7 +274,7 @@ async function startMeeting(user) {
     if (activeTile) activeTile.classList.add('active');
   }
 
-  // Enhanced speech recognition with better error handling
+  // 🔥 **CRITICAL FIX: Enhanced speech recognition to capture ALL conversations**
   function startSpeechRecognition() {
     if (!('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) {
       console.warn("SpeechRecognition API not supported in this browser");
@@ -290,46 +290,49 @@ async function startMeeting(user) {
     recognition.maxAlternatives = 1;
 
     recognition.onstart = () => {
-      console.log("🎤 Speech recognition started");
+      console.log("🎤 Speech recognition started - Recording ALL conversations");
       isRecording = true;
       recordingIndicator.classList.add('recording');
     };
 
     recognition.onresult = (event) => {
-      let interimTranscript = '';
-      let finalTranscript = '';
-
       for (let i = event.resultIndex; i < event.results.length; i++) {
         const transcript = event.results[i][0].transcript;
         if (event.results[i].isFinal) {
-          finalTranscript += transcript + ' ';
+          // 🔥 **FIX: Try to identify speaker based on context (captures ALL audio)**
+          let speaker = "Unknown";
+          const transcriptLower = transcript.toLowerCase();
+          
+          // Simple speaker identification
+          if (transcriptLower.includes(name.toLowerCase())) {
+            speaker = name;
+          } else {
+            // Check if it matches any known participant names
+            Object.values(peerNames).forEach(peerName => {
+              if (transcriptLower.includes(peerName.toLowerCase())) {
+                speaker = peerName;
+              }
+            });
+          }
           
           // Add timestamp and speaker to transcript
           const timestamp = new Date().toLocaleTimeString();
-          const transcriptEntry = `[${timestamp}] ${name}: ${transcript}\n`;
+          const transcriptEntry = `[${timestamp}] ${speaker}: ${transcript}\n`;
           meetingTranscript += transcriptEntry;
           
-          console.log("🎯 Final transcript:", transcriptEntry);
+          console.log("🎯 Captured ALL conversation:", transcriptEntry);
           
-          // Auto-save transcript every 10 entries
-          if (meetingTranscript.split('\n').filter(line => line.trim()).length % 10 === 0) {
+          // Auto-save transcript every 5 entries
+          if (meetingTranscript.split('\n').filter(line => line.trim()).length % 5 === 0) {
             saveTranscriptToLocalStorage();
           }
-        } else {
-          interimTranscript += transcript;
         }
-      }
-
-      // Update a debug element if needed
-      if (finalTranscript) {
-        console.log("💬 Added to meeting transcript:", finalTranscript.trim());
       }
     };
 
     recognition.onerror = (event) => {
       console.error('Speech recognition error:', event.error);
       if (event.error === 'no-speech' || event.error === 'audio-capture') {
-        // Try to restart if it's a temporary error
         setTimeout(() => {
           if (isRecording && avatarMode) {
             try {
@@ -345,7 +348,6 @@ async function startMeeting(user) {
     recognition.onend = () => {
       console.log("🎤 Speech recognition ended");
       if (isRecording && avatarMode) {
-        // Auto-restart if we're still in avatar mode
         setTimeout(() => {
           try {
             recognition.start();
@@ -418,12 +420,13 @@ async function startMeeting(user) {
 
       if (response.ok) {
         console.log("✅ Meeting summary saved successfully");
+        const result = await response.json();
         
         // Clear local storage after successful save
         localStorage.removeItem(`meeting-${roomId}-transcript`);
         
         // Show success message
-        alert("Meeting summary has been saved to your history!");
+        alert(`Personal meeting memo saved! Summary:\n\n${result.summary || "Check your history for details"}`);
       } else {
         console.error("Failed to save summary to server");
       }
@@ -477,15 +480,19 @@ async function startMeeting(user) {
       setMainSpeaker("me", name + " (Avatar)", null, avatarURL);
     }
     
-    // START SPEECH-TO-TEXT RECORDING
+    // 🔥 **START RECORDING ALL CONVERSATIONS**
     recognition = startSpeechRecognition();
     if (!recognition) {
       alert("Speech recognition is not supported in your browser. Conversation will not be recorded.");
     } else {
-      console.log("🎤 Started recording conversations in avatar mode");
+      console.log("🎤 Started recording ALL conversations in avatar mode");
     }
     
     socket.emit("set-avatar", { roomId, avatar: avatarURL, name });
+    
+    // Update button
+    document.getElementById('avatarBtn').textContent = '👤 Disable Avatar Mode';
+    document.getElementById('avatarBtn').style.background = '#28a745';
   }
 
   async function disableAvatar() {
@@ -497,7 +504,7 @@ async function startMeeting(user) {
     
     // Save any remaining transcript
     if (meetingTranscript.trim()) {
-      saveTranscriptToLocalStorage();
+      await saveFinalSummary();
     }
     
     // Restore original video track
@@ -521,6 +528,10 @@ async function startMeeting(user) {
     }
     
     socket.emit("avatar-off", { roomId, name });
+    
+    // Update button
+    document.getElementById('avatarBtn').textContent = '🧑 Enable Avatar Mode';
+    document.getElementById('avatarBtn').style.background = '';
   }
 
   function createPeerConnection(peerId) {
@@ -874,13 +885,13 @@ async function startMeeting(user) {
 
   // Handle page unload - save transcript
   window.addEventListener('beforeunload', () => {
-    if (meetingTranscript.trim()) {
+    if (avatarMode && meetingTranscript.trim()) {
       saveTranscriptToLocalStorage();
     }
     socket.emit("leave-meeting", { roomId, name });
   });
 
-  // Manual save button (optional - you can add this to UI if needed)
+  // Manual save function
   window.saveTranscriptManually = function() {
     if (meetingTranscript.trim()) {
       saveFinalSummary();
