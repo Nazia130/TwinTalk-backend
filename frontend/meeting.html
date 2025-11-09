@@ -94,7 +94,7 @@
   </div>
 </div>
 
-<!-- Firebase Auth Integration -->
+<!-- Firebase Auth -->
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
@@ -112,237 +112,248 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 
-onAuthStateChanged(auth, async (user) => {
-  if (user) {
-    console.log("✅ Authenticated as", user.email);
-    window.currentUser = user;
-    setTimeout(() => startMeeting(user), 200);
-  } else {
-    console.warn("⚠️ Not logged in — redirecting...");
+// Supabase client (for summaries)
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+const SUPABASE_URL = "https://qdaegqzevidezclgvpcz.supabase.co";
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFkYWVncXpldmlkZXpjbGd2cGN6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjI1ODYyNDEsImV4cCI6MjA3ODE2MjI0MX0.jc7lubD4JhJWmYiHr6gy2hb-up4-cANI47DdDm7wrO0";
+window.supabaseClient = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+window.saveSummaryToSupabase = async function (meetingId, transcript, userEmail) {
+  try {
+    const { error } = await window.supabaseClient
+      .from("summaries")
+      .insert([{ user_email: userEmail, meeting_id: meetingId, summary: transcript }]);
+    if (error) throw error;
+    console.log("✅ Summary saved for", userEmail);
+  } catch (e) {
+    console.error("❌ Supabase save failed:", e);
+  }
+};
+
+onAuthStateChanged(auth, (user) => {
+  if (!user) {
     sessionStorage.setItem("postLoginRedirect", window.location.pathname + window.location.search);
     window.location.href = "/auth.html";
-  }
+  } else startMeeting(user);
 });
 
 async function startMeeting(user) {
   const socket = io();
   const params = new URLSearchParams(window.location.search);
-  const roomId = params.get('room') || 'default';
+  const roomId = params.get("room") || "default";
   const name = user.displayName || user.email.split("@")[0];
   const userEmail = (user.email || "unknown").toLowerCase();
-  const savedAvatar = localStorage.getItem('userAvatar');
-  const useAvatar = params.get('useAvatar') === 'true';
+  const savedAvatar = localStorage.getItem("userAvatar");
 
-  let localStream = null;
-  const peers = {};
-  let meetingTranscript = "";
+  let localStream, recognition, originalVideoTrack;
   let avatarMode = false;
-  let originalVideoTrack = null;
-  let avatarStream = null;
-  let canvas = null, ctx = null;
+  const peers = {};
+  const peerNames = {};
 
-  const timerDisplay = document.getElementById('meetingTimer');
+  // timer
+  const timerDisplay = document.getElementById("meetingTimer");
   const startTime = Date.now();
   setInterval(() => {
     const elapsed = Date.now() - startTime;
     const h = Math.floor(elapsed / 3600000);
     const m = Math.floor((elapsed % 3600000) / 60000);
     const s = Math.floor((elapsed % 60000) / 1000);
-    timerDisplay.textContent = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+    timerDisplay.textContent = `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`;
   }, 1000);
 
-  function createSmallTile(id,label,stream,avatarURL){
-    let tile = document.getElementById('tile-'+id);
-    if(!tile){
-      tile = document.createElement('div');
-      tile.className = 'small-tile';
-      tile.id = 'tile-'+id;
-      if(stream){
-        const video = document.createElement('video');
-        video.autoplay = true; video.playsInline = true;
-        if(id==='me') video.muted = true;
-        video.srcObject = stream;
-        tile.appendChild(video);
-      } else if(avatarURL){
-        const img = document.createElement('img');
-        img.src = avatarURL; tile.appendChild(img);
-      } else {
-        const placeholder = document.createElement('div');
-        placeholder.style.cssText='width:100%;height:100%;display:flex;justify-content:center;align-items:center;color:#999';
-        placeholder.textContent='No video';tile.appendChild(placeholder);
-      }
-      const lbl=document.createElement('div');
-      lbl.className='name-label';lbl.textContent=label;
-      tile.appendChild(lbl);
-      document.getElementById('top-strip').appendChild(tile);
-    } else {
-      if(stream){
-        tile.innerHTML=`<video autoplay playsinline ${id==='me'?'muted':''}></video><div class="name-label">${label}</div>`;
-        tile.querySelector('video').srcObject=stream;
-      } else if(avatarURL){
-        tile.innerHTML=`<img src="${avatarURL}"><div class="name-label">${label}</div>`;
-      }
+  async function initMedia() {
+    localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+    originalVideoTrack = localStream.getVideoTracks()[0];
+    createSmallTile("me", name + " (You)", localStream);
+    setMainSpeaker("me", name + " (You)", localStream);
+  }
+
+  function createSmallTile(id, label, stream, avatarURL) {
+    let tile = document.getElementById("tile-" + id);
+    if (!tile) {
+      tile = document.createElement("div");
+      tile.className = "small-tile";
+      tile.id = "tile-" + id;
+      document.getElementById("top-strip").appendChild(tile);
+    }
+    if (avatarURL) {
+      tile.innerHTML = `<img src="${avatarURL}"><div class="name-label">${label}</div>`;
+    } else if (stream) {
+      tile.innerHTML = `<video autoplay playsinline ${id === "me" ? "muted" : ""}></video><div class="name-label">${label}</div>`;
+      tile.querySelector("video").srcObject = stream;
     }
   }
 
-  function setMainSpeaker(id,label,stream,avatarURL){
-    const main=document.getElementById('main-speaker');
-    if(stream){
-      main.innerHTML=`<video autoplay playsinline ${id==='me'?'muted':''}></video><div class="name-label">${label}</div>`;
-      main.querySelector('video').srcObject=stream;
-    } else if(avatarURL){
-      main.innerHTML=`<img src="${avatarURL}"><div class="name-label">${label}</div>`;
-    } else {
-      main.innerHTML=`<div style="width:80%;height:60%;display:flex;align-items:center;justify-content:center;color:#999">No active video</div><div class="name-label">${label}</div>`;
+  function setMainSpeaker(id, label, stream, avatar) {
+    const main = document.getElementById("main-speaker");
+    if (avatar) {
+      main.innerHTML = `<img src="${avatar}"><div class="name-label">${label}</div>`;
+    } else if (stream) {
+      main.innerHTML = `<video autoplay playsinline ${id === "me" ? "muted" : ""}></video><div class="name-label">${label}</div>`;
+      main.querySelector("video").srcObject = stream;
     }
   }
 
-  async function initMedia(){
-    try{
-      localStream=await navigator.mediaDevices.getUserMedia({video:true,audio:true});
-      createSmallTile('me', name+' (You)', localStream, null);
-      setMainSpeaker('me', name+' (You)', localStream, null);
-      originalVideoTrack=localStream.getVideoTracks()[0]||null;
-      if(useAvatar && savedAvatar) await enableAvatarMode(savedAvatar);
-    }catch(e){
-      console.warn("getUserMedia error:",e);
+  async function enableAvatar(avatarURL) {
+    avatarMode = true;
+    const canvas = document.createElement("canvas");
+    const ctx = canvas.getContext("2d");
+    canvas.width = 640; canvas.height = 360;
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.src = avatarURL;
+    await img.decode();
+    ctx.fillStyle = "#000"; ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    const avatarTrack = canvas.captureStream(15).getVideoTracks()[0];
+    for (const pc of Object.values(peers)) {
+      const sender = pc.getSenders().find(s => s.track.kind === "video");
+      if (sender) await sender.replaceTrack(avatarTrack);
     }
+    createSmallTile("me", name + " (Avatar)", null, avatarURL);
+    setMainSpeaker("me", name + " (Avatar)", null, avatarURL);
+    socket.emit("set-avatar", { roomId, avatar: avatarURL, name });
   }
 
-  async function enableAvatarMode(avatarURL){
-    if(!localStream){
-      try{localStream=await navigator.mediaDevices.getUserMedia({audio:true});}catch(e){}
+  async function disableAvatar() {
+    avatarMode = false;
+    for (const pc of Object.values(peers)) {
+      const sender = pc.getSenders().find(s => s.track && s.track.kind === "video");
+      if (sender && originalVideoTrack) await sender.replaceTrack(originalVideoTrack);
     }
-    if(!canvas){canvas=document.createElement('canvas');canvas.width=640;canvas.height=360;ctx=canvas.getContext('2d');}
-    const img=new Image();img.crossOrigin="anonymous";img.src=avatarURL;await img.decode();
-    ctx.fillStyle="#000";ctx.fillRect(0,0,canvas.width,canvas.height);ctx.drawImage(img,0,0,canvas.width,canvas.height);
-    avatarStream=canvas.captureStream(15);
-    const avatarTrack=avatarStream.getVideoTracks()[0];
-    for(const pc of Object.values(peers)){
-      const sender=pc.getSenders().find(s=>s.track&&s.track.kind==="video");
-      if(sender&&avatarTrack)await sender.replaceTrack(avatarTrack);
-    }
-    createSmallTile('me',name+' (Avatar)',null,avatarURL);
-    setMainSpeaker('me',name+' (Avatar)',null,avatarURL);
-    avatarMode=true;meetingTranscript="";
-    startSpeechRecognition();
-    socket.emit("set-avatar",{roomId,avatar:avatarURL,name});
+    createSmallTile("me", name + " (You)", localStream);
+    setMainSpeaker("me", name + " (You)", localStream);
+    socket.emit("avatar-off", { roomId, name });
   }
 
-  async function disableAvatarMode(){
-    if(originalVideoTrack){
-      for(const pc of Object.values(peers)){
-        const sender=pc.getSenders().find(s=>s.track&&s.track.kind==="video");
-        if(sender)await sender.replaceTrack(originalVideoTrack);
-      }
-    }
-    if(localStream){
-      createSmallTile('me',name+' (You)',localStream,null);
-      setMainSpeaker('me',name+' (You)',localStream,null);
-    }
-    avatarMode=false;if(recognition){recognition.stop();recognition=null;}
-    if(meetingTranscript.trim().length>0 && userEmail!=="unknown"){
-      await window.saveSummaryToSupabase(roomId,meetingTranscript.trim(),userEmail);
-      meetingTranscript="";
-    }
-  }
-
-  let recognition;
-  function startSpeechRecognition(){
-    if(!('webkitSpeechRecognition'in window||'SpeechRecognition'in window))return;
-    const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
-    recognition=new SR();recognition.lang='en-IN';recognition.continuous=true;recognition.interimResults=false;
-    recognition.onresult=e=>{for(let i=e.resultIndex;i<e.results.length;i++){if(e.results[i].isFinal){meetingTranscript+=e.results[i][0].transcript.trim()+". ";}}};
-    recognition.onend=()=>{if(avatarMode){try{recognition.start();}catch(e){}}};
-    recognition.start();
-  }
-
-  function createPeerConnection(peerId){
-    const pc=new RTCPeerConnection({
-      iceServers:[
-        {urls:"stun:stun.l.google.com:19302"},
-        {urls:"stun:stun1.l.google.com:19302"},
-        {urls:"stun:stun2.l.google.com:19302"}
-      ]
-    });
-
-    if(localStream){
-      localStream.getTracks().forEach(t=>pc.addTrack(t,localStream));
-    }
-
-    pc.ontrack=e=>{
-      createSmallTile(peerId,'User '+peerId.slice(0,5),e.streams[0],null);
-      setMainSpeaker(peerId,'User '+peerId.slice(0,5),e.streams[0],null);
+  function createPeerConnection(peerId) {
+    const pc = new RTCPeerConnection({ iceServers: [{ urls: "stun:stun.l.google.com:19302" }] });
+    localStream.getTracks().forEach(t => pc.addTrack(t, localStream));
+    pc.ontrack = e => {
+      const label = peerNames[peerId] || "User";
+      createSmallTile(peerId, label, e.streams[0]);
+      setMainSpeaker(peerId, label, e.streams[0]);
     };
-
-    pc.onicecandidate=e=>{
-      if(e.candidate){
-        socket.emit('webrtc-ice-candidate',{to:peerId,candidate:e.candidate});
-      }
-    };
-
-    peers[peerId]=pc;
+    pc.onicecandidate = e => { if (e.candidate) socket.emit("webrtc-ice-candidate", { to: peerId, candidate: e.candidate }); };
+    peers[peerId] = pc;
     return pc;
   }
 
-  async function callPeer(peerId){
-    const pc=createPeerConnection(peerId);
-    const offer=await pc.createOffer();
+  async function callPeer(peerId) {
+    const pc = createPeerConnection(peerId);
+    const offer = await pc.createOffer();
     await pc.setLocalDescription(offer);
-    socket.emit('webrtc-offer',{to:peerId,sdp:offer});
+    socket.emit("webrtc-offer", { to: peerId, sdp: offer });
   }
 
-  socket.on('connect',async()=>{await initMedia();socket.emit('join-room',{roomId,name});});
+  // SOCKET EVENTS
+  socket.on("connect", async () => {
+    await initMedia();
+    socket.emit("join-room", { roomId, name });
+  });
 
-  socket.on('existing-peers',async({peers:existing})=>{
-    for(const p of existing){
-      const id=typeof p==="string"?p:p.peerId;
-      if(id&&id!==socket.id)await callPeer(id);
+  socket.on("existing-peers", async ({ peers: existing }) => {
+    for (const p of existing) {
+      peerNames[p.peerId] = p.name;
+      await callPeer(p.peerId);
     }
   });
 
-  socket.on('peer-joined',({peerId,name:peerName})=>{console.log('peer joined',peerId,peerName);});
+  socket.on("peer-joined", ({ peerId, name: peerName }) => { peerNames[peerId] = peerName; });
 
-  socket.on('webrtc-offer',async({from,sdp})=>{
-    const pc=createPeerConnection(from);
+  socket.on("webrtc-offer", async ({ from, sdp }) => {
+    const pc = createPeerConnection(from);
     await pc.setRemoteDescription(new RTCSessionDescription(sdp));
-    const answer=await pc.createAnswer();
+    const answer = await pc.createAnswer();
     await pc.setLocalDescription(answer);
-    socket.emit('webrtc-answer',{to:from,sdp:answer});
+    socket.emit("webrtc-answer", { to: from, sdp: answer });
   });
 
-  socket.on('webrtc-answer',async({from,sdp})=>{
-    const pc=peers[from];
-    if(pc)await pc.setRemoteDescription(new RTCSessionDescription(sdp));
+  socket.on("webrtc-answer", async ({ from, sdp }) => {
+    const pc = peers[from];
+    if (pc) await pc.setRemoteDescription(new RTCSessionDescription(sdp));
   });
 
-  socket.on('webrtc-ice-candidate',async({from,candidate})=>{
-    const pc=peers[from];
-    if(pc&&candidate)await pc.addIceCandidate(new RTCIceCandidate(candidate));
+  socket.on("webrtc-ice-candidate", async ({ from, candidate }) => {
+    const pc = peers[from];
+    if (pc && candidate) await pc.addIceCandidate(new RTCIceCandidate(candidate));
   });
 
-  socket.on('peer-left',({peerId})=>{
-    const tile=document.getElementById('tile-'+peerId);
-    if(tile)tile.remove();
-    if(peers[peerId]){try{peers[peerId].close();}catch(e){}delete peers[peerId];}
+  socket.on("peer-avatar", ({ peerId, avatar, name: peerName }) => {
+    createSmallTile(peerId, peerName + " (Avatar)", null, avatar);
   });
 
-  socket.on('peer-avatar',({peerId,avatar,name:peerName})=>{
-    createSmallTile(peerId,peerName+" (Avatar)",null,avatar);
-    setMainSpeaker(peerId,peerName+" (Avatar)",null,avatar);
+  socket.on("avatar-off", ({ peerId, name }) => {
+    createSmallTile(peerId, name, null, null);
   });
 
-  document.getElementById('muteBtn').onclick=()=>{if(localStream){const t=localStream.getAudioTracks()[0];if(t)t.enabled=!t.enabled;}};
-  document.getElementById('videoBtn').onclick=()=>{if(avatarMode){disableAvatarMode();}else if(localStream){const t=localStream.getVideoTracks()[0];if(t)t.enabled=!t.enabled;}};
-  document.getElementById('screenBtn').onclick=async()=>{try{const screen=await navigator.mediaDevices.getDisplayMedia({video:true});const track=screen.getVideoTracks()[0];for(const pc of Object.values(peers)){const sender=pc.getSenders().find(s=>s.track&&s.track.kind==='video');if(sender)sender.replaceTrack(track);}setMainSpeaker('me',name+' (You)',screen,null);track.onended=()=>{if(localStream){const cam=localStream.getVideoTracks()[0];for(const pc of Object.values(peers)){const sender=pc.getSenders().find(s=>s.track&&s.track.kind==='video');if(sender)sender.replaceTrack(cam);}setMainSpeaker('me',name+' (You)',localStream,null);}};}catch(e){console.log(e);}};
+  socket.on("peer-ended", ({ peerId }) => {
+    const el = document.getElementById("tile-" + peerId);
+    if (el) el.remove();
+  });
 
-  document.getElementById('avatarBtn').onclick=async()=>{if(!avatarMode&&savedAvatar){await enableAvatarMode(savedAvatar);}else if(avatarMode){await disableAvatarMode();}else{window.location.href=`avatar.html?room=${encodeURIComponent(roomId)}&name=${encodeURIComponent(name)}`;}};
+  socket.on("peer-left", ({ peerId }) => {
+    const el = document.getElementById("tile-" + peerId);
+    if (el) el.remove();
+  });
 
-  document.getElementById('leaveBtn').onclick=async()=>{if(recognition)recognition.stop();Object.values(peers).forEach(pc=>pc.close());if(localStream)localStream.getTracks().forEach(t=>t.stop());if(meetingTranscript.trim().length>0&&userEmail!=="unknown"){await window.saveSummaryToSupabase(roomId,meetingTranscript.trim(),userEmail);}window.location.href='/index.html';};
+  // BUTTONS
+  document.getElementById("avatarBtn").onclick = async () => {
+    if (!avatarMode && savedAvatar) await enableAvatar(savedAvatar);
+    else if (avatarMode) await disableAvatar();
+    else window.location.href = `avatar.html?room=${roomId}&name=${name}`;
+  };
 
-  const chatMessages=document.getElementById('chat-messages');const chatInput=document.getElementById('chatText');
-  document.getElementById('sendChat').onclick=()=>{const msg=chatInput.value.trim();if(!msg)return;socket.emit('chat-message',{roomId,name,message:msg});chatInput.value='';};
-  socket.on('chat-message',({name:sender,message})=>{const d=document.createElement('div');d.textContent=`${sender}: ${message}`;chatMessages.appendChild(d);chatMessages.scrollTop=chatMessages.scrollHeight;});
+  document.getElementById("leaveBtn").onclick = async () => {
+    socket.emit("leave-meeting", { roomId, name });
+    if (recognition) recognition.stop();
+    Object.values(peers).forEach(pc => pc.close());
+    localStream.getTracks().forEach(t => t.stop());
+    window.location.href = "/index.html";
+  };
+
+  document.getElementById("muteBtn").onclick = () => {
+    const t = localStream.getAudioTracks()[0];
+    if (t) t.enabled = !t.enabled;
+  };
+
+  document.getElementById("videoBtn").onclick = () => {
+    const t = localStream.getVideoTracks()[0];
+    if (t) t.enabled = !t.enabled;
+  };
+
+  document.getElementById("screenBtn").onclick = async () => {
+    const screen = await navigator.mediaDevices.getDisplayMedia({ video: true });
+    const track = screen.getVideoTracks()[0];
+    for (const pc of Object.values(peers)) {
+      const sender = pc.getSenders().find(s => s.track && s.track.kind === "video");
+      if (sender) sender.replaceTrack(track);
+    }
+    setMainSpeaker("me", name + " (Sharing)", screen);
+    track.onended = () => {
+      for (const pc of Object.values(peers)) {
+        const sender = pc.getSenders().find(s => s.track && s.track.kind === "video");
+        if (sender) sender.replaceTrack(originalVideoTrack);
+      }
+      setMainSpeaker("me", name + " (You)", localStream);
+    };
+  };
+
+  // CHAT
+  const chatMessages = document.getElementById("chat-messages");
+  const chatInput = document.getElementById("chatText");
+  document.getElementById("sendChat").onclick = () => {
+    const msg = chatInput.value.trim();
+    if (!msg) return;
+    socket.emit("chat-message", { roomId, name, message: msg });
+    chatInput.value = "";
+  };
+  socket.on("chat-message", ({ name: sender, message }) => {
+    const d = document.createElement("div");
+    d.textContent = `${sender}: ${message}`;
+    chatMessages.appendChild(d);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+  });
 }
 </script>
 </body>

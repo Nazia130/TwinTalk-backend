@@ -131,7 +131,7 @@ app.post("/login", (req, res) => {
   }
 });
 
-// ---------- CONTACT ----------
+// ---------- CONTACT (optional) ----------
 app.post("/contact", async (req, res) => {
   const { name, email, message } = req.body || {};
   if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS)
@@ -139,13 +139,13 @@ app.post("/contact", async (req, res) => {
   try {
     const transporter = nodemailer.createTransport({
       service: "gmail",
-      auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS },
+      auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS }
     });
     await transporter.sendMail({
       from: email,
       to: process.env.EMAIL_USER,
       subject: `Contact: ${name}`,
-      text: message || "",
+      text: message || ""
     });
     res.send("✅ Message sent");
   } catch (err) {
@@ -218,7 +218,7 @@ app.get("/history", (req, res) => {
           userEmail: (parts[0] || "").toLowerCase(),
           date: parts[1] || "",
           meetingId: parts[2] || "",
-          summary: parts[3] || "",
+          summary: parts[3] || ""
         };
       })
       .filter((r) => r.userEmail === email);
@@ -259,11 +259,7 @@ app.delete("/history/:index", (req, res) => {
 
     const removeIndex = userEntries[idx].i;
     raw.splice(removeIndex, 1);
-    fs.writeFileSync(
-      historyFile,
-      raw.join("\n") + (raw.length ? "\n" : ""),
-      "utf8"
-    );
+    fs.writeFileSync(historyFile, raw.join("\n") + (raw.length ? "\n" : ""), "utf8");
     console.log(`🗑 Deleted history ${idx} for ${email}`);
     return res.json({ message: "Deleted" });
   } catch (err) {
@@ -323,6 +319,19 @@ io.on("connection", (socket) => {
   socket.on("set-avatar", ({ roomId, avatar, name }) =>
     socket.to(roomId).emit("peer-avatar", { peerId: socket.id, avatar, name })
   );
+
+  // NEW: handle avatar-off so others can revert view
+  socket.on("avatar-off", ({ roomId, name }) => {
+    socket.to(roomId).emit("avatar-off", { peerId: socket.id, name });
+  });
+
+  // NEW: handle explicit leave request (end meeting button)
+  socket.on("leave-meeting", ({ roomId, name }) => {
+    // notify others that this peer ended call
+    socket.to(roomId).emit("peer-ended", { peerId: socket.id, name });
+    // optionally remove from room on server side
+    try { socket.leave(roomId); } catch(e){ /* ignore */ }
+  });
 
   socket.on("disconnect", () => {
     const data = roomNames[socket.id];
