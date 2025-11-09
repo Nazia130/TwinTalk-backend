@@ -2,127 +2,546 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<title>Meeting Room</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Meeting Room | Professional Video Conference</title>
 <script src="/socket.io/socket.io.js"></script>
 <style>
+  :root {
+    --primary-color: #0f9d58;
+    --secondary-color: #4285f4;
+    --danger-color: #cc1534;
+    --dark-bg: #181818;
+    --darker-bg: #111;
+    --card-bg: #2a2a2a;
+    --text-light: #ffffff;
+    --text-muted: #aaaaaa;
+    --border-radius: 8px;
+  }
+
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
   body {
     margin: 0;
-    font-family: Arial, sans-serif;
-    background: #181818;
-    color: #fff;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: var(--dark-bg);
+    color: var(--text-light);
     display: flex;
     flex-direction: column;
     height: 100vh;
+    overflow: hidden;
   }
+
+  /* Header */
   header {
-    background: #202020;
-    padding: 8px 12px;
-    text-align: center;
-    font-size: 18px;
+    background: var(--darker-bg);
+    padding: 12px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid #333;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+  }
+
+  .header-left {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+  }
+
+  .logo {
+    font-weight: 700;
+    font-size: 20px;
+    color: var(--primary-color);
+  }
+
+  #meetingTimer {
     font-weight: 600;
-  }
-  #meetingTimer { font-weight: normal; color: #0f9d58; margin-left: 10px; }
-
-  #top-strip {
-    display: flex; gap: 10px;
-    background: #111; padding: 8px;
-    overflow-x: auto; scrollbar-width: thin;
-  }
-  .small-tile {
-    flex: 0 0 120px; height: 90px;
-    background: #2a2a2a; border-radius: 8px;
-    position: relative; overflow: hidden;
-    display: flex; justify-content: center; align-items: center;
-    cursor: pointer;
-  }
-  .small-tile.active {
-    border: 2px solid #0f9d58;
-  }
-  .small-tile video, .small-tile img { 
-    width: 100%; height: 100%; object-fit: cover; 
-  }
-  .name-label {
-    position: absolute; bottom: 5px; left: 50%;
-    transform: translateX(-50%);
-    background: rgba(0,0,0,0.6); padding: 2px 6px; border-radius: 12px; font-size: 12px;
+    color: var(--primary-color);
+    background: rgba(15, 157, 88, 0.1);
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 14px;
   }
 
-  #main-speaker {
-    flex: 1; display: flex; background: #000;
-    justify-content: center; align-items: center; position: relative;
+  .header-right {
+    display: flex;
+    align-items: center;
+    gap: 10px;
   }
-  #main-speaker video, #main-speaker img {
-    max-width: 95%; max-height: 95%; border-radius: 10px; background: #000; object-fit: cover;
-  }
-  #main-speaker .name-label { top: 10px; bottom: auto; background: rgba(0,0,0,0.7); }
-
-  footer {
-    background: #202020; padding: 8px 0;
-    display: flex; justify-content: center; align-items: center; gap: 16px;
-  }
-  footer button {
-    background: transparent; border: none; color: #fff; font-size: 18px; cursor: pointer;
-    padding: 8px 14px; border-radius: 6px;
-  }
-  footer button:hover { background: rgba(255,255,255,0.1); }
-  .end-btn { background: #cc1534; border-radius: 20px; font-weight: bold; }
-
-  #chatbox {
-    position: absolute; right: 10px; bottom: 60px; width: 250px; height: 250px;
-    background: #fff; color: #000; border-radius: 8px;
-    display: flex; flex-direction: column; overflow: hidden;
-    z-index: 1000;
-  }
-  #chat-messages { flex: 1; padding: 6px; overflow-y: auto; font-size: 13px; }
-  #chat-input { display: flex; border-top: 1px solid #ccc; }
-  #chat-input input { flex: 1; padding: 6px; border: none; outline: none; }
-  #chat-input button { background: #6a0dad; border: none; color: #fff; padding: 0 10px; cursor: pointer; }
 
   /* Recording indicator */
   .recording-indicator {
-    position: fixed;
-    top: 10px;
-    left: 10px;
-    background: #cc1534;
+    background: var(--danger-color);
     color: white;
-    padding: 5px 10px;
-    border-radius: 15px;
+    padding: 6px 12px;
+    border-radius: 20px;
     font-size: 12px;
-    z-index: 1001;
-    display: none;
-  }
-  .recording-indicator.recording {
-    display: block;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 6px;
     animation: pulse 1.5s infinite;
   }
+
   @keyframes pulse {
     0% { opacity: 1; }
-    50% { opacity: 0.5; }
+    50% { opacity: 0.7; }
     100% { opacity: 1; }
+  }
+
+  /* MEMO Button */
+  #memoBtn {
+    background: var(--secondary-color);
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-weight: 600;
+    font-size: 14px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.2s ease;
+  }
+
+  #memoBtn:hover {
+    background: #3367d6;
+    transform: translateY(-1px);
+  }
+
+  #memoBtn.recording {
+    background: var(--danger-color);
+  }
+
+  /* Main layout */
+  .meeting-container {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+  }
+
+  /* Participants strip */
+  #top-strip {
+    display: flex;
+    gap: 10px;
+    background: var(--darker-bg);
+    padding: 12px;
+    overflow-x: auto;
+    scrollbar-width: thin;
+    border-bottom: 1px solid #333;
+    min-height: 120px;
+  }
+
+  .small-tile {
+    flex: 0 0 160px;
+    height: 100px;
+    background: var(--card-bg);
+    border-radius: var(--border-radius);
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: 2px solid transparent;
+  }
+
+  .small-tile:hover {
+    border-color: var(--primary-color);
+    transform: scale(1.02);
+  }
+
+  .small-tile.active {
+    border: 2px solid var(--primary-color);
+    box-shadow: 0 0 10px rgba(15, 157, 88, 0.3);
+  }
+
+  .small-tile video, .small-tile img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .name-label {
+    position: absolute;
+    bottom: 5px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0,0,0,0.7);
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 500;
+    max-width: 90%;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* Main speaker area */
+  #main-speaker {
+    flex: 1;
+    display: flex;
+    background: #000;
+    justify-content: center;
+    align-items: center;
+    position: relative;
+    overflow: hidden;
+  }
+
+  #main-speaker video, #main-speaker img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    background: #000;
+  }
+
+  #main-speaker .name-label {
+    top: 15px;
+    bottom: auto;
+    background: rgba(0,0,0,0.8);
+    padding: 6px 12px;
+    font-size: 14px;
+  }
+
+  /* Controls footer */
+  footer {
+    background: var(--darker-bg);
+    padding: 15px 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 20px;
+    border-top: 1px solid #333;
+  }
+
+  .control-btn {
+    background: rgba(255,255,255,0.1);
+    border: none;
+    color: var(--text-light);
+    font-size: 16px;
+    cursor: pointer;
+    padding: 10px 16px;
+    border-radius: var(--border-radius);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+    transition: all 0.2s ease;
+    min-width: 80px;
+  }
+
+  .control-btn:hover {
+    background: rgba(255,255,255,0.2);
+    transform: translateY(-2px);
+  }
+
+  .control-btn.active {
+    background: var(--primary-color);
+  }
+
+  .control-btn .btn-label {
+    font-size: 12px;
+    font-weight: 500;
+  }
+
+  .end-btn {
+    background: var(--danger-color);
+    border-radius: 20px;
+    font-weight: bold;
+    padding: 10px 24px;
+  }
+
+  .end-btn:hover {
+    background: #b3122f;
+  }
+
+  /* Chat panel */
+  #chatbox {
+    position: absolute;
+    right: 20px;
+    bottom: 80px;
+    width: 300px;
+    height: 350px;
+    background: #fff;
+    color: #000;
+    border-radius: var(--border-radius);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    box-shadow: 0 5px 25px rgba(0,0,0,0.3);
+    z-index: 1000;
+    border: 1px solid #ddd;
+  }
+
+  .chat-header {
+    background: var(--secondary-color);
+    color: white;
+    padding: 10px 15px;
+    font-weight: 600;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .close-chat {
+    background: none;
+    border: none;
+    color: white;
+    font-size: 18px;
+    cursor: pointer;
+  }
+
+  #chat-messages {
+    flex: 1;
+    padding: 10px;
+    overflow-y: auto;
+    font-size: 14px;
+    background: #f9f9f9;
+  }
+
+  .chat-message {
+    margin-bottom: 10px;
+    padding: 8px;
+    border-radius: 6px;
+    background: white;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  }
+
+  .chat-sender {
+    font-weight: 600;
+    color: var(--secondary-color);
+    font-size: 12px;
+    margin-bottom: 3px;
+  }
+
+  .chat-time {
+    font-size: 10px;
+    color: #666;
+    float: right;
+  }
+
+  #chat-input {
+    display: flex;
+    border-top: 1px solid #ddd;
+    background: white;
+  }
+
+  #chat-input input {
+    flex: 1;
+    padding: 10px;
+    border: none;
+    outline: none;
+    font-size: 14px;
+  }
+
+  #chat-input button {
+    background: var(--secondary-color);
+    border: none;
+    color: #fff;
+    padding: 0 15px;
+    cursor: pointer;
+    font-weight: 600;
+  }
+
+  /* MEMO Panel */
+  #memoPanel {
+    position: absolute;
+    left: 20px;
+    bottom: 80px;
+    width: 400px;
+    height: 400px;
+    background: white;
+    color: #000;
+    border-radius: var(--border-radius);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    box-shadow: 0 5px 25px rgba(0,0,0,0.3);
+    z-index: 1000;
+    border: 1px solid #ddd;
+  }
+
+  .memo-header {
+    background: var(--primary-color);
+    color: white;
+    padding: 12px 15px;
+    font-weight: 600;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .memo-controls {
+    display: flex;
+    gap: 8px;
+  }
+
+  .memo-control-btn {
+    background: rgba(255,255,255,0.2);
+    border: none;
+    color: white;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    cursor: pointer;
+  }
+
+  .memo-control-btn:hover {
+    background: rgba(255,255,255,0.3);
+  }
+
+  #memoContent {
+    flex: 1;
+    padding: 15px;
+    overflow-y: auto;
+    font-size: 14px;
+    line-height: 1.5;
+    background: #f9f9f9;
+    white-space: pre-wrap;
+    font-family: 'Courier New', monospace;
+  }
+
+  .memo-entry {
+    margin-bottom: 10px;
+    padding: 8px;
+    border-left: 3px solid var(--primary-color);
+    background: white;
+    border-radius: 0 4px 4px 0;
+  }
+
+  .memo-time {
+    font-size: 11px;
+    color: #666;
+    margin-bottom: 3px;
+    font-weight: 600;
+  }
+
+  .memo-speaker {
+    font-weight: 600;
+    color: var(--secondary-color);
+  }
+
+  .close-memo {
+    background: none;
+    border: none;
+    color: white;
+    font-size: 18px;
+    cursor: pointer;
+  }
+
+  /* Responsive design */
+  @media (max-width: 768px) {
+    .meeting-container {
+      flex-direction: column;
+    }
+    
+    #top-strip {
+      min-height: 80px;
+    }
+    
+    .small-tile {
+      flex: 0 0 100px;
+      height: 70px;
+    }
+    
+    footer {
+      gap: 10px;
+    }
+    
+    .control-btn {
+      min-width: 60px;
+      padding: 8px 12px;
+      font-size: 14px;
+    }
+    
+    #chatbox, #memoPanel {
+      width: 90%;
+      left: 5%;
+      right: 5%;
+    }
   }
 </style>
 </head>
 <body>
 
-<header>Meeting Room <span id="meetingTimer">00:00:00</span></header>
-<div class="recording-indicator" id="recordingIndicator">🔴 Recording All Conversations</div>
-<div id="top-strip"></div>
-<div id="main-speaker"><div class="name-label" id="mainSpeakerName"></div></div>
+<header>
+  <div class="header-left">
+    <div class="logo">TwinTalk</div>
+    <div id="meetingTimer">00:00:00</div>
+  </div>
+  <div class="header-right">
+    <div class="recording-indicator" id="recordingIndicator" style="display: none;">
+      <span>🔴</span>
+      <span>Recording</span>
+    </div>
+    <button id="memoBtn">
+      <span>📝</span>
+      <span>MEMO</span>
+    </button>
+  </div>
+</header>
+
+<div class="meeting-container">
+  <div id="top-strip"></div>
+  <div id="main-speaker">
+    <div class="name-label" id="mainSpeakerName"></div>
+  </div>
+</div>
 
 <footer>
-  <button id="muteBtn">🎤 Mute</button>
-  <button id="videoBtn">📷 Stop Video</button>
-  <button id="screenBtn">🖥️ Share Screen</button>
-  <button id="avatarBtn">🧑 Enable Avatar Mode</button>
-  <button id="leaveBtn" class="end-btn">End Meeting</button>
+  <button class="control-btn" id="muteBtn">
+    <span>🎤</span>
+    <span class="btn-label">Mute</span>
+  </button>
+  <button class="control-btn" id="videoBtn">
+    <span>📷</span>
+    <span class="btn-label">Video</span>
+  </button>
+  <button class="control-btn" id="screenBtn">
+    <span>🖥️</span>
+    <span class="btn-label">Share</span>
+  </button>
+  <button class="control-btn" id="avatarBtn">
+    <span>🧑</span>
+    <span class="btn-label">Avatar</span>
+  </button>
+  <button class="control-btn end-btn" id="leaveBtn">
+    <span>📞</span>
+    <span class="btn-label">Leave</span>
+  </button>
 </footer>
 
-<div id="chatbox">
+<!-- Chat Panel -->
+<div id="chatbox" style="display: none;">
+  <div class="chat-header">
+    <span>Chat</span>
+    <button class="close-chat">✕</button>
+  </div>
   <div id="chat-messages"></div>
   <div id="chat-input">
     <input type="text" id="chatText" placeholder="Type a message...">
     <button id="sendChat">Send</button>
   </div>
+</div>
+
+<!-- MEMO Panel -->
+<div id="memoPanel" style="display: none;">
+  <div class="memo-header">
+    <span>Meeting MEMO</span>
+    <div class="memo-controls">
+      <button class="memo-control-btn" id="saveMemo">Save</button>
+      <button class="memo-control-btn" id="clearMemo">Clear</button>
+      <button class="close-memo">✕</button>
+    </div>
+  </div>
+  <div id="memoContent"></div>
 </div>
 
 <!-- Firebase Auth -->
@@ -184,12 +603,15 @@ async function startMeeting(user) {
   const peerStreams = {};
   let currentMainSpeaker = "me";
 
-  // Meeting transcript system
+  // Enhanced meeting transcript system
   let meetingTranscript = "";
   let isRecording = false;
   const recordingIndicator = document.getElementById('recordingIndicator');
+  const memoBtn = document.getElementById('memoBtn');
+  const memoPanel = document.getElementById('memoPanel');
+  const memoContent = document.getElementById('memoContent');
 
-  // timer
+  // Meeting timer
   const timerDisplay = document.getElementById("meetingTimer");
   const startTime = Date.now();
   setInterval(() => {
@@ -200,15 +622,102 @@ async function startMeeting(user) {
     timerDisplay.textContent = `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`;
   }, 1000);
 
+  // Initialize MEMO functionality
+  function initializeMemo() {
+    // Load any existing transcript
+    const savedTranscript = localStorage.getItem(`meeting-${roomId}-transcript`);
+    if (savedTranscript) {
+      try {
+        const data = JSON.parse(savedTranscript);
+        meetingTranscript = data.transcript || "";
+        updateMemoDisplay();
+      } catch (e) {
+        console.warn("Failed to load saved transcript:", e);
+      }
+    }
+
+    // MEMO button click handler
+    memoBtn.addEventListener('click', toggleMemoPanel);
+    
+    // Close memo panel
+    document.querySelector('.close-memo').addEventListener('click', () => {
+      memoPanel.style.display = 'none';
+    });
+
+    // Save memo
+    document.getElementById('saveMemo').addEventListener('click', saveFinalSummary);
+
+    // Clear memo
+    document.getElementById('clearMemo').addEventListener('click', () => {
+      if (confirm("Are you sure you want to clear the meeting memo? This cannot be undone.")) {
+        meetingTranscript = "";
+        updateMemoDisplay();
+        localStorage.removeItem(`meeting-${roomId}-transcript`);
+      }
+    });
+  }
+
+  function toggleMemoPanel() {
+    if (memoPanel.style.display === 'none') {
+      memoPanel.style.display = 'flex';
+      updateMemoDisplay();
+    } else {
+      memoPanel.style.display = 'none';
+    }
+  }
+
+  function updateMemoDisplay() {
+    if (!meetingTranscript.trim()) {
+      memoContent.innerHTML = '<div style="text-align: center; color: #666; padding: 20px;">No conversation recorded yet. Start speaking or enable avatar mode to capture audio.</div>';
+      return;
+    }
+
+    const entries = meetingTranscript.split('\n').filter(line => line.trim());
+    memoContent.innerHTML = entries.map(entry => {
+      const match = entry.match(/\[(.*?)\] (.*?): (.*)/);
+      if (match) {
+        const [, time, speaker, text] = match;
+        return `
+          <div class="memo-entry">
+            <div class="memo-time">${time}</div>
+            <div><span class="memo-speaker">${speaker}:</span> ${text}</div>
+          </div>
+        `;
+      }
+      return `<div class="memo-entry">${entry}</div>`;
+    }).join('');
+    
+    memoContent.scrollTop = memoContent.scrollHeight;
+  }
+
+  function addToTranscript(speaker, text) {
+    const timestamp = new Date().toLocaleTimeString();
+    const transcriptEntry = `[${timestamp}] ${speaker}: ${text}\n`;
+    meetingTranscript += transcriptEntry;
+    
+    console.log("🎯 Captured conversation:", transcriptEntry);
+    
+    // Update memo display if visible
+    if (memoPanel.style.display === 'flex') {
+      updateMemoDisplay();
+    }
+    
+    // Auto-save transcript every 5 entries
+    if (meetingTranscript.split('\n').filter(line => line.trim()).length % 5 === 0) {
+      saveTranscriptToLocalStorage();
+    }
+  }
+
   async function initMedia() {
     try {
-      // get local camera & mic
       localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
       originalVideoTrack = localStream.getVideoTracks()[0] || null;
 
-      // display local video tile & main speaker
       createSmallTile("me", name + " (You)", localStream);
       setMainSpeaker("me", name + " (You)", localStream);
+
+      // Start recording automatically when meeting starts
+      startAutomaticRecording();
 
     } catch (err) {
       console.error("❌ getUserMedia failed:", err);
@@ -226,9 +735,7 @@ async function startMeeting(user) {
       document.getElementById("top-strip").appendChild(tile);
     }
 
-    // Remove active class from all tiles
     document.querySelectorAll('.small-tile').forEach(t => t.classList.remove('active'));
-    // Add active class to current tile
     tile.classList.add('active');
 
     if (avatarURL) {
@@ -268,21 +775,21 @@ async function startMeeting(user) {
       mainSpeakerName.textContent = label;
     }
 
-    // Update active tile
     document.querySelectorAll('.small-tile').forEach(t => t.classList.remove('active'));
     const activeTile = document.getElementById("tile-" + id);
     if (activeTile) activeTile.classList.add('active');
   }
 
-  // 🔥 **CRITICAL FIX: Enhanced speech recognition to capture ALL conversations**
-  function startSpeechRecognition() {
+  // Enhanced speech recognition to capture ALL conversations
+  function startAutomaticRecording() {
     if (!('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) {
       console.warn("SpeechRecognition API not supported in this browser");
+      memoBtn.innerHTML = '<span>📝</span><span>MEMO (No Audio)</span>';
       return null;
     }
 
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    const recognition = new SpeechRecognition();
+    recognition = new SpeechRecognition();
     
     recognition.continuous = true;
     recognition.interimResults = true;
@@ -290,24 +797,24 @@ async function startMeeting(user) {
     recognition.maxAlternatives = 1;
 
     recognition.onstart = () => {
-      console.log("🎤 Speech recognition started - Recording ALL conversations");
+      console.log("🎤 Automatic recording started - Capturing ALL conversations");
       isRecording = true;
-      recordingIndicator.classList.add('recording');
+      recordingIndicator.style.display = 'flex';
+      memoBtn.classList.add('recording');
+      memoBtn.innerHTML = '<span>🔴</span><span>RECORDING</span>';
     };
 
     recognition.onresult = (event) => {
       for (let i = event.resultIndex; i < event.results.length; i++) {
         const transcript = event.results[i][0].transcript;
         if (event.results[i].isFinal) {
-          // 🔥 **FIX: Try to identify speaker based on context (captures ALL audio)**
-          let speaker = "Unknown";
+          // Try to identify speaker
+          let speaker = "Unknown Speaker";
           const transcriptLower = transcript.toLowerCase();
           
-          // Simple speaker identification
           if (transcriptLower.includes(name.toLowerCase())) {
             speaker = name;
           } else {
-            // Check if it matches any known participant names
             Object.values(peerNames).forEach(peerName => {
               if (transcriptLower.includes(peerName.toLowerCase())) {
                 speaker = peerName;
@@ -315,17 +822,7 @@ async function startMeeting(user) {
             });
           }
           
-          // Add timestamp and speaker to transcript
-          const timestamp = new Date().toLocaleTimeString();
-          const transcriptEntry = `[${timestamp}] ${speaker}: ${transcript}\n`;
-          meetingTranscript += transcriptEntry;
-          
-          console.log("🎯 Captured ALL conversation:", transcriptEntry);
-          
-          // Auto-save transcript every 5 entries
-          if (meetingTranscript.split('\n').filter(line => line.trim()).length % 5 === 0) {
-            saveTranscriptToLocalStorage();
-          }
+          addToTranscript(speaker, transcript);
         }
       }
     };
@@ -334,7 +831,7 @@ async function startMeeting(user) {
       console.error('Speech recognition error:', event.error);
       if (event.error === 'no-speech' || event.error === 'audio-capture') {
         setTimeout(() => {
-          if (isRecording && avatarMode) {
+          if (isRecording) {
             try {
               recognition.start();
             } catch (e) {
@@ -347,7 +844,7 @@ async function startMeeting(user) {
 
     recognition.onend = () => {
       console.log("🎤 Speech recognition ended");
-      if (isRecording && avatarMode) {
+      if (isRecording) {
         setTimeout(() => {
           try {
             recognition.start();
@@ -356,8 +853,9 @@ async function startMeeting(user) {
           }
         }, 500);
       } else {
-        isRecording = false;
-        recordingIndicator.classList.remove('recording');
+        recordingIndicator.style.display = 'none';
+        memoBtn.classList.remove('recording');
+        memoBtn.innerHTML = '<span>📝</span><span>MEMO</span>';
       }
     };
 
@@ -373,7 +871,9 @@ async function startMeeting(user) {
   function stopSpeechRecognition() {
     if (recognition) {
       isRecording = false;
-      recordingIndicator.classList.remove('recording');
+      recordingIndicator.style.display = 'none';
+      memoBtn.classList.remove('recording');
+      memoBtn.innerHTML = '<span>📝</span><span>MEMO</span>';
       try {
         recognition.stop();
       } catch (e) {
@@ -397,15 +897,13 @@ async function startMeeting(user) {
 
   async function saveFinalSummary() {
     if (!meetingTranscript.trim()) {
-      console.log("No transcript to save");
+      alert("No conversation recorded yet.");
       return;
     }
 
     try {
-      // Save to Supabase
       await window.saveSummaryToSupabase(roomId, meetingTranscript, userEmail);
       
-      // Also save to server via API
       const response = await fetch('/save-summary', {
         method: 'POST',
         headers: {
@@ -422,117 +920,242 @@ async function startMeeting(user) {
         console.log("✅ Meeting summary saved successfully");
         const result = await response.json();
         
-        // Clear local storage after successful save
         localStorage.removeItem(`meeting-${roomId}-transcript`);
         
-        // Show success message
-        alert(`Personal meeting memo saved! Summary:\n\n${result.summary || "Check your history for details"}`);
+        alert(`✅ Meeting memo saved successfully!\n\nSummary has been saved to your history.`);
       } else {
         console.error("Failed to save summary to server");
+        alert("Failed to save memo. Please try again.");
       }
     } catch (error) {
       console.error("Error saving summary:", error);
-      // Keep transcript in local storage for recovery
       saveTranscriptToLocalStorage();
+      alert("Memo saved locally. There was an issue saving to the server.");
     }
   }
 
-  async function enableAvatar(avatarURL) {
-    avatarMode = true;
+  // ========== FIXED AVATAR FUNCTIONALITY ==========
+  
+  // Check if we should auto-enable avatar when page loads
+// Check if we should auto-enable avatar when page loads
+function checkAutoEnableAvatar() {
+    const params = new URLSearchParams(window.location.search);
+    const useAvatar = params.get('useAvatar');
+    const savedAvatar = localStorage.getItem('userAvatar');
     
-    // Create avatar stream
-    const canvas = document.createElement("canvas");
-    const ctx = canvas.getContext("2d");
-    canvas.width = 640; 
-    canvas.height = 360;
-    
-    const img = new Image();
-    img.crossOrigin = "anonymous";
-    img.src = avatarURL;
-    
-    await new Promise((resolve) => {
-      img.onload = resolve;
-    });
-    
-    // Draw avatar on canvas
-    ctx.fillStyle = "#000"; 
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-    
-    const avatarStream = canvas.captureStream(15);
-    const avatarTrack = avatarStream.getVideoTracks()[0];
+    if (useAvatar === 'true' && savedAvatar && !avatarMode) {
+        console.log("🔄 Auto-enabling avatar from redirect...");
+        // Wait a bit for media to initialize, then enable avatar
+        setTimeout(async () => {
+            try {
+                await enableAvatar(savedAvatar);
+                // Remove the parameter from URL without reloading
+                const newUrl = window.location.pathname + '?room=' + roomId;
+                window.history.replaceState({}, '', newUrl);
+            } catch (error) {
+                console.error("❌ Auto-enable avatar failed:", error);
+                // Remove the parameter even if failed
+                const newUrl = window.location.pathname + '?room=' + roomId;
+                window.history.replaceState({}, '', newUrl);
+            }
+        }, 3000); // Increased delay to ensure media is ready
+    }
+}
 
-    // Replace video track in all peer connections
-    for (const pc of Object.values(peers)) {
-      const sender = pc.getSenders().find(s => s.track && s.track.kind === "video");
-      if (sender && avatarTrack) {
-        try { 
-          await sender.replaceTrack(avatarTrack); 
-        } catch(e){ 
-          console.warn("replace avatar track failed", e); 
+ // FIXED: Avatar functionality with better error handling and reliable image loading
+async function enableAvatar(avatarURL) {
+    try {
+        console.log("🔄 Enabling avatar:", avatarURL);
+        avatarMode = true;
+        
+        // Validate avatar URL and use fallback if needed
+        let finalAvatarURL = avatarURL;
+        
+        // Check if it's a data URL (from previous capture functionality) or external URL
+        if (!avatarURL.startsWith('data:') && !avatarURL.startsWith('http')) {
+            console.warn("❌ Invalid avatar URL, using fallback");
+            finalAvatarURL = "https://cdn-icons-png.flaticon.com/512/4333/4333609.png"; // Reliable fallback
         }
-      }
-    }
+        
+        // Create avatar stream from image
+        const canvas = document.createElement("canvas");
+        const ctx = canvas.getContext("2d");
+        canvas.width = 640; 
+        canvas.height = 480; // Better aspect ratio
+        
+        const img = new Image();
+        img.crossOrigin = "anonymous";
+        
+        // Add comprehensive error handling for image loading
+        return new Promise((resolve, reject) => {
+            img.onload = async () => {
+                try {
+                    console.log("✅ Avatar image loaded successfully");
+                    
+                    // Draw avatar on canvas with better quality
+                    ctx.fillStyle = "#1a1a1a"; // Dark background
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    
+                    // Calculate centered position with some padding
+                    const scale = Math.min(canvas.width / img.width, canvas.height / img.height) * 0.8;
+                    const x = (canvas.width - img.width * scale) / 2;
+                    const y = (canvas.height - img.height * scale) / 2;
+                    
+                    ctx.drawImage(img, x, y, img.width * scale, img.height * scale);
+                    
+                    // Create stream from canvas
+                    const avatarStream = canvas.captureStream(15);
+                    const avatarTrack = avatarStream.getVideoTracks()[0];
+                    
+                    if (!avatarTrack) {
+                        throw new Error("Failed to create video track from canvas");
+                    }
 
-    // Update local display
-    createSmallTile("me", name + " (Avatar)", null, avatarURL);
-    if (currentMainSpeaker === "me") {
-      setMainSpeaker("me", name + " (Avatar)", null, avatarURL);
+                    // Replace video track in all peer connections
+                    let replaceCount = 0;
+                    const peerIds = Object.keys(peers);
+                    
+                    if (peerIds.length === 0) {
+                        console.log("ℹ️ No active peer connections to update");
+                    }
+                    
+                    for (const peerId of peerIds) {
+                        const pc = peers[peerId];
+                        const sender = pc.getSenders().find(s => s.track && s.track.kind === "video");
+                        if (sender && avatarTrack) {
+                            try { 
+                                await sender.replaceTrack(avatarTrack); 
+                                replaceCount++;
+                                console.log("✅ Replaced video track for peer:", peerId);
+                            } catch(e){ 
+                                console.warn("replace avatar track failed for peer", peerId, e); 
+                            }
+                        }
+                    }
+                    
+                    console.log(`✅ Successfully replaced tracks for ${replaceCount} peers`);
+
+                    // Update local display to show avatar
+                    createSmallTile("me", name + " (Avatar)", null, finalAvatarURL);
+                    if (currentMainSpeaker === "me") {
+                        setMainSpeaker("me", name + " (Avatar)", null, finalAvatarURL);
+                    }
+                    
+                    // Update button to show disable state
+                    document.getElementById('avatarBtn').innerHTML = '<span>👤</span><span class="btn-label">Disable Avatar</span>';
+                    document.getElementById('avatarBtn').classList.add('active');
+                    
+                    // Notify other participants
+                    socket.emit("set-avatar", { roomId, avatar: finalAvatarURL, name });
+                    
+                    console.log("✅ Avatar mode enabled successfully");
+                    resolve();
+                    
+                } catch (error) {
+                    console.error("❌ Error in avatar setup:", error);
+                    reject(error);
+                }
+            };
+            
+            img.onerror = () => {
+                console.error("❌ Failed to load avatar image:", finalAvatarURL);
+                // Try fallback image
+                const fallbackAvatar = "https://cdn-icons-png.flaticon.com/512/4333/4333609.png";
+                console.log("🔄 Trying fallback avatar:", fallbackAvatar);
+                img.src = fallbackAvatar;
+            };
+            
+            // Start loading the image
+            console.log("📥 Loading avatar image:", finalAvatarURL);
+            img.src = finalAvatarURL;
+            
+            // Set timeout for image loading
+            setTimeout(() => {
+                if (!img.complete) {
+                    console.warn("⏰ Avatar image loading timeout, using fallback");
+                    img.onerror = null; // Remove previous error handler
+                    img.src = "https://cdn-icons-png.flaticon.com/512/4333/4333609.png";
+                }
+            }, 3000);
+        });
+        
+    } catch (error) {
+        console.error("❌ Failed to enable avatar:", error);
+        
+        // Reset avatar mode on error
+        avatarMode = false;
+        
+        // Show user-friendly error message
+        const errorMsg = "Failed to enable avatar mode. Please try selecting a different avatar.";
+        alert(errorMsg);
+        
+        // Reset button state
+        document.getElementById('avatarBtn').innerHTML = '<span>🧑</span><span class="btn-label">Avatar</span>';
+        document.getElementById('avatarBtn').classList.remove('active');
+        
+        throw error;
     }
-    
-    // 🔥 **START RECORDING ALL CONVERSATIONS**
-    recognition = startSpeechRecognition();
-    if (!recognition) {
-      alert("Speech recognition is not supported in your browser. Conversation will not be recorded.");
-    } else {
-      console.log("🎤 Started recording ALL conversations in avatar mode");
-    }
-    
-    socket.emit("set-avatar", { roomId, avatar: avatarURL, name });
-    
-    // Update button
-    document.getElementById('avatarBtn').textContent = '👤 Disable Avatar Mode';
-    document.getElementById('avatarBtn').style.background = '#28a745';
-  }
+}
 
   async function disableAvatar() {
-    avatarMode = false;
-    
-    // STOP SPEECH-TO-TEXT RECORDING
-    stopSpeechRecognition();
-    console.log("⏹️ Stopped recording conversations");
-    
-    // Save any remaining transcript
-    if (meetingTranscript.trim()) {
-      await saveFinalSummary();
-    }
-    
-    // Restore original video track
-    for (const pc of Object.values(peers)) {
-      const sender = pc.getSenders().find(s => s.track && s.track.kind === "video");
-      if (sender && originalVideoTrack) {
-        try { 
-          await sender.replaceTrack(originalVideoTrack); 
-        } catch(e){ 
-          console.warn("restore track failed", e); 
+    try {
+      console.log("🔄 Disabling avatar...");
+      avatarMode = false;
+      
+      // Restore original video track to all peer connections
+      for (const peerId of Object.keys(peers)) {
+        const pc = peers[peerId];
+        const sender = pc.getSenders().find(s => s.track && s.track.kind === "video");
+        if (sender && originalVideoTrack) {
+          try { 
+            await sender.replaceTrack(originalVideoTrack); 
+            console.log("✅ Restored original video track for peer:", peerId);
+          } catch(e){ 
+            console.warn("restore track failed for peer", peerId, e); 
+          }
         }
       }
-    }
 
-    // Update local display
-    if (localStream) {
-      createSmallTile("me", name + " (You)", localStream);
-      if (currentMainSpeaker === "me") {
-        setMainSpeaker("me", name + " (You)", localStream);
+      // Update local display to show normal video
+      if (localStream) {
+        createSmallTile("me", name + " (You)", localStream);
+        if (currentMainSpeaker === "me") {
+          setMainSpeaker("me", name + " (You)", localStream);
+        }
       }
+      
+      // Update button to show enable state
+      document.getElementById('avatarBtn').innerHTML = '<span>🧑</span><span class="btn-label">Avatar</span>';
+      document.getElementById('avatarBtn').classList.remove('active');
+      
+      // Notify other participants
+      socket.emit("avatar-off", { roomId, name });
+      
+      console.log("✅ Avatar mode disabled successfully");
+      
+    } catch (error) {
+      console.error("❌ Failed to disable avatar:", error);
     }
-    
-    socket.emit("avatar-off", { roomId, name });
-    
-    // Update button
-    document.getElementById('avatarBtn').textContent = '🧑 Enable Avatar Mode';
-    document.getElementById('avatarBtn').style.background = '';
   }
+
+  // Fixed avatar button click handler
+// FIXED: Avatar button click handler with better error handling
+// NUCLEAR OPTION - Guaranteed to redirect
+document.getElementById("avatarBtn").onclick = async () => {
+    console.log("🚀 FORCE REDIRECT TO AVATAR PAGE");
+    
+    // Immediately redirect without any checks
+    const params = new URLSearchParams(window.location.search);
+    const roomId = params.get("room") || "default";
+    const name = user.displayName || "User";
+    
+    const avatarUrl = `avatar.html?room=${roomId}&name=${name}`;
+    console.log("🎯 Redirecting to:", avatarUrl);
+    
+    // Force redirect
+    window.location.href = avatarUrl;
+    return false; // Prevent any default behavior
+};
 
   function createPeerConnection(peerId) {
     const pc = new RTCPeerConnection({
@@ -554,7 +1177,7 @@ async function startMeeting(user) {
     }
 
     pc.ontrack = (event) => {
-      console.log("Received track from peer:", peerId);
+      console.log("🎥 Received track from peer:", peerId);
       const remoteStream = event.streams[0];
       peerStreams[peerId] = remoteStream;
       
@@ -632,6 +1255,7 @@ async function startMeeting(user) {
         to: peerId, 
         sdp: offer 
       });
+      console.log(`📞 Calling peer: ${peerId}`);
     } catch (err) {
       console.error("callPeer error:", err);
     }
@@ -639,20 +1263,24 @@ async function startMeeting(user) {
 
   // SOCKET EVENTS
   socket.on("connect", async () => {
-    console.log("socket connected:", socket.id);
+    console.log("✅ Socket connected:", socket.id);
     await initMedia();
     socket.emit("join-room", { roomId, name });
   });
 
   socket.on("existing-peers", async ({ peers: existing }) => {
-    console.log("Existing peers:", existing);
-    if (!existing || !existing.length) return;
+    console.log("👥 Existing peers received:", existing);
+    if (!existing || !existing.length) {
+      console.log("No existing peers in room");
+      return;
+    }
     
     for (const peerInfo of existing) {
-      const peerId = peerInfo.peerId || peerInfo;
-      const peerName = peerInfo.name || peerInfo;
+      const peerId = peerInfo.peerId;
+      const peerName = peerInfo.name || "User";
       
       if (peerId && peerId !== socket.id) {
+        console.log(`🔗 Connecting to peer: ${peerId} (${peerName})`);
         peerNames[peerId] = peerName;
         await callPeer(peerId);
       }
@@ -660,7 +1288,7 @@ async function startMeeting(user) {
   });
 
   socket.on("peer-joined", ({ peerId, name: peerName }) => {
-    console.log('Peer joined:', peerId, peerName);
+    console.log('👋 Peer joined:', peerId, peerName);
     peerNames[peerId] = peerName || "User";
     
     // Call the new peer
@@ -668,7 +1296,7 @@ async function startMeeting(user) {
   });
 
   socket.on("webrtc-offer", async ({ from, sdp }) => {
-    console.log("Received offer from:", from);
+    console.log("📨 Received offer from:", from);
     const pc = createPeerConnection(from);
     try {
       await pc.setRemoteDescription(new RTCSessionDescription(sdp));
@@ -684,7 +1312,7 @@ async function startMeeting(user) {
   });
 
   socket.on("webrtc-answer", async ({ from, sdp }) => {
-    console.log("Received answer from:", from);
+    console.log("📨 Received answer from:", from);
     const pc = peers[from];
     if (pc) {
       try { 
@@ -716,7 +1344,7 @@ async function startMeeting(user) {
   });
 
   socket.on("peer-left", ({ peerId, name }) => {
-    console.log(`Peer left: ${name} (${peerId})`);
+    console.log(`👋 Peer left: ${name} (${peerId})`);
     cleanupPeer(peerId);
   });
 
@@ -729,19 +1357,7 @@ async function startMeeting(user) {
     }
   });
 
-  // BUTTONS
-  document.getElementById("avatarBtn").onclick = async () => {
-    if (!avatarMode) {
-      if (savedAvatar) {
-        await enableAvatar(savedAvatar);
-      } else {
-        window.location.href = `avatar.html?room=${roomId}&name=${encodeURIComponent(name)}`;
-      }
-    } else {
-      await disableAvatar();
-    }
-  };
-
+  // FIXED: End meeting redirects to index.html
   document.getElementById("leaveBtn").onclick = async () => {
     // Save final summary before leaving
     if (meetingTranscript.trim()) {
@@ -764,6 +1380,7 @@ async function startMeeting(user) {
       });
     }
     
+    // FIXED: Redirect to index.html (home page)
     window.location.href = "/index.html";
   };
 
@@ -772,8 +1389,9 @@ async function startMeeting(user) {
     const audioTrack = localStream.getAudioTracks()[0];
     if (audioTrack) {
       audioTrack.enabled = !audioTrack.enabled;
-      document.getElementById("muteBtn").textContent = 
-        audioTrack.enabled ? "🎤 Mute" : "🎤 Unmute";
+      document.getElementById("muteBtn").innerHTML = 
+        audioTrack.enabled ? '<span>🎤</span><span class="btn-label">Mute</span>' : '<span>🔇</span><span class="btn-label">Unmute</span>';
+      document.getElementById("muteBtn").classList.toggle('active', !audioTrack.enabled);
     }
   };
 
@@ -782,8 +1400,9 @@ async function startMeeting(user) {
     const videoTrack = localStream.getVideoTracks()[0];
     if (videoTrack) {
       videoTrack.enabled = !videoTrack.enabled;
-      document.getElementById("videoBtn").textContent = 
-        videoTrack.enabled ? "📷 Stop Video" : "📷 Start Video";
+      document.getElementById("videoBtn").innerHTML = 
+        videoTrack.enabled ? '<span>📷</span><span class="btn-label">Video</span>' : '<span>📹</span><span class="btn-label">Start Video</span>';
+      document.getElementById("videoBtn").classList.toggle('active', !videoTrack.enabled);
     }
   };
 
@@ -840,7 +1459,11 @@ async function startMeeting(user) {
   // Load previous chat history
   chatHistory.forEach(msg => {
     const d = document.createElement("div");
-    d.textContent = `${msg.name}: ${msg.message}`;
+    d.className = "chat-message";
+    d.innerHTML = `
+      <div class="chat-sender">${msg.name} <span class="chat-time">${new Date(msg.timestamp).toLocaleTimeString()}</span></div>
+      <div>${msg.message}</div>
+    `;
     chatMessages.appendChild(d);
   });
   chatMessages.scrollTop = chatMessages.scrollHeight;
@@ -878,27 +1501,26 @@ async function startMeeting(user) {
     
     // Display message
     const d = document.createElement("div");
-    d.textContent = `${sender}: ${message}`;
+    d.className = "chat-message";
+    d.innerHTML = `
+      <div class="chat-sender">${sender} <span class="chat-time">${new Date(timestamp).toLocaleTimeString()}</span></div>
+      <div>${message}</div>
+    `;
     chatMessages.appendChild(d);
     chatMessages.scrollTop = chatMessages.scrollHeight;
   });
 
   // Handle page unload - save transcript
   window.addEventListener('beforeunload', () => {
-    if (avatarMode && meetingTranscript.trim()) {
+    if (meetingTranscript.trim()) {
       saveTranscriptToLocalStorage();
     }
     socket.emit("leave-meeting", { roomId, name });
   });
 
-  // Manual save function
-  window.saveTranscriptManually = function() {
-    if (meetingTranscript.trim()) {
-      saveFinalSummary();
-    } else {
-      alert("No conversation recorded yet.");
-    }
-  };
+  // Initialize the meeting
+  initializeMemo();
+  checkAutoEnableAvatar(); // Check if we need to auto-enable avatar
 }
 </script>
 </body>

@@ -3,103 +3,430 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Select Avatar</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      background: #181818;
-      color: #fff;
-      text-align: center;
-      padding: 18px;
-    }
-    h1 { color: #6a0dad; }
-    h3 { margin-top: 25px; color: #ddd; }
-    .presets {
-      display: flex;
-      justify-content: center;
-      gap: 14px;
-      flex-wrap: wrap;
-      margin-bottom: 14px;
-    }
-    .presets img, .presets model-viewer {
-      width: 120px;
-      height: 120px;
-      object-fit: cover;
-      border-radius: 12px;
-      cursor: pointer;
-      border: 2px solid transparent;
-      background: #000;
-    }
-    .presets img:hover, .presets model-viewer:hover {
-      border-color: #6a0dad;
-    }
-
-    #video {
-      width: 320px;
-      height: 240px;
-      border-radius: 8px;
-      background: #000;
-      display: block;
-      margin: 12px auto;
-    }
-    #canvas {
-      display: none;
-      width: 320px;
-      height: 240px;
-      border-radius: 8px;
-      margin: 12px auto;
-    }
-
-    button {
-      padding: 10px 14px;
-      border-radius: 8px;
-      border: none;
-      background: #6a0dad;
-      color: #fff;
-      cursor: pointer;
-      margin: 6px;
-      transition: background 0.3s;
-    }
-    button.gray { background: #555; }
-    button:hover { background: #520c9c; }
-  </style>
-
+  <title>Select Avatar | TwinTalk</title>
+  
   <!-- ✅ 3D Avatar Support -->
   <script type="module" src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"></script>
+  
+  <style>
+    :root {
+      --primary-color: #0f9d58;
+      --secondary-color: #4285f4;
+      --danger-color: #cc1534;
+      --dark-bg: #181818;
+      --darker-bg: #111;
+      --card-bg: #2a2a2a;
+      --text-light: #ffffff;
+      --text-muted: #aaaaaa;
+      --border-radius: 12px;
+      --transition: all 0.3s ease;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, var(--dark-bg) 0%, var(--darker-bg) 100%);
+      color: var(--text-light);
+      min-height: 100vh;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .container {
+      max-width: 900px;
+      width: 100%;
+      margin: 0 auto;
+    }
+
+    /* Header */
+    .header {
+      text-align: center;
+      margin-bottom: 40px;
+      padding: 20px 0;
+    }
+
+    .logo {
+      font-size: 28px;
+      font-weight: 700;
+      color: var(--primary-color);
+      margin-bottom: 8px;
+    }
+
+    .subtitle {
+      color: var(--text-muted);
+      font-size: 16px;
+      margin-bottom: 30px;
+    }
+
+    /* Avatar Grid */
+    .avatar-section {
+      margin-bottom: 40px;
+    }
+
+    .section-title {
+      font-size: 20px;
+      font-weight: 600;
+      color: var(--text-light);
+      margin-bottom: 20px;
+      text-align: center;
+      position: relative;
+    }
+
+    .section-title::after {
+      content: '';
+      position: absolute;
+      bottom: -8px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 60px;
+      height: 3px;
+      background: var(--primary-color);
+      border-radius: 2px;
+    }
+
+    .avatar-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 20px;
+      margin-bottom: 30px;
+    }
+
+    .avatar-card {
+      background: var(--card-bg);
+      border-radius: var(--border-radius);
+      padding: 20px;
+      text-align: center;
+      cursor: pointer;
+      transition: var(--transition);
+      border: 2px solid transparent;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .avatar-card:hover {
+      transform: translateY(-5px);
+      border-color: var(--primary-color);
+      box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+    }
+
+    .avatar-card.selected {
+      border-color: var(--primary-color);
+      background: linear-gradient(135deg, var(--card-bg) 0%, rgba(15, 157, 88, 0.1) 100%);
+    }
+
+    .avatar-image {
+      width: 100px;
+      height: 100px;
+      object-fit: cover;
+      border-radius: 50%;
+      margin-bottom: 12px;
+      border: 3px solid rgba(255,255,255,0.1);
+      transition: var(--transition);
+    }
+
+    .avatar-card:hover .avatar-image {
+      border-color: var(--primary-color);
+      transform: scale(1.05);
+    }
+
+    .avatar-name {
+      font-weight: 600;
+      font-size: 14px;
+      color: var(--text-light);
+      margin-bottom: 5px;
+    }
+
+    .avatar-type {
+      font-size: 12px;
+      color: var(--text-muted);
+      background: rgba(255,255,255,0.1);
+      padding: 2px 8px;
+      border-radius: 10px;
+      display: inline-block;
+    }
+
+    /* 3D Avatar Section */
+    .model-viewer-container {
+      background: var(--card-bg);
+      border-radius: var(--border-radius);
+      padding: 25px;
+      text-align: center;
+      cursor: pointer;
+      transition: var(--transition);
+      border: 2px solid transparent;
+      margin-bottom: 30px;
+    }
+
+    .model-viewer-container:hover {
+      transform: translateY(-5px);
+      border-color: var(--secondary-color);
+      box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+    }
+
+    model-viewer {
+      width: 200px;
+      height: 200px;
+      margin: 0 auto;
+      border-radius: var(--border-radius);
+      background: #000;
+    }
+
+    /* Action Buttons */
+    .action-buttons {
+      display: flex;
+      justify-content: center;
+      gap: 15px;
+      margin-top: 40px;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      padding: 12px 30px;
+      border-radius: 25px;
+      border: none;
+      font-weight: 600;
+      font-size: 14px;
+      cursor: pointer;
+      transition: var(--transition);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 140px;
+      justify-content: center;
+    }
+
+    .btn-primary {
+      background: var(--primary-color);
+      color: white;
+    }
+
+    .btn-primary:hover {
+      background: #0d8a4d;
+      transform: translateY(-2px);
+      box-shadow: 0 5px 15px rgba(15, 157, 88, 0.3);
+    }
+
+    .btn-secondary {
+      background: var(--secondary-color);
+      color: white;
+    }
+
+    .btn-secondary:hover {
+      background: #3367d6;
+      transform: translateY(-2px);
+      box-shadow: 0 5px 15px rgba(66, 133, 244, 0.3);
+    }
+
+    .btn-outline {
+      background: transparent;
+      color: var(--text-muted);
+      border: 2px solid var(--text-muted);
+    }
+
+    .btn-outline:hover {
+      color: var(--text-light);
+      border-color: var(--text-light);
+      transform: translateY(-2px);
+    }
+
+    /* Selection Indicator */
+    .selection-indicator {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: var(--primary-color);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      transition: var(--transition);
+    }
+
+    .avatar-card.selected .selection-indicator {
+      opacity: 1;
+    }
+
+    .selection-indicator::after {
+      content: '✓';
+      color: white;
+      font-size: 14px;
+      font-weight: bold;
+    }
+
+    /* Responsive Design */
+    @media (max-width: 768px) {
+      .avatar-grid {
+        grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+        gap: 15px;
+      }
+      
+      .avatar-image {
+        width: 80px;
+        height: 80px;
+      }
+      
+      model-viewer {
+        width: 150px;
+        height: 150px;
+      }
+      
+      .btn {
+        padding: 10px 20px;
+        min-width: 120px;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .avatar-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+      
+      .action-buttons {
+        flex-direction: column;
+        align-items: center;
+      }
+      
+      .btn {
+        width: 200px;
+      }
+    }
+
+    /* Loading State */
+    .loading {
+      opacity: 0.7;
+      pointer-events: none;
+    }
+
+    /* Success Animation */
+    @keyframes successPulse {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.05); }
+      100% { transform: scale(1); }
+    }
+
+    .success {
+      animation: successPulse 0.6s ease-in-out;
+    }
+  </style>
 </head>
 <body>
-  <h1>Choose Your Avatar</h1>
+  <div class="container">
+    <!-- Header -->
+    <div class="header">
+      <div class="logo">TwinTalk</div>
+      <h1>Choose Your Avatar</h1>
+      <div class="subtitle">Select an avatar to represent you in the meeting</div>
+    </div>
 
-  <h3>Preset Avatars</h3>
-  <div class="presets">
-    <img src="https://tse4.mm.bing.net/th/id/OIP._8y_AjgfPlCos61q1924LgHaHa?pid=Api&P=0&h=180" alt="Male 1" onclick="selectPreset(this.src)">
-    <img src="https://tse4.mm.bing.net/th/id/OIP.IkLYdobJ8Ux8CAX0AfuXIQHaHa?pid=Api&P=0&h=180" alt="Male 2" onclick="selectPreset(this.src)">
-    <img src="https://img.freepik.com/vector-premium/ilustracion-vectorial-perfil-avatar-mujer-linda_1058532-14546.jpg" alt="Female 1" onclick="selectPreset(this.src)">
-    <img src="https://static.vecteezy.com/system/resources/previews/019/837/194/original/smile-american-african-businesswoman-avatar-curly-hair-woman-face-profile-icon-concept-online-support-service-female-cartoon-character-portrait-isolated-flat-icon-png.png" alt="Female 2" onclick="selectPreset(this.src)">
+    <!-- 2D Avatars Section -->
+    <div class="avatar-section">
+      <h2 class="section-title">2D Avatars</h2>
+      <div class="avatar-grid" id="avatarGrid">
+        <!-- Male Avatars -->
+        <div class="avatar-card" data-avatar="male1">
+          <div class="selection-indicator"></div>
+          <img src="https://tse4.mm.bing.net/th/id/OIP._8y_AjgfPlCos61q1924LgHaHa?pid=Api&P=0&h=180" alt="Male Professional" class="avatar-image">
+          <div class="avatar-name">Alex</div>
+          <div class="avatar-type">Professional</div>
+        </div>
+        
+        <div class="avatar-card" data-avatar="male2">
+          <div class="selection-indicator"></div>
+          <img src="https://tse4.mm.bing.net/th/id/OIP.IkLYdobJ8Ux8CAX0AfuXIQHaHa?pid=Api&P=0&h=180" alt="Male Casual" class="avatar-image">
+          <div class="avatar-name">Marcus</div>
+          <div class="avatar-type">Casual</div>
+        </div>
+        
+        <!-- Female Avatars -->
+        <div class="avatar-card" data-avatar="female1">
+          <div class="selection-indicator"></div>
+          <img src="https://img.freepik.com/vector-premium/ilustracion-vectorial-perfil-avatar-mujer-linda_1058532-14546.jpg" alt="Female Professional" class="avatar-image">
+          <div class="avatar-name">Sophia</div>
+          <div class="avatar-type">Professional</div>
+        </div>
+        
+        <div class="avatar-card" data-avatar="female2">
+          <div class="selection-indicator"></div>
+          <img src="https://static.vecteezy.com/system/resources/previews/019/837/194/original/smile-american-african-businesswoman-avatar-curly-hair-woman-face-profile-icon-concept-online-support-service-female-cartoon-character-portrait-isolated-flat-icon-png.png" alt="Female Casual" class="avatar-image">
+          <div class="avatar-name">Zoe</div>
+          <div class="avatar-type">Casual</div>
+        </div>
 
-    <!-- ✅ GLB Model Avatar -->
-    <model-viewer src="character_avatar.glb" alt="3D Avatar"
-      camera-controls auto-rotate
-      style="width:120px;height:120px;border-radius:12px;cursor:pointer;"
-      onclick="selectGLB('character_avatar.glb')">
-    </model-viewer>
-  </div>
+        <!-- Additional Avatars for better grid -->
+        <div class="avatar-card" data-avatar="male3">
+          <div class="selection-indicator"></div>
+          <img src="https://cdn-icons-png.flaticon.com/512/4333/4333609.png" alt="Male Executive" class="avatar-image">
+          <div class="avatar-name">James</div>
+          <div class="avatar-type">Executive</div>
+        </div>
+        
+        <div class="avatar-card" data-avatar="female3">
+          <div class="selection-indicator"></div>
+          <img src="https://cdn-icons-png.flaticon.com/512/6997/6997662.png" alt="Female Executive" class="avatar-image">
+          <div class="avatar-name">Emma</div>
+          <div class="avatar-type">Executive</div>
+        </div>
+      </div>
+    </div>
 
-  <h3>Or Create Custom Avatar</h3>
-  <video id="video" autoplay playsinline></video>
-  <canvas id="canvas" width="320" height="240"></canvas>
+    <!-- 3D Avatar Section -->
+    <div class="avatar-section">
+      <h2 class="section-title">3D Avatar</h2>
+      <div class="model-viewer-container" id="modelViewer">
+        <div class="selection-indicator"></div>
+        <model-viewer 
+          src="character_avatar.glb" 
+          alt="3D Avatar"
+          camera-controls 
+          auto-rotate
+          exposure="1.0"
+          environment-image="neutral"
+          shadow-intensity="1">
+        </model-viewer>
+        <div class="avatar-name" style="margin-top: 15px;">3D Character</div>
+        <div class="avatar-type">Interactive Model</div>
+      </div>
+    </div>
 
-  <div>
-    <button onclick="capture()">📸 Capture</button>
-    <button id="saveBtn" onclick="saveCaptured()" style="display:none">✅ Save & Use</button>
-    <button class="gray" onclick="goBack()">⬅ Back</button>
+    <!-- Action Buttons -->
+    <div class="action-buttons">
+      <button class="btn btn-outline" onclick="goBack()">
+        <span>←</span>
+        Back to Meeting
+      </button>
+      <button class="btn btn-primary" id="useAvatarBtn" onclick="useSelectedAvatar()" disabled>
+        <span>✅</span>
+        Use Selected Avatar
+      </button>
+      <button class="btn btn-secondary" onclick="clearAvatar()">
+        <span>🚫</span>
+        Remove Avatar
+      </button>
+    </div>
   </div>
 
 <script>
   /* -------------------------
      1️⃣ Auth Guard
   -------------------------- */
-  const user = (() => { try { return JSON.parse(sessionStorage.getItem("user")); } catch(e){ return null; } })();
+  const user = (() => { 
+    try { 
+      return JSON.parse(sessionStorage.getItem("user")); 
+    } catch(e){ 
+      return null; 
+    } 
+  })();
+  
   if (!user || !user.email) {
     alert("Please login first to select an avatar.");
     window.location.href = "auth.html";
@@ -111,90 +438,188 @@
   const params = new URLSearchParams(window.location.search);
   const roomId = params.get('room') || '';
   const userName = params.get('name') || user.name || user.email.split('@')[0];
-
-  const video = document.getElementById('video');
-  const canvas = document.getElementById('canvas');
-  const ctx = canvas.getContext('2d');
-  let stream = null;
+  
+  let selectedAvatar = null;
+  let selectedType = null; // '2d' or '3d'
 
   /* -------------------------
-     3️⃣ Start webcam preview
+     3️⃣ Initialize Page
   -------------------------- */
-  navigator.mediaDevices.getUserMedia({ video:true, audio:false })
-    .then(s => { stream = s; video.srcObject = s; })
-    .catch(e => { console.warn("Camera not available:", e); });
+  document.addEventListener('DOMContentLoaded', function() {
+    initializeAvatarSelection();
+    loadCurrentAvatar();
+  });
 
-  /* -------------------------
-     4️⃣ Choose preset avatar
-  -------------------------- */
-  function selectPreset(src){
-    localStorage.setItem('userAvatar', src);
-    cleanupStream();
-    redirectToMeeting(true);
+  function initializeAvatarSelection() {
+    // Add click listeners to 2D avatar cards
+    const avatarCards = document.querySelectorAll('.avatar-card');
+    avatarCards.forEach(card => {
+      card.addEventListener('click', function() {
+        select2DAvatar(this);
+      });
+    });
+
+    // Add click listener to 3D model viewer
+    const modelViewer = document.getElementById('modelViewer');
+    modelViewer.addEventListener('click', function() {
+      select3DAvatar();
+    });
   }
 
-  /* -------------------------
-     5️⃣ Choose 3D GLB avatar
-  -------------------------- */
-  function selectGLB(path){
-    localStorage.setItem('userAvatar', path);
-    cleanupStream();
-    redirectToMeeting(true);
-  }
-
-  /* -------------------------
-     6️⃣ Capture webcam as cartoon avatar
-  -------------------------- */
-  function capture(){
-    if(!video.videoWidth){ alert("Camera not ready."); return; }
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-    // simple cartoon effect (reduce colors)
-    const imgData = ctx.getImageData(0,0,canvas.width,canvas.height);
-    const d = imgData.data, levels = 6;
-    for(let i=0;i<d.length;i+=4){
-      d[i]   = Math.floor(d[i] / (256/levels)) * (256/levels);
-      d[i+1] = Math.floor(d[i+1] / (256/levels)) * (256/levels);
-      d[i+2] = Math.floor(d[i+2] / (256/levels)) * (256/levels);
+  function loadCurrentAvatar() {
+    const currentAvatar = localStorage.getItem('userAvatar');
+    if (currentAvatar) {
+      // Check if current avatar matches any of our preset avatars
+      const avatarCards = document.querySelectorAll('.avatar-card');
+      let foundMatch = false;
+      
+      avatarCards.forEach(card => {
+        const img = card.querySelector('img');
+        if (img && img.src === currentAvatar) {
+          select2DAvatar(card);
+          foundMatch = true;
+        }
+      });
+      
+      // If no match found but there's a saved avatar, enable the use button
+      if (!foundMatch && currentAvatar.includes('character_avatar.glb')) {
+        select3DAvatar();
+      } else if (!foundMatch) {
+        // Some other avatar is selected, enable the button
+        enableUseButton();
+      }
     }
-    ctx.putImageData(imgData,0,0);
-
-    document.getElementById('saveBtn').style.display = 'inline-block';
-    video.style.display = 'none';
-    canvas.style.display = 'block';
   }
 
   /* -------------------------
-     7️⃣ Save captured snapshot
+     4️⃣ Avatar Selection
   -------------------------- */
-  function saveCaptured(){
-    const dataUrl = canvas.toDataURL('image/png');
-    localStorage.setItem('userAvatar', dataUrl);
-    cleanupStream();
-    redirectToMeeting(true);
+  function select2DAvatar(cardElement) {
+    // Remove selection from all cards
+    document.querySelectorAll('.avatar-card, .model-viewer-container').forEach(el => {
+      el.classList.remove('selected');
+    });
+    
+    // Add selection to clicked card
+    cardElement.classList.add('selected');
+    cardElement.classList.add('success');
+    
+    // Get the avatar image source
+    const img = cardElement.querySelector('img');
+    selectedAvatar = img.src;
+    selectedType = '2d';
+    
+    // Enable use button
+    enableUseButton();
+    
+    // Remove success animation after delay
+    setTimeout(() => {
+      cardElement.classList.remove('success');
+    }, 600);
+  }
+
+  function select3DAvatar() {
+    // Remove selection from all cards
+    document.querySelectorAll('.avatar-card, .model-viewer-container').forEach(el => {
+      el.classList.remove('selected');
+    });
+    
+    // Add selection to 3D model viewer
+    const modelViewer = document.getElementById('modelViewer');
+    modelViewer.classList.add('selected');
+    modelViewer.classList.add('success');
+    
+    selectedAvatar = 'character_avatar.glb';
+    selectedType = '3d';
+    
+    // Enable use button
+    enableUseButton();
+    
+    // Remove success animation after delay
+    setTimeout(() => {
+      modelViewer.classList.remove('success');
+    }, 600);
+  }
+
+  function enableUseButton() {
+    const useButton = document.getElementById('useAvatarBtn');
+    useButton.disabled = false;
+    useButton.innerHTML = '<span>✅</span> Use Selected Avatar';
   }
 
   /* -------------------------
-     8️⃣ Back button handler
+     5️⃣ Action Handlers
   -------------------------- */
-  function goBack(){
+  function useSelectedAvatar() {
+    if (!selectedAvatar) {
+      alert('Please select an avatar first.');
+      return;
+    }
+
+    // Show loading state
+    const useButton = document.getElementById('useAvatarBtn');
+    useButton.innerHTML = '<span>⏳</span> Applying...';
+    useButton.disabled = true;
+
+    // Save to localStorage
+    localStorage.setItem('userAvatar', selectedAvatar);
+    
+    // Add brief delay for better UX
+    setTimeout(() => {
+      cleanupStream();
+      redirectToMeeting(true);
+    }, 800);
+  }
+
+  function clearAvatar() {
+    localStorage.removeItem('userAvatar');
+    
+    // Show confirmation
+    const useButton = document.getElementById('useAvatarBtn');
+    useButton.innerHTML = '<span>✅</span> Avatar Removed';
+    useButton.disabled = true;
+    
+    // Remove selections
+    document.querySelectorAll('.avatar-card, .model-viewer-container').forEach(el => {
+      el.classList.remove('selected');
+    });
+    
+    selectedAvatar = null;
+    selectedType = null;
+    
+    // Redirect after brief delay
+    setTimeout(() => {
+      cleanupStream();
+      redirectToMeeting(false);
+    }, 1000);
+  }
+
+  function goBack() {
     cleanupStream();
     redirectToMeeting(false);
   }
 
   /* -------------------------
-     9️⃣ Helpers
+     6️⃣ Helpers
   -------------------------- */
-  function cleanupStream(){
-    if(stream) stream.getTracks().forEach(t => t.stop());
+  function cleanupStream() {
+    // Clean up any media streams (though we removed webcam functionality)
+    // This is kept for future compatibility
   }
 
-  function redirectToMeeting(useAvatar){
+  function redirectToMeeting(useAvatar) {
     const url = `meeting.html?room=${encodeURIComponent(roomId)}&name=${encodeURIComponent(userName)}${useAvatar ? "&useAvatar=true" : ""}`;
     window.location.href = url;
   }
+
+  /* -------------------------
+     7️⃣ Keyboard Navigation
+  -------------------------- */
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+      goBack();
+    }
+  });
 </script>
 </body>
 </html>

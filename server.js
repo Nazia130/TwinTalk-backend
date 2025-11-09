@@ -300,14 +300,23 @@ io.on("connection", (socket) => {
       avatar: null 
     };
 
-    // Collect existing peers with names and avatars
-    const peers = Object.entries(roomPeers[roomId])
-      .filter(([peerId]) => peerId !== socket.id)
-      .map(([peerId, peerData]) => ({
-        peerId,
-        name: peerData.name,
-        avatar: peerData.avatar
-      }));
+    // 🔥 **CRITICAL FIX: Get ACTUAL Socket.io room members**
+    const room = io.sockets.adapter.rooms.get(roomId);
+    if (!room) {
+      console.log(`❌ Room ${roomId} not found`);
+      return;
+    }
+
+    // Get all socket IDs in the room except current user
+    const peerIds = Array.from(room).filter(id => id !== socket.id);
+    
+    // Create peers array with proper structure
+    const peers = peerIds.map(peerId => ({
+      peerId: peerId,
+      name: roomPeers[roomId]?.[peerId]?.name || "User"
+    }));
+
+    console.log(`📨 Sending ${peers.length} existing peers to ${socket.id}:`, peers);
 
     // Send existing peers to the new joiner
     socket.emit("existing-peers", { peers });
@@ -318,20 +327,32 @@ io.on("connection", (socket) => {
       name: roomPeers[roomId][socket.id].name
     });
 
-    console.log(`👥 ${name} joined ${roomId} (${peers.length} peers)`);
+    console.log(`👥 ${name} joined ${roomId} (${peers.length} peers in room)`);
   });
 
   // WebRTC signaling
   socket.on("webrtc-offer", ({ to, sdp }) => {
-    io.to(to).emit("webrtc-offer", { from: socket.id, sdp });
+    console.log(`📨 Offer from ${socket.id} to ${to}`);
+    if (io.sockets.sockets.has(to)) {
+      io.to(to).emit("webrtc-offer", { from: socket.id, sdp });
+    } else {
+      console.log(`❌ Target peer ${to} not found`);
+    }
   });
   
   socket.on("webrtc-answer", ({ to, sdp }) => {
-    io.to(to).emit("webrtc-answer", { from: socket.id, sdp });
+    console.log(`📨 Answer from ${socket.id} to ${to}`);
+    if (io.sockets.sockets.has(to)) {
+      io.to(to).emit("webrtc-answer", { from: socket.id, sdp });
+    } else {
+      console.log(`❌ Target peer ${to} not found`);
+    }
   });
   
   socket.on("webrtc-ice-candidate", ({ to, candidate }) => {
-    io.to(to).emit("webrtc-ice-candidate", { from: socket.id, candidate });
+    if (io.sockets.sockets.has(to)) {
+      io.to(to).emit("webrtc-ice-candidate", { from: socket.id, candidate });
+    }
   });
 
   // Chat messages with timestamp
@@ -342,6 +363,7 @@ io.on("connection", (socket) => {
       message,
       timestamp 
     });
+    console.log(`💬 ${name} in ${roomId}: ${message}`);
   });
 
   // Avatar handling
@@ -356,6 +378,7 @@ io.on("connection", (socket) => {
       avatar, 
       name: name || roomPeers[roomId]?.[socket.id]?.name 
     });
+    console.log(`🖼️ ${name} set avatar in ${roomId}`);
   });
 
   socket.on("avatar-off", ({ roomId, name }) => {
@@ -368,6 +391,7 @@ io.on("connection", (socket) => {
       peerId: socket.id, 
       name: name || roomPeers[roomId]?.[socket.id]?.name 
     });
+    console.log(`🖼️ ${name} removed avatar in ${roomId}`);
   });
 
   // Leave meeting (end meeting button)
@@ -393,6 +417,8 @@ io.on("connection", (socket) => {
   });
 
   socket.on("disconnect", () => {
+    console.log(`❌ Socket disconnected: ${socket.id}`);
+    
     // Find which rooms this socket was in and clean up
     Object.entries(roomPeers).forEach(([roomId, peers]) => {
       if (peers[socket.id]) {
