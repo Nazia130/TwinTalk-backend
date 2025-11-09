@@ -512,6 +512,10 @@
     <span>🧑</span>
     <span class="btn-label">Avatar</span>
   </button>
+  <button class="control-btn" id="recordBtn">
+    <span>⏺️</span>
+    <span class="btn-label">Record</span>
+  </button>
   <button class="control-btn end-btn" id="leaveBtn">
     <span>📞</span>
     <span class="btn-label">Leave</span>
@@ -610,6 +614,12 @@ async function startMeeting(user) {
   const memoBtn = document.getElementById('memoBtn');
   const memoPanel = document.getElementById('memoPanel');
   const memoContent = document.getElementById('memoContent');
+
+  // Recording variables
+  let isMeetingRecording = false;
+  let currentRecordingId = null;
+  let mediaRecorder = null;
+  let recordedChunks = [];
 
   // Meeting timer
   const timerDisplay = document.getElementById("meetingTimer");
@@ -1013,6 +1023,159 @@ async function startMeeting(user) {
     }
   }
 
+  // ========== RECORDING FUNCTIONALITY ==========
+  async function startRecording() {
+    try {
+      if (!localStream) {
+        alert('Cannot start recording: No media stream available');
+        return;
+      }
+
+      const userEmail = (user.email || "unknown").toLowerCase();
+      currentRecordingId = `rec_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+      // Start recording on server
+      const response = await fetch('/start-recording', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          roomId: roomId,
+          userEmail: userEmail,
+          recordingId: currentRecordingId
+        })
+      });
+
+      const result = await response.json();
+      
+      if (result.success) {
+        isMeetingRecording = true;
+        currentRecordingId = result.recordingId;
+        
+        // Update UI
+        document.getElementById("recordBtn").innerHTML = 
+          '<span>⏹️</span><span class="btn-label">Stop Rec</span>';
+        document.getElementById("recordBtn").classList.add('active');
+        
+        // Show recording indicator
+        recordingIndicator.style.display = 'flex';
+        
+        console.log('🎥 Recording started:', currentRecordingId);
+        
+        // Also start local recording as backup
+        startLocalRecording();
+        
+      } else {
+        alert('Failed to start recording: ' + result.message);
+      }
+      
+    } catch (error) {
+      console.error('Start recording error:', error);
+      alert('Failed to start recording');
+    }
+  }
+
+  async function stopRecording() {
+    try {
+      // Stop server recording
+      const response = await fetch('/stop-recording', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          recordingId: currentRecordingId,
+          roomId: roomId
+        })
+      });
+
+      const result = await response.json();
+      
+      if (result.success) {
+        console.log('🛑 Recording stopped:', currentRecordingId);
+        
+        // Show success message
+        alert(`Recording saved successfully!\nRecording ID: ${currentRecordingId}`);
+      }
+      
+    } catch (error) {
+      console.error('Stop recording error:', error);
+    } finally {
+      // Reset UI regardless of server response
+      isMeetingRecording = false;
+      currentRecordingId = null;
+      
+      document.getElementById("recordBtn").innerHTML = 
+        '<span>⏺️</span><span class="btn-label">Record</span>';
+      document.getElementById("recordBtn").classList.remove('active');
+      
+      recordingIndicator.style.display = 'none';
+      
+      // Stop local recording
+      stopLocalRecording();
+    }
+  }
+
+  // Local recording as backup (optional)
+  function startLocalRecording() {
+    try {
+      if (!localStream) return;
+      
+      // Combine local stream with any screen share if available
+      const combinedStream = new MediaStream();
+      
+      // Add video track (prefer screen share if available, otherwise camera)
+      const videoTracks = localStream.getVideoTracks();
+      if (videoTracks.length > 0) {
+        combinedStream.addTrack(videoTracks[0]);
+      }
+      
+      // Add audio track
+      const audioTracks = localStream.getAudioTracks();
+      if (audioTracks.length > 0) {
+        combinedStream.addTrack(audioTracks[0]);
+      }
+      
+      // For a more complete solution, you'd want to combine multiple streams
+      // This is a simplified version
+      
+      recordedChunks = [];
+      
+      // Note: MediaRecorder might not be available in all browsers
+      if (window.MediaRecorder) {
+        const options = { mimeType: 'video/webm;codecs=vp9,opus' };
+        mediaRecorder = new MediaRecorder(combinedStream, options);
+        
+        mediaRecorder.ondataavailable = (event) => {
+          if (event.data.size > 0) {
+            recordedChunks.push(event.data);
+          }
+        };
+        
+        mediaRecorder.onstop = () => {
+          // You can save the local recording if needed
+          const blob = new Blob(recordedChunks, { type: 'video/webm' });
+          // For now, we're just using server-side recording
+          console.log('Local recording stopped, blob size:', blob.size);
+        };
+        
+        mediaRecorder.start(1000); // Collect data every second
+        console.log('Local recording started');
+      }
+      
+    } catch (error) {
+      console.warn('Local recording not available:', error);
+    }
+  }
+
+  function stopLocalRecording() {
+    if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+      mediaRecorder.stop();
+      mediaRecorder = null;
+    }
+  }
+
   // ========== FIXED AVATAR FUNCTIONALITY ==========
   
   // Check if we should auto-enable avatar when page loads
@@ -1234,84 +1397,91 @@ async function startMeeting(user) {
   };
 
   // FIXED: WebRTC Connection Issues (Can't see/hear each other)
-  function createPeerConnection(peerId) {
-      const pc = new RTCPeerConnection({
-          iceServers: [
-              { urls: "stun:stun.l.google.com:19302" },
-              { urls: "stun:stun1.l.google.com:19302" },
-              { urls: "stun:stun2.l.google.com:19302" }
-          ]
-      });
+  // FIXED: Enhanced WebRTC Connection with better error handling
+function createPeerConnection(peerId) {
+    console.log(`🔗 Creating peer connection for: ${peerId}`);
+    
+    const pc = new RTCPeerConnection({
+        iceServers: [
+            { urls: "stun:stun.l.google.com:19302" },
+            { urls: "stun:stun1.l.google.com:19302" },
+            { urls: "stun:stun2.l.google.com:19302" },
+            { urls: "stun:stun3.l.google.com:19302" },
+            { urls: "stun:stun4.l.google.com:19302" }
+        ],
+        iceCandidatePoolSize: 10
+    });
 
-      // Add ALL local tracks to the connection
-      if (localStream) {
-          localStream.getTracks().forEach(track => {
-              console.log(`🎯 Adding ${track.kind} track to peer:`, peerId);
-              try { 
-                  pc.addTrack(track, localStream); 
-              } catch(e){ 
-                  console.warn("addTrack failed:", e); 
-              }
-          });
-      }
+    // FIXED: Add ALL local tracks to the connection
+    if (localStream) {
+        localStream.getTracks().forEach(track => {
+            console.log(`🎯 Adding ${track.kind} track to peer:`, peerId);
+            try { 
+                pc.addTrack(track, localStream); 
+                console.log(`✅ Added ${track.kind} track successfully`);
+            } catch(e){ 
+                console.warn(`❌ addTrack failed for ${track.kind}:`, e);
+            }
+        });
+    }
 
-      pc.ontrack = (event) => {
-          console.log("🎥 Received remote track from peer:", peerId, event.streams);
-          if (event.streams && event.streams[0]) {
-              const remoteStream = event.streams[0];
-              peerStreams[peerId] = remoteStream;
-              
-              const label = peerNames[peerId] || "User";
-              
-              // Display remote video with audio
-              createSmallTile(peerId, label, remoteStream);
-              
-              // If this is the first remote peer, set them as main speaker
-              if (Object.keys(peerStreams).length === 1) {
-                  setMainSpeaker(peerId, label, remoteStream);
-              }
-              
-              // Auto-play the remote video with audio
-              setTimeout(() => {
-                  const videoElement = document.querySelector(`#tile-${peerId} video`);
-                  if (videoElement) {
-                      videoElement.muted = false; // Enable audio for remote videos
-                      videoElement.play().catch(e => console.log("Auto-play prevented:", e));
-                  }
-              }, 1000);
-          }
-      };
+    pc.ontrack = (event) => {
+        console.log("🎥 Received remote track from peer:", peerId, event.streams);
+        if (event.streams && event.streams[0]) {
+            const remoteStream = event.streams[0];
+            peerStreams[peerId] = remoteStream;
+            
+            const label = peerNames[peerId] || "User";
+            
+            // Display remote video with audio
+            createSmallTile(peerId, label, remoteStream);
+            
+            // If this is the first remote peer, set them as main speaker
+            if (Object.keys(peerStreams).length === 1) {
+                setMainSpeaker(peerId, label, remoteStream);
+            }
+            
+            // Auto-play the remote video with audio
+            setTimeout(() => {
+                const videoElement = document.querySelector(`#tile-${peerId} video`);
+                if (videoElement) {
+                    videoElement.muted = false; // Enable audio for remote videos
+                    videoElement.play().catch(e => console.log("Auto-play prevented:", e));
+                }
+            }, 1000);
+        }
+    };
 
-      pc.onicecandidate = (event) => {
-          if (event.candidate) {
-              console.log("❄️ Sending ICE candidate to:", peerId);
-              socket.emit("webrtc-ice-candidate", { 
-                  to: peerId, 
-                  candidate: event.candidate 
-              });
-          }
-      };
+    pc.onicecandidate = (event) => {
+        if (event.candidate) {
+            console.log("❄️ Sending ICE candidate to:", peerId);
+            socket.emit("webrtc-ice-candidate", { 
+                to: peerId, 
+                candidate: event.candidate 
+            });
+        }
+    };
 
-      pc.onconnectionstatechange = () => {
-          console.log(`🔗 Peer ${peerId} connection state:`, pc.connectionState);
-          
-          if (['disconnected', 'failed', 'closed'].includes(pc.connectionState)) {
-              console.log(`❌ Peer ${peerId} disconnected`);
-              cleanupPeer(peerId);
-          }
-          
-          if (pc.connectionState === 'connected') {
-              console.log(`✅ Successfully connected to peer: ${peerId}`);
-          }
-      };
+    pc.onconnectionstatechange = () => {
+        console.log(`🔗 Peer ${peerId} connection state:`, pc.connectionState);
+        
+        if (['disconnected', 'failed', 'closed'].includes(pc.connectionState)) {
+            console.log(`❌ Peer ${peerId} disconnected`);
+            cleanupPeer(peerId);
+        }
+        
+        if (pc.connectionState === 'connected') {
+            console.log(`✅ Successfully connected to peer: ${peerId}`);
+        }
+    };
 
-      pc.oniceconnectionstatechange = () => {
-          console.log(`🧊 Peer ${peerId} ICE state:`, pc.iceConnectionState);
-      };
+    pc.oniceconnectionstatechange = () => {
+        console.log(`🧊 Peer ${peerId} ICE state:`, pc.iceConnectionState);
+    };
 
-      peers[peerId] = pc;
-      return pc;
-  }
+    peers[peerId] = pc;
+    return pc;
+}
 
   function cleanupPeer(peerId) {
     const tile = document.getElementById('tile-' + peerId);
@@ -1484,6 +1654,11 @@ async function startMeeting(user) {
       await saveFinalSummary();
     }
     
+    // Stop recording if active
+    if (isMeetingRecording) {
+      await stopRecording();
+    }
+    
     // Notify server and peers
     socket.emit("leave-meeting", { roomId, name });
     
@@ -1568,6 +1743,15 @@ async function startMeeting(user) {
 
     } catch(e) {
       console.warn("Screen share canceled or failed:", e);
+    }
+  };
+
+  // Recording button functionality
+  document.getElementById("recordBtn").onclick = async () => {
+    if (!isMeetingRecording) {
+      await startRecording();
+    } else {
+      await stopRecording();
     }
   };
 
