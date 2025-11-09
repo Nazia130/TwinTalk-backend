@@ -9,7 +9,12 @@ const nodemailer = require("nodemailer");
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server, { cors: { origin: "*" } });
+const io = new Server(server, { 
+  cors: { 
+    origin: "*",
+    methods: ["GET", "POST"]
+  } 
+});
 
 // ---------- CONFIG / PATHS ----------
 const tryPaths = [
@@ -54,8 +59,7 @@ function readUsers() {
 function appendUser({ name, email, password }) {
   ensureFile(signupFile);
   const line = `${name.replace(/,/g, " ")} , ${email.toLowerCase()} , ${password.replace(
-    /[\r\n]/g,
-    " "
+    /[\r\n]/g, " "
   )}\n`;
   fs.appendFileSync(signupFile, line, "utf8");
 }
@@ -73,6 +77,11 @@ app.get("/", (req, res) => {
 
 // ✅ Static serve after root route
 app.use(express.static(frontendPath));
+
+// Serve socket.io client
+app.get("/socket.io/socket.io.js", (req, res) => {
+  res.sendFile(path.join(__dirname, "node_modules/socket.io/client-dist/socket.io.min.js"));
+});
 
 // ---------- SIGNUP ----------
 app.post("/signup", (req, res) => {
@@ -269,7 +278,7 @@ app.delete("/history/:index", (req, res) => {
 });
 
 // ---------- SOCKET.IO (signalling) ----------
-const roomNames = {}; // store { socketId: { name, roomId } }
+const roomPeers = {}; // store { roomId: { [socketId]: { name, avatar } } }
 
 io.on("connection", (socket) => {
   console.log("🔗 Socket connected:", socket.id);
@@ -277,71 +286,135 @@ io.on("connection", (socket) => {
   socket.on("join-room", (data) => {
     const { roomId, name } = data || {};
     if (!roomId) return;
+    
     socket.join(roomId);
-    roomNames[socket.id] = { name: name || "Guest", roomId };
+    
+    // Initialize room if not exists
+    if (!roomPeers[roomId]) {
+      roomPeers[roomId] = {};
+    }
+    
+    // Store peer info
+    roomPeers[roomId][socket.id] = { 
+      name: name || "Guest", 
+      avatar: null 
+    };
 
-    // collect peers with names
-    const room = io.sockets.adapter.rooms.get(roomId);
-    const peers =
-      room && room.size
-        ? [...room].filter((id) => id !== socket.id).map((id) => ({
-            peerId: id,
-            name: roomNames[id]?.name || "Participant",
-          }))
-        : [];
+    // Collect existing peers with names and avatars
+    const peers = Object.entries(roomPeers[roomId])
+      .filter(([peerId]) => peerId !== socket.id)
+      .map(([peerId, peerData]) => ({
+        peerId,
+        name: peerData.name,
+        avatar: peerData.avatar
+      }));
 
-    // send existing peers (with names) to the new joiner
+    // Send existing peers to the new joiner
     socket.emit("existing-peers", { peers });
 
-    // tell others about this joiner
+    // Tell others about this new joiner
     socket.to(roomId).emit("peer-joined", {
       peerId: socket.id,
-      name: roomNames[socket.id].name,
+      name: roomPeers[roomId][socket.id].name
     });
 
-    console.log(`👥 ${roomNames[socket.id].name} joined ${roomId} (${peers.length} peers)`);
+    console.log(`👥 ${name} joined ${roomId} (${peers.length} peers)`);
   });
 
-  socket.on("webrtc-offer", ({ to, sdp }) =>
-    io.to(to).emit("webrtc-offer", { from: socket.id, sdp })
-  );
-  socket.on("webrtc-answer", ({ to, sdp }) =>
-    io.to(to).emit("webrtc-answer", { from: socket.id, sdp })
-  );
-  socket.on("webrtc-ice-candidate", ({ to, candidate }) =>
-    io.to(to).emit("webrtc-ice-candidate", { from: socket.id, candidate })
-  );
+  // WebRTC signaling
+  socket.on("webrtc-offer", ({ to, sdp }) => {
+    io.to(to).emit("webrtc-offer", { from: socket.id, sdp });
+  });
+  
+  socket.on("webrtc-answer", ({ to, sdp }) => {
+    io.to(to).emit("webrtc-answer", { from: socket.id, sdp });
+  });
+  
+  socket.on("webrtc-ice-candidate", ({ to, candidate }) => {
+    io.to(to).emit("webrtc-ice-candidate", { from: socket.id, candidate });
+  });
 
-  socket.on("chat-message", ({ roomId, name, message }) =>
-    io.to(roomId).emit("chat-message", { name, message })
-  );
+  // Chat messages with timestamp
+  socket.on("chat-message", ({ roomId, name, message }) => {
+    const timestamp = new Date().toISOString();
+    io.to(roomId).emit("chat-message", { 
+      name, 
+      message,
+      timestamp 
+    });
+  });
 
-  socket.on("set-avatar", ({ roomId, avatar, name }) =>
-    socket.to(roomId).emit("peer-avatar", { peerId: socket.id, avatar, name })
-  );
+  // Avatar handling
+  socket.on("set-avatar", ({ roomId, avatar, name }) => {
+    // Update peer avatar in room data
+    if (roomPeers[roomId] && roomPeers[roomId][socket.id]) {
+      roomPeers[roomId][socket.id].avatar = avatar;
+    }
+    
+    socket.to(roomId).emit("peer-avatar", { 
+      peerId: socket.id, 
+      avatar, 
+      name: name || roomPeers[roomId]?.[socket.id]?.name 
+    });
+  });
 
-  // NEW: handle avatar-off so others can revert view
   socket.on("avatar-off", ({ roomId, name }) => {
-    socket.to(roomId).emit("avatar-off", { peerId: socket.id, name });
+    // Remove avatar from room data
+    if (roomPeers[roomId] && roomPeers[roomId][socket.id]) {
+      roomPeers[roomId][socket.id].avatar = null;
+    }
+    
+    socket.to(roomId).emit("avatar-off", { 
+      peerId: socket.id, 
+      name: name || roomPeers[roomId]?.[socket.id]?.name 
+    });
   });
 
-  // NEW: handle explicit leave request (end meeting button)
+  // Leave meeting (end meeting button)
   socket.on("leave-meeting", ({ roomId, name }) => {
-    // notify others that this peer ended call
-    socket.to(roomId).emit("peer-ended", { peerId: socket.id, name });
-    // optionally remove from room on server side
-    try { socket.leave(roomId); } catch(e){ /* ignore */ }
+    // Notify others that this peer ended call
+    socket.to(roomId).emit("peer-left", { 
+      peerId: socket.id, 
+      name: name || roomPeers[roomId]?.[socket.id]?.name 
+    });
+    
+    // Clean up room data
+    if (roomPeers[roomId]) {
+      delete roomPeers[roomId][socket.id];
+      
+      // Clean up empty rooms
+      if (Object.keys(roomPeers[roomId]).length === 0) {
+        delete roomPeers[roomId];
+      }
+    }
+    
+    socket.leave(roomId);
+    console.log(`🚪 ${name} left meeting ${roomId}`);
   });
 
   socket.on("disconnect", () => {
-    const data = roomNames[socket.id];
-    if (data?.roomId) {
-      socket
-        .to(data.roomId)
-        .emit("peer-left", { peerId: socket.id, name: data.name });
-      console.log(`❌ ${data.name} left ${data.roomId}`);
-    }
-    delete roomNames[socket.id];
+    // Find which rooms this socket was in and clean up
+    Object.entries(roomPeers).forEach(([roomId, peers]) => {
+      if (peers[socket.id]) {
+        const peerName = peers[socket.id].name;
+        
+        // Notify others about disconnection
+        socket.to(roomId).emit("peer-left", { 
+          peerId: socket.id, 
+          name: peerName 
+        });
+        
+        // Clean up room data
+        delete roomPeers[roomId][socket.id];
+        
+        // Clean up empty rooms
+        if (Object.keys(roomPeers[roomId]).length === 0) {
+          delete roomPeers[roomId];
+        }
+        
+        console.log(`❌ ${peerName} disconnected from ${roomId}`);
+      }
+    });
   });
 });
 

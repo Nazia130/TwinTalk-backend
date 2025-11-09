@@ -33,8 +33,14 @@
     background: #2a2a2a; border-radius: 8px;
     position: relative; overflow: hidden;
     display: flex; justify-content: center; align-items: center;
+    cursor: pointer;
   }
-  .small-tile video, .small-tile img { width: 100%; height: 100%; object-fit: cover; }
+  .small-tile.active {
+    border: 2px solid #0f9d58;
+  }
+  .small-tile video, .small-tile img { 
+    width: 100%; height: 100%; object-fit: cover; 
+  }
   .name-label {
     position: absolute; bottom: 5px; left: 50%;
     transform: translateX(-50%);
@@ -65,16 +71,41 @@
     position: absolute; right: 10px; bottom: 60px; width: 250px; height: 250px;
     background: #fff; color: #000; border-radius: 8px;
     display: flex; flex-direction: column; overflow: hidden;
+    z-index: 1000;
   }
   #chat-messages { flex: 1; padding: 6px; overflow-y: auto; font-size: 13px; }
   #chat-input { display: flex; border-top: 1px solid #ccc; }
   #chat-input input { flex: 1; padding: 6px; border: none; outline: none; }
   #chat-input button { background: #6a0dad; border: none; color: #fff; padding: 0 10px; cursor: pointer; }
+
+  /* Recording indicator */
+  .recording-indicator {
+    position: fixed;
+    top: 10px;
+    left: 10px;
+    background: #cc1534;
+    color: white;
+    padding: 5px 10px;
+    border-radius: 15px;
+    font-size: 12px;
+    z-index: 1001;
+    display: none;
+  }
+  .recording-indicator.recording {
+    display: block;
+    animation: pulse 1.5s infinite;
+  }
+  @keyframes pulse {
+    0% { opacity: 1; }
+    50% { opacity: 0.5; }
+    100% { opacity: 1; }
+  }
 </style>
 </head>
 <body>
 
 <header>Meeting Room <span id="meetingTimer">00:00:00</span></header>
+<div class="recording-indicator" id="recordingIndicator">🔴 Recording</div>
 <div id="top-strip"></div>
 <div id="main-speaker"><div class="name-label" id="mainSpeakerName"></div></div>
 
@@ -150,6 +181,13 @@ async function startMeeting(user) {
   let avatarMode = false;
   const peers = {};
   const peerNames = {};
+  const peerStreams = {};
+  let currentMainSpeaker = "me";
+
+  // Meeting transcript system
+  let meetingTranscript = "";
+  let isRecording = false;
+  const recordingIndicator = document.getElementById('recordingIndicator');
 
   // timer
   const timerDisplay = document.getElementById("meetingTimer");
@@ -162,12 +200,6 @@ async function startMeeting(user) {
     timerDisplay.textContent = `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`;
   }, 1000);
 
-  // AUDIO MERGE placeholders
-  // audioCtx, destination, mergedAudioStream will be created in initMedia
-  window.audioCtx = null;
-  window.destination = null;
-  window.mergedAudioStream = null;
-
   async function initMedia() {
     try {
       // get local camera & mic
@@ -177,35 +209,6 @@ async function startMeeting(user) {
       // display local video tile & main speaker
       createSmallTile("me", name + " (You)", localStream);
       setMainSpeaker("me", name + " (You)", localStream);
-
-      // create audio merging context (mic + remote tracks will be connected here)
-      if (!window.audioCtx) {
-        window.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        window.destination = audioCtx.createMediaStreamDestination();
-
-        // play merged audio quietly so browser may route audio (try/catch because autoplay can be blocked)
-        const audioPlayer = new Audio();
-        audioPlayer.srcObject = destination.stream;
-        audioPlayer.volume = 0.02;
-        audioPlayer.muted = false;
-        audioPlayer.autoplay = true;
-        audioPlayer.playsInline = true;
-        try {
-          await audioPlayer.play();
-        } catch (err) {
-          console.warn("Audio playback blocked (autoplay). That's fine; merge still works.", err);
-        }
-      }
-
-      // connect local mic to destination
-      try {
-        const micSource = audioCtx.createMediaStreamSource(localStream);
-        micSource.connect(destination);
-        window.mergedAudioStream = destination.stream;
-        console.log("🔊 Audio merge initialized (local mic ready)");
-      } catch (err) {
-        console.warn("Could not create mic source for audio merge:", err);
-      }
 
     } catch (err) {
       console.error("❌ getUserMedia failed:", err);
@@ -219,13 +222,18 @@ async function startMeeting(user) {
       tile = document.createElement("div");
       tile.className = "small-tile";
       tile.id = "tile-" + id;
+      tile.onclick = () => setMainSpeaker(id, label, stream, avatarURL);
       document.getElementById("top-strip").appendChild(tile);
     }
+
+    // Remove active class from all tiles
+    document.querySelectorAll('.small-tile').forEach(t => t.classList.remove('active'));
+    // Add active class to current tile
+    tile.classList.add('active');
 
     if (avatarURL) {
       tile.innerHTML = `<img src="${avatarURL}"><div class="name-label">${label}</div>`;
     } else if (stream) {
-      // use a fresh video element (avoids stale srcObject issues)
       tile.innerHTML = `<video playsinline autoplay ${id === "me" ? "muted" : ""}></video><div class="name-label">${label}</div>`;
       const vid = tile.querySelector("video");
       try {
@@ -239,11 +247,16 @@ async function startMeeting(user) {
   }
 
   function setMainSpeaker(id, label, stream, avatar) {
+    currentMainSpeaker = id;
     const main = document.getElementById("main-speaker");
+    const mainSpeakerName = document.getElementById("mainSpeakerName");
+    
     if (avatar) {
-      main.innerHTML = `<img src="${avatar}"><div class="name-label">${label}</div>`;
+      main.innerHTML = `<img src="${avatar}">`;
+      mainSpeakerName.textContent = label;
     } else if (stream) {
-      main.innerHTML = `<video playsinline autoplay ${id === "me" ? "muted" : ""}></video><div class="name-label">${label}</div>`;
+      main.innerHTML = `<video playsinline autoplay ${id === "me" ? "muted" : ""}></video>`;
+      mainSpeakerName.textContent = label;
       const vid = main.querySelector("video");
       try {
         vid.srcObject = stream;
@@ -251,85 +264,263 @@ async function startMeeting(user) {
         console.warn("Failed to set srcObject on main video:", err);
       }
     } else {
-      main.innerHTML = `<div style="width:80%;height:60%;display:flex;align-items:center;justify-content:center;color:#999">No active video</div><div class="name-label">${label}</div>`;
+      main.innerHTML = `<div style="width:80%;height:60%;display:flex;align-items:center;justify-content:center;color:#999">No active video</div>`;
+      mainSpeakerName.textContent = label;
+    }
+
+    // Update active tile
+    document.querySelectorAll('.small-tile').forEach(t => t.classList.remove('active'));
+    const activeTile = document.getElementById("tile-" + id);
+    if (activeTile) activeTile.classList.add('active');
+  }
+
+  // Enhanced speech recognition with better error handling
+  function startSpeechRecognition() {
+    if (!('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) {
+      console.warn("SpeechRecognition API not supported in this browser");
+      return null;
+    }
+
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const recognition = new SpeechRecognition();
+    
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.lang = 'en-US';
+    recognition.maxAlternatives = 1;
+
+    recognition.onstart = () => {
+      console.log("🎤 Speech recognition started");
+      isRecording = true;
+      recordingIndicator.classList.add('recording');
+    };
+
+    recognition.onresult = (event) => {
+      let interimTranscript = '';
+      let finalTranscript = '';
+
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const transcript = event.results[i][0].transcript;
+        if (event.results[i].isFinal) {
+          finalTranscript += transcript + ' ';
+          
+          // Add timestamp and speaker to transcript
+          const timestamp = new Date().toLocaleTimeString();
+          const transcriptEntry = `[${timestamp}] ${name}: ${transcript}\n`;
+          meetingTranscript += transcriptEntry;
+          
+          console.log("🎯 Final transcript:", transcriptEntry);
+          
+          // Auto-save transcript every 10 entries
+          if (meetingTranscript.split('\n').filter(line => line.trim()).length % 10 === 0) {
+            saveTranscriptToLocalStorage();
+          }
+        } else {
+          interimTranscript += transcript;
+        }
+      }
+
+      // Update a debug element if needed
+      if (finalTranscript) {
+        console.log("💬 Added to meeting transcript:", finalTranscript.trim());
+      }
+    };
+
+    recognition.onerror = (event) => {
+      console.error('Speech recognition error:', event.error);
+      if (event.error === 'no-speech' || event.error === 'audio-capture') {
+        // Try to restart if it's a temporary error
+        setTimeout(() => {
+          if (isRecording && avatarMode) {
+            try {
+              recognition.start();
+            } catch (e) {
+              console.warn("Could not restart recognition:", e);
+            }
+          }
+        }, 1000);
+      }
+    };
+
+    recognition.onend = () => {
+      console.log("🎤 Speech recognition ended");
+      if (isRecording && avatarMode) {
+        // Auto-restart if we're still in avatar mode
+        setTimeout(() => {
+          try {
+            recognition.start();
+          } catch (e) {
+            console.warn("Could not restart recognition after end:", e);
+          }
+        }, 500);
+      } else {
+        isRecording = false;
+        recordingIndicator.classList.remove('recording');
+      }
+    };
+
+    try {
+      recognition.start();
+      return recognition;
+    } catch (e) {
+      console.error("Failed to start speech recognition:", e);
+      return null;
+    }
+  }
+
+  function stopSpeechRecognition() {
+    if (recognition) {
+      isRecording = false;
+      recordingIndicator.classList.remove('recording');
+      try {
+        recognition.stop();
+      } catch (e) {
+        console.warn("Error stopping recognition:", e);
+      }
+      recognition = null;
+    }
+  }
+
+  function saveTranscriptToLocalStorage() {
+    const meetingData = {
+      transcript: meetingTranscript,
+      roomId: roomId,
+      timestamp: new Date().toISOString(),
+      participants: Object.values(peerNames).concat(name)
+    };
+    
+    localStorage.setItem(`meeting-${roomId}-transcript`, JSON.stringify(meetingData));
+    console.log("💾 Transcript auto-saved locally");
+  }
+
+  async function saveFinalSummary() {
+    if (!meetingTranscript.trim()) {
+      console.log("No transcript to save");
+      return;
+    }
+
+    try {
+      // Save to Supabase
+      await window.saveSummaryToSupabase(roomId, meetingTranscript, userEmail);
+      
+      // Also save to server via API
+      const response = await fetch('/save-summary', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          meetingId: roomId,
+          transcript: meetingTranscript,
+          userEmail: userEmail
+        })
+      });
+
+      if (response.ok) {
+        console.log("✅ Meeting summary saved successfully");
+        
+        // Clear local storage after successful save
+        localStorage.removeItem(`meeting-${roomId}-transcript`);
+        
+        // Show success message
+        alert("Meeting summary has been saved to your history!");
+      } else {
+        console.error("Failed to save summary to server");
+      }
+    } catch (error) {
+      console.error("Error saving summary:", error);
+      // Keep transcript in local storage for recovery
+      saveTranscriptToLocalStorage();
     }
   }
 
   async function enableAvatar(avatarURL) {
     avatarMode = true;
+    
+    // Create avatar stream
     const canvas = document.createElement("canvas");
     const ctx = canvas.getContext("2d");
-    canvas.width = 640; canvas.height = 360;
+    canvas.width = 640; 
+    canvas.height = 360;
+    
     const img = new Image();
     img.crossOrigin = "anonymous";
     img.src = avatarURL;
-    try { await img.decode(); } catch(e){ console.warn("avatar decode", e); }
-    ctx.fillStyle = "#000"; ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    await new Promise((resolve) => {
+      img.onload = resolve;
+    });
+    
+    // Draw avatar on canvas
+    ctx.fillStyle = "#000"; 
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-    const avatarTrack = canvas.captureStream(15).getVideoTracks()[0];
+    
+    const avatarStream = canvas.captureStream(15);
+    const avatarTrack = avatarStream.getVideoTracks()[0];
+
+    // Replace video track in all peer connections
     for (const pc of Object.values(peers)) {
       const sender = pc.getSenders().find(s => s.track && s.track.kind === "video");
       if (sender && avatarTrack) {
-        try { await sender.replaceTrack(avatarTrack); } catch(e){ console.warn("replace avatar track failed", e); }
+        try { 
+          await sender.replaceTrack(avatarTrack); 
+        } catch(e){ 
+          console.warn("replace avatar track failed", e); 
+        }
       }
     }
+
+    // Update local display
     createSmallTile("me", name + " (Avatar)", null, avatarURL);
-    setMainSpeaker("me", name + " (Avatar)", null, avatarURL);
+    if (currentMainSpeaker === "me") {
+      setMainSpeaker("me", name + " (Avatar)", null, avatarURL);
+    }
+    
+    // START SPEECH-TO-TEXT RECORDING
+    recognition = startSpeechRecognition();
+    if (!recognition) {
+      alert("Speech recognition is not supported in your browser. Conversation will not be recorded.");
+    } else {
+      console.log("🎤 Started recording conversations in avatar mode");
+    }
+    
     socket.emit("set-avatar", { roomId, avatar: avatarURL, name });
-    // start STT if desired (kept as before)
-    startSpeechRecognitionIfNeeded();
   }
 
   async function disableAvatar() {
     avatarMode = false;
+    
+    // STOP SPEECH-TO-TEXT RECORDING
+    stopSpeechRecognition();
+    console.log("⏹️ Stopped recording conversations");
+    
+    // Save any remaining transcript
+    if (meetingTranscript.trim()) {
+      saveTranscriptToLocalStorage();
+    }
+    
+    // Restore original video track
     for (const pc of Object.values(peers)) {
       const sender = pc.getSenders().find(s => s.track && s.track.kind === "video");
       if (sender && originalVideoTrack) {
-        try { await sender.replaceTrack(originalVideoTrack); } catch(e){ console.warn("restore track failed", e); }
-      }
-    }
-    if (localStream) {
-      createSmallTile("me", name + " (You)", localStream);
-      setMainSpeaker("me", name + " (You)", localStream);
-    }
-    socket.emit("avatar-off", { roomId, name });
-    if (recognition) {
-      try { recognition.stop(); } catch(e){ console.warn("recognition stop", e); }
-      recognition = null;
-    }
-    // save summary logic (if any) left as in previous flow
-  }
-
-  // STT helper - starts recognition only when avatarMode true and mergedAudioStream exists
-  function startSpeechRecognitionIfNeeded(){
-    if (!avatarMode) return;
-    if (!('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) {
-      console.warn("SpeechRecognition unsupported");
-      return;
-    }
-    // NOTE: Browser speech recognition listens to microphone only — using mergedAudioStream playback is a workaround but not guaranteed across systems.
-    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    recognition = new SR();
-    recognition.lang = 'en-IN';
-    recognition.continuous = true;
-    recognition.interimResults = false;
-    recognition.onresult = e => {
-      for (let i = e.resultIndex; i < e.results.length; i++) {
-        if (e.results[i].isFinal) {
-          const text = e.results[i][0].transcript.trim();
-          // append to meeting transcript buffer (you can change where it's stored)
-          window.__meetingTranscriptBuffer = (window.__meetingTranscriptBuffer || "") + text + ". ";
-          console.log("STT final:", text);
+        try { 
+          await sender.replaceTrack(originalVideoTrack); 
+        } catch(e){ 
+          console.warn("restore track failed", e); 
         }
       }
-    };
-    recognition.onerror = err => console.warn("STT error:", err);
-    recognition.onend = () => {
-      if (avatarMode) {
-        try { recognition.start(); } catch(e){ console.warn("restart recognition failed", e); }
+    }
+
+    // Update local display
+    if (localStream) {
+      createSmallTile("me", name + " (You)", localStream);
+      if (currentMainSpeaker === "me") {
+        setMainSpeaker("me", name + " (You)", localStream);
       }
-    };
-    try { recognition.start(); } catch(e){ console.warn("recognition start failed", e); }
+    }
+    
+    socket.emit("avatar-off", { roomId, name });
   }
 
   function createPeerConnection(peerId) {
@@ -340,46 +531,47 @@ async function startMeeting(user) {
       ]
     });
 
-    // add local tracks if available
+    // Add local tracks if available
     if (localStream) {
-      localStream.getTracks().forEach(t => {
-        try { pc.addTrack(t, localStream); } catch(e){ console.warn("addTrack failed:", e); }
+      localStream.getTracks().forEach(track => {
+        try { 
+          pc.addTrack(track, localStream); 
+        } catch(e){ 
+          console.warn("addTrack failed:", e); 
+        }
       });
     }
 
-    pc.ontrack = e => {
+    pc.ontrack = (event) => {
+      console.log("Received track from peer:", peerId);
+      const remoteStream = event.streams[0];
+      peerStreams[peerId] = remoteStream;
+      
       const label = peerNames[peerId] || "User";
-      // display remote video
-      createSmallTile(peerId, label, e.streams[0]);
-      setMainSpeaker(peerId, label, e.streams[0]);
-
-      // merge remote audio into AudioContext destination (if available)
-      try {
-        if (window.audioCtx && window.destination && e.streams && e.streams[0]) {
-          const remoteSource = audioCtx.createMediaStreamSource(e.streams[0]);
-          remoteSource.connect(destination);
-          window.mergedAudioStream = destination.stream;
-          console.log("🔈 Added remote audio track to merged stream for", peerId);
-        }
-      } catch (err) {
-        console.warn("⚠️ Audio merge (remote) failed:", err);
+      
+      // Display remote video
+      createSmallTile(peerId, label, remoteStream);
+      
+      // If this is the first remote peer, set them as main speaker
+      if (Object.keys(peerStreams).length === 1) {
+        setMainSpeaker(peerId, label, remoteStream);
       }
     };
 
-    pc.onicecandidate = e => {
-      if (e.candidate) {
-        socket.emit("webrtc-ice-candidate", { to: peerId, candidate: e.candidate });
+    pc.onicecandidate = (event) => {
+      if (event.candidate) {
+        socket.emit("webrtc-ice-candidate", { 
+          to: peerId, 
+          candidate: event.candidate 
+        });
       }
     };
 
     pc.onconnectionstatechange = () => {
+      console.log(`Peer ${peerId} connection state:`, pc.connectionState);
+      
       if (['disconnected', 'failed', 'closed'].includes(pc.connectionState)) {
-        const tile = document.getElementById('tile-' + peerId);
-        if (tile) tile.remove();
-        try { pc.close(); } catch(e){}
-        delete peers[peerId];
-        delete peerNames[peerId];
-        console.log("Peer connection closed/removed:", peerId);
+        cleanupPeer(peerId);
       }
     };
 
@@ -387,12 +579,48 @@ async function startMeeting(user) {
     return pc;
   }
 
+  function cleanupPeer(peerId) {
+    const tile = document.getElementById('tile-' + peerId);
+    if (tile) tile.remove();
+    
+    if (peers[peerId]) {
+      try { 
+        peers[peerId].close(); 
+      } catch(e){}
+      delete peers[peerId];
+    }
+    
+    delete peerStreams[peerId];
+    delete peerNames[peerId];
+    
+    // If main speaker left, switch to another peer or self
+    if (currentMainSpeaker === peerId) {
+      const remainingPeers = Object.keys(peerStreams);
+      if (remainingPeers.length > 0) {
+        const newMain = remainingPeers[0];
+        setMainSpeaker(newMain, peerNames[newMain], peerStreams[newMain]);
+      } else {
+        setMainSpeaker("me", name + " (You)", localStream);
+      }
+    }
+    
+    console.log("Peer connection closed/removed:", peerId);
+  }
+
   async function callPeer(peerId) {
+    if (peers[peerId]) {
+      console.log("Already connected to peer:", peerId);
+      return;
+    }
+    
     const pc = createPeerConnection(peerId);
     try {
       const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
-      socket.emit("webrtc-offer", { to: peerId, sdp: offer });
+      socket.emit("webrtc-offer", { 
+        to: peerId, 
+        sdp: offer 
+      });
     } catch (err) {
       console.error("callPeer error:", err);
     }
@@ -406,149 +634,260 @@ async function startMeeting(user) {
   });
 
   socket.on("existing-peers", async ({ peers: existing }) => {
-    // existing expected to be array of { peerId, name }
+    console.log("Existing peers:", existing);
     if (!existing || !existing.length) return;
-    for (const p of existing) {
-      // support both legacy string or object
-      const id = (typeof p === "string") ? p : p.peerId;
-      const nm = (typeof p === "object" && p.name) ? p.name : null;
-      if (nm) peerNames[id] = nm;
-      if (id && id !== socket.id) await callPeer(id);
+    
+    for (const peerInfo of existing) {
+      const peerId = peerInfo.peerId || peerInfo;
+      const peerName = peerInfo.name || peerInfo;
+      
+      if (peerId && peerId !== socket.id) {
+        peerNames[peerId] = peerName;
+        await callPeer(peerId);
+      }
     }
   });
 
   socket.on("peer-joined", ({ peerId, name: peerName }) => {
-    peerNames[peerId] = peerName || peerNames[peerId] || "User";
-    console.log('peer joined', peerId, peerName);
+    console.log('Peer joined:', peerId, peerName);
+    peerNames[peerId] = peerName || "User";
+    
+    // Call the new peer
+    callPeer(peerId);
   });
 
   socket.on("webrtc-offer", async ({ from, sdp }) => {
+    console.log("Received offer from:", from);
     const pc = createPeerConnection(from);
     try {
       await pc.setRemoteDescription(new RTCSessionDescription(sdp));
       const answer = await pc.createAnswer();
       await pc.setLocalDescription(answer);
-      socket.emit("webrtc-answer", { to: from, sdp: answer });
+      socket.emit("webrtc-answer", { 
+        to: from, 
+        sdp: answer 
+      });
     } catch (err) {
       console.error("webrtc-offer handling failed:", err);
     }
   });
 
   socket.on("webrtc-answer", async ({ from, sdp }) => {
+    console.log("Received answer from:", from);
     const pc = peers[from];
     if (pc) {
-      try { await pc.setRemoteDescription(new RTCSessionDescription(sdp)); }
-      catch (err) { console.error("setRemoteDescription failed:", err); }
+      try { 
+        await pc.setRemoteDescription(new RTCSessionDescription(sdp)); 
+      } catch (err) { 
+        console.error("setRemoteDescription failed:", err); 
+      }
     }
   });
 
   socket.on("webrtc-ice-candidate", async ({ from, candidate }) => {
     const pc = peers[from];
     if (pc && candidate) {
-      try { await pc.addIceCandidate(new RTCIceCandidate(candidate)); }
-      catch (err) { console.warn("addIceCandidate failed", err); }
+      try { 
+        await pc.addIceCandidate(new RTCIceCandidate(candidate)); 
+      } catch (err) { 
+        console.warn("addIceCandidate failed", err); 
+      }
     }
   });
 
   socket.on("peer-avatar", ({ peerId, avatar, name: peerName }) => {
-    createSmallTile(peerId, (peerName || peerNames[peerId] || "User") + " (Avatar)", null, avatar);
+    const label = (peerName || peerNames[peerId] || "User") + " (Avatar)";
+    createSmallTile(peerId, label, null, avatar);
+    
+    if (currentMainSpeaker === peerId) {
+      setMainSpeaker(peerId, label, null, avatar);
+    }
   });
 
-  // When a peer explicitly ends meeting
-  socket.on("peer-ended", ({ peerId, name }) => {
-    const el = document.getElementById("tile-" + peerId);
-    if (el) el.remove();
-    console.log(`🧹 ${name} ended the meeting, removed their avatar/tile.`);
-  });
-
-  // When a peer leaves (disconnects or closes tab)
   socket.on("peer-left", ({ peerId, name }) => {
-    const el = document.getElementById("tile-" + peerId);
-    if (el) el.remove();
-    console.log(`👋 ${name} left — cleaned up avatar/tile.`);
+    console.log(`Peer left: ${name} (${peerId})`);
+    cleanupPeer(peerId);
   });
 
-  // Also when peer disables avatar manually
   socket.on("avatar-off", ({ peerId, name }) => {
-    const el = document.getElementById("tile-" + peerId);
-    if (el) el.remove(); // remove old avatar tile completely
-    createSmallTile(peerId, name || "User", null, null); // recreate plain placeholder
+    const stream = peerStreams[peerId];
+    createSmallTile(peerId, name || "User", stream);
+    
+    if (currentMainSpeaker === peerId) {
+      setMainSpeaker(peerId, name || "User", stream);
+    }
   });
 
   // BUTTONS
   document.getElementById("avatarBtn").onclick = async () => {
-    if (!avatarMode && savedAvatar) await enableAvatar(savedAvatar);
-    else if (avatarMode) await disableAvatar();
-    else window.location.href = `avatar.html?room=${roomId}&name=${encodeURIComponent(name)}`;
+    if (!avatarMode) {
+      if (savedAvatar) {
+        await enableAvatar(savedAvatar);
+      } else {
+        window.location.href = `avatar.html?room=${roomId}&name=${encodeURIComponent(name)}`;
+      }
+    } else {
+      await disableAvatar();
+    }
   };
 
   document.getElementById("leaveBtn").onclick = async () => {
-    socket.emit("leave-meeting", { roomId, name });
-    socket.emit("avatar-off", { roomId, name }); // ensure avatar clears for others
-    if (recognition) {
-      try { recognition.stop(); } catch(e){ console.warn("recognition stop", e); }
+    // Save final summary before leaving
+    if (meetingTranscript.trim()) {
+      await saveFinalSummary();
     }
-    Object.values(peers).forEach(pc => { try { pc.close(); } catch(e){} });
-    if (localStream) localStream.getTracks().forEach(t => { try { t.stop(); } catch(e){} });
+    
+    // Notify server and peers
+    socket.emit("leave-meeting", { roomId, name });
+    
+    // Clean up local resources
+    stopSpeechRecognition();
+    
+    Object.values(peers).forEach(pc => { 
+      try { pc.close(); } catch(e){} 
+    });
+    
+    if (localStream) {
+      localStream.getTracks().forEach(track => { 
+        try { track.stop(); } catch(e){} 
+      });
+    }
+    
     window.location.href = "/index.html";
   };
 
   document.getElementById("muteBtn").onclick = () => {
     if (!localStream) return;
-    const t = localStream.getAudioTracks()[0];
-    if (t) t.enabled = !t.enabled;
+    const audioTrack = localStream.getAudioTracks()[0];
+    if (audioTrack) {
+      audioTrack.enabled = !audioTrack.enabled;
+      document.getElementById("muteBtn").textContent = 
+        audioTrack.enabled ? "🎤 Mute" : "🎤 Unmute";
+    }
   };
 
   document.getElementById("videoBtn").onclick = () => {
     if (!localStream) return;
-    const t = localStream.getVideoTracks()[0];
-    if (t) t.enabled = !t.enabled;
+    const videoTrack = localStream.getVideoTracks()[0];
+    if (videoTrack) {
+      videoTrack.enabled = !videoTrack.enabled;
+      document.getElementById("videoBtn").textContent = 
+        videoTrack.enabled ? "📷 Stop Video" : "📷 Start Video";
+    }
   };
 
+  // Screen share function
   document.getElementById("screenBtn").onclick = async () => {
     try {
-      const screen = await navigator.mediaDevices.getDisplayMedia({ video: true });
-      const track = screen.getVideoTracks()[0];
+      const screenStream = await navigator.mediaDevices.getDisplayMedia({ 
+        video: true,
+        audio: true 
+      });
+      
+      const screenVideoTrack = screenStream.getVideoTracks()[0];
+      
+      // Replace video track in all peer connections
       for (const pc of Object.values(peers)) {
         const sender = pc.getSenders().find(s => s.track && s.track.kind === "video");
         if (sender) {
-          try { sender.replaceTrack(track); } catch(e){ console.warn("replaceTrack screen failed", e); }
+          try { 
+            await sender.replaceTrack(screenVideoTrack); 
+          } catch(e){ 
+            console.warn("replaceTrack screen failed", e); 
+          }
         }
       }
-      setMainSpeaker("me", name + " (Sharing)", screen);
-      track.onended = () => {
+
+      // Update local display
+      setMainSpeaker("me", name + " (Sharing Screen)", screenStream);
+
+      // Handle when screen sharing stops
+      screenVideoTrack.onended = async () => {
         for (const pc of Object.values(peers)) {
           const sender = pc.getSenders().find(s => s.track && s.track.kind === "video");
           if (sender && originalVideoTrack) {
-            try { sender.replaceTrack(originalVideoTrack); } catch(e){ console.warn("restore track failed", e); }
+            try { 
+              await sender.replaceTrack(originalVideoTrack); 
+            } catch(e){ 
+              console.warn("restore track failed", e); 
+            }
           }
         }
         setMainSpeaker("me", name + " (You)", localStream);
       };
+
     } catch(e) {
-      console.warn("screen share canceled", e);
+      console.warn("Screen share canceled or failed:", e);
     }
   };
 
-  // CHAT
+  // CHAT - Store chat history and include in transcript
   const chatMessages = document.getElementById("chat-messages");
   const chatInput = document.getElementById("chatText");
-  document.getElementById("sendChat").onclick = () => {
-    const msg = chatInput.value.trim();
-    if (!msg) return;
-    socket.emit("chat-message", { roomId, name, message: msg });
+  let chatHistory = JSON.parse(localStorage.getItem(`chat-${roomId}`)) || [];
+
+  // Load previous chat history
+  chatHistory.forEach(msg => {
+    const d = document.createElement("div");
+    d.textContent = `${msg.name}: ${msg.message}`;
+    chatMessages.appendChild(d);
+  });
+  chatMessages.scrollTop = chatMessages.scrollHeight;
+
+  document.getElementById("sendChat").onclick = sendChatMessage;
+  chatInput.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') sendChatMessage();
+  });
+
+  function sendChatMessage() {
+    const message = chatInput.value.trim();
+    if (!message) return;
+    
+    socket.emit("chat-message", { roomId, name, message });
     chatInput.value = "";
-  };
-  socket.on("chat-message", ({ name: sender, message }) => {
+  }
+
+  socket.on("chat-message", ({ name: sender, message, timestamp }) => {
+    // Add to chat history
+    const chatItem = { name: sender, message, timestamp: timestamp || Date.now() };
+    chatHistory.push(chatItem);
+    
+    // Keep only last 100 messages
+    if (chatHistory.length > 100) {
+      chatHistory = chatHistory.slice(-100);
+    }
+    
+    // Save to localStorage
+    localStorage.setItem(`chat-${roomId}`, JSON.stringify(chatHistory));
+    
+    // Also add to meeting transcript with [CHAT] prefix
+    const chatTimestamp = new Date().toLocaleTimeString();
+    const chatTranscriptEntry = `[${chatTimestamp}] [CHAT] ${sender}: ${message}\n`;
+    meetingTranscript += chatTranscriptEntry;
+    
+    // Display message
     const d = document.createElement("div");
     d.textContent = `${sender}: ${message}`;
     chatMessages.appendChild(d);
     chatMessages.scrollTop = chatMessages.scrollHeight;
   });
 
-  // Expose merged stream and transcript buffer for debugging
-  window.__mergedAudioStream = () => window.mergedAudioStream;
-  window.__meetingTranscriptBuffer = window.__meetingTranscriptBuffer || "";
+  // Handle page unload - save transcript
+  window.addEventListener('beforeunload', () => {
+    if (meetingTranscript.trim()) {
+      saveTranscriptToLocalStorage();
+    }
+    socket.emit("leave-meeting", { roomId, name });
+  });
+
+  // Manual save button (optional - you can add this to UI if needed)
+  window.saveTranscriptManually = function() {
+    if (meetingTranscript.trim()) {
+      saveFinalSummary();
+    } else {
+      alert("No conversation recorded yet.");
+    }
+  };
 }
 </script>
 </body>
