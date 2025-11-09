@@ -1,4 +1,4 @@
-// server.js – TwinTalk full server (auth + signalling + history + recording)
+// server.js – TwinTalk full server (auth + signalling + history)
 const express = require("express");
 const http = require("http");
 const { Server } = require("socket.io");
@@ -32,122 +32,30 @@ console.log("ℹ️ Using frontend path:", frontendPath);
 const signupFile = path.join(__dirname, "signup.csv");
 const historyFile = path.join(__dirname, "history.csv");
 
-// ---------- RECORDING CONFIG ----------
-const recordingsDir = path.join(__dirname, 'recordings');
-const recordingsDB = path.join(__dirname, 'recordings.json');
-
-// Check if node-media-server is available
-let NodeMediaServer;
-let nms = null;
-
-try {
-  NodeMediaServer = require('node-media-server');
-  
-  // RTMP server configuration for recording
-  const rtmpConfig = {
-    rtmp: {
-      port: 1935,
-      chunk_size: 60000,
-      gop_cache: true,
-      ping: 30,
-      ping_timeout: 60
-    },
-    http: {
-      port: 8000,
-      allow_origin: '*',
-      mediaroot: './recordings'
-    },
-    auth: {
-      play: false,
-      publish: false
-    }
-  };
-
-  nms = new NodeMediaServer(rtmpConfig);
-  console.log('✅ Node Media Server loaded successfully');
-} catch (error) {
-  console.warn('❌ Node Media Server not available. Recording feature will be limited.');
-  console.log('💡 Run: npm install node-media-server');
-}
-
-// Ensure recordings directory exists
-async function ensureRecordingsDir() {
-  try {
-    await fs.promises.access(recordingsDir);
-    console.log('✅ Recordings directory exists');
-  } catch {
-    await fs.promises.mkdir(recordingsDir, { recursive: true });
-    console.log('✅ Created recordings directory');
-  }
-}
-
-// Load recordings database
-async function loadRecordingsDB() {
-  try {
-    const data = await fs.promises.readFile(recordingsDB, 'utf8');
-    return JSON.parse(data);
-  } catch {
-    console.log('📁 Creating new recordings database');
-    return [];
-  }
-}
-
-// Save recordings database
-async function saveRecordingsDB(data) {
-  try {
-    await fs.promises.writeFile(recordingsDB, JSON.stringify(data, null, 2));
-  } catch (error) {
-    console.error('❌ Failed to save recordings DB:', error);
-  }
-}
-
-// Initialize recordings system
-ensureRecordingsDir().then(() => {
-  if (nms) {
-    try {
-      nms.run();
-      console.log('🎥 Recording server started on port 1935');
-    } catch (error) {
-      console.error('❌ Failed to start recording server:', error);
-      console.log('💡 This might be due to port 1935 being in use');
-    }
-  }
-}).catch(console.error);
-
 // ---------- MIDDLEWARE ----------
-app.use(bodyParser.json({ limit: '10mb' }));
-app.use(bodyParser.urlencoded({ extended: true, limit: '10mb' }));
+app.use(bodyParser.json());
+app.use(bodyParser.urlencoded({ extended: true }));
 
 // ---------- CSV HELPERS ----------
 function ensureFile(filePath) {
-  if (!fs.existsSync(filePath)) {
-    fs.writeFileSync(filePath, "", "utf8");
-    console.log(`✅ Created file: ${path.basename(filePath)}`);
-  }
+  if (!fs.existsSync(filePath)) fs.writeFileSync(filePath, "", "utf8");
 }
-
 function readUsers() {
   ensureFile(signupFile);
-  try {
-    const raw = fs.readFileSync(signupFile, "utf8").replace(/\r/g, "").trim();
-    if (!raw) return [];
-    return raw
-      .split("\n")
-      .map((line) => {
-        const parts = line.split(",");
-        return {
-          name: (parts[0] || "").trim(),
-          email: ((parts[1] || "").trim() || "").toLowerCase(),
-          password: (parts[2] || "").trim(),
-        };
-      })
-      .filter((u) => u.email);
-  } catch (error) {
-    console.error('❌ Error reading users:', error);
-    return [];
-  }
+  const raw = fs.readFileSync(signupFile, "utf8").replace(/\r/g, "").trim();
+  if (!raw) return [];
+  return raw
+    .split("\n")
+    .map((line) => {
+      const parts = line.split(",");
+      return {
+        name: (parts[0] || "").trim(),
+        email: ((parts[1] || "").trim() || "").toLowerCase(),
+        password: (parts[2] || "").trim(),
+      };
+    })
+    .filter((u) => u.email);
 }
-
 function appendUser({ name, email, password }) {
   ensureFile(signupFile);
   const line = `${name.replace(/,/g, " ")} , ${email.toLowerCase()} , ${password.replace(
@@ -232,6 +140,29 @@ app.post("/login", (req, res) => {
   }
 });
 
+// ---------- CONTACT (optional) ----------
+app.post("/contact", async (req, res) => {
+  const { name, email, message } = req.body || {};
+  if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS)
+    return res.status(500).send("Email env vars not set.");
+  try {
+    const transporter = nodemailer.createTransport({
+      service: "gmail",
+      auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS }
+    });
+    await transporter.sendMail({
+      from: email,
+      to: process.env.EMAIL_USER,
+      subject: `Contact: ${name}`,
+      text: message || ""
+    });
+    res.send("✅ Message sent");
+  } catch (err) {
+    console.error("Email send error:", err);
+    res.status(500).send("Failed to send");
+  }
+});
+
 // ---------- SIMPLE SUMMARIZER + HISTORY ----------
 function simpleSummarize(text) {
   const clean = (text || "").replace(/\n/g, " ").replace(/[^a-zA-Z0-9. ]/g, " ");
@@ -281,7 +212,7 @@ app.post("/save-summary", (req, res) => {
 app.get("/history", (req, res) => {
   try {
     const email = (req.query.email || "").trim().toLowerCase();
-    if (!email) return res.json([]);
+    if (!email) return res.status(400).json({ message: "Email required" });
     if (!fs.existsSync(historyFile)) return res.json([]);
 
     const raw = fs.readFileSync(historyFile, "utf8").replace(/\r/g, "").trim();
@@ -307,164 +238,118 @@ app.get("/history", (req, res) => {
   }
 });
 
-// ---------- RECORDING ROUTES ----------
-
-// Start recording
-app.post('/start-recording', async (req, res) => {
+app.delete("/history/:index", (req, res) => {
   try {
-    const { roomId, userEmail, recordingId } = req.body;
+    const email = (req.query.email || "").trim().toLowerCase();
+    const idx = parseInt(req.params.index, 10);
+    if (!email || Number.isNaN(idx))
+      return res.status(400).json({ message: "Invalid params" });
+    if (!fs.existsSync(historyFile))
+      return res.status(404).json({ message: "No history" });
+
+    const raw = fs
+      .readFileSync(historyFile, "utf8")
+      .replace(/\r/g, "")
+      .split("\n")
+      .filter(Boolean);
+
+    const userEntries = raw
+      .map((line, i) => ({ line, i }))
+      .filter(
+        (obj) =>
+          (obj.line
+            .split(/,(?=(?:[^"]*"[^"]*")*[^"]*$)/)[0] || "")
+            .replace(/(^"|"$)/g, "")
+            .toLowerCase() === email
+      );
+
+    if (idx < 0 || idx >= userEntries.length)
+      return res.status(404).json({ message: "Entry not found" });
+
+    const removeIndex = userEntries[idx].i;
+    raw.splice(removeIndex, 1);
+    fs.writeFileSync(historyFile, raw.join("\n") + (raw.length ? "\n" : ""), "utf8");
+    console.log(`🗑 Deleted history ${idx} for ${email}`);
+    return res.json({ message: "Deleted" });
+  } catch (err) {
+    console.error("delete history error:", err);
+    return res.status(500).json({ message: "Delete failed" });
+  }
+});
+
+// ---------- RECORDINGS ENDPOINT ----------
+const recordingsDir = path.join(__dirname, "recordings");
+
+// Ensure recordings directory exists
+if (!fs.existsSync(recordingsDir)) {
+  fs.mkdirSync(recordingsDir, { recursive: true });
+  console.log("📁 Created recordings directory");
+}
+
+app.post("/save-recording", (req, res) => {
+  try {
+    const { meetingId, blobData, userEmail, timestamp } = req.body;
     
-    if (!roomId || !userEmail) {
-      return res.status(400).json({ message: 'Room ID and user email required' });
+    if (!blobData || !meetingId) {
+      return res.status(400).json({ message: "Missing recording data" });
     }
 
-    // Check if recording server is available
-    if (!nms) {
-      return res.status(503).json({ 
-        message: 'Recording service temporarily unavailable. Please try again later.' 
+    // Convert base64 to buffer
+    const buffer = Buffer.from(blobData.split(',')[1], 'base64');
+    
+    // Create filename
+    const date = new Date().toISOString().replace(/[:.]/g, '-');
+    const filename = `recording-${meetingId}-${date}.webm`;
+    const filepath = path.join(recordingsDir, filename);
+    
+    // Save file
+    fs.writeFileSync(filepath, buffer);
+    
+    console.log(`🎥 Recording saved: ${filename} for ${userEmail || 'unknown'}`);
+    
+    res.json({ 
+      success: true, 
+      message: "Recording saved successfully",
+      filename: filename
+    });
+    
+  } catch (err) {
+    console.error("❌ Save recording error:", err);
+    res.status(500).json({ message: "Failed to save recording" });
+  }
+});
+
+app.get("/recordings", (req, res) => {
+  try {
+    if (!fs.existsSync(recordingsDir)) {
+      return res.json([]);
+    }
+    
+    const files = fs.readdirSync(recordingsDir)
+      .filter(file => file.endsWith('.webm'))
+      .map(file => {
+        const filepath = path.join(recordingsDir, file);
+        const stats = fs.statSync(filepath);
+        return {
+          filename: file,
+          path: `/recordings/${file}`,
+          size: stats.size,
+          created: stats.birthtime
+        };
       });
-    }
-
-    const recordings = await loadRecordingsDB();
     
-    // Check if already recording
-    const existingRecording = recordings.find(r => r.roomId === roomId && r.status === 'recording');
-    if (existingRecording) {
-      return res.status(400).json({ message: 'Recording already in progress for this room' });
-    }
-
-    const recording = {
-      id: recordingId || `rec_${Date.now()}`,
-      roomId,
-      userEmail,
-      startTime: new Date().toISOString(),
-      status: 'recording',
-      fileName: `${roomId}_${Date.now()}.flv`
-    };
-
-    recordings.push(recording);
-    await saveRecordingsDB(recordings);
-
-    console.log(`🎥 Started recording: ${recording.id} for room ${roomId}`);
-    res.json({ 
-      success: true, 
-      recordingId: recording.id,
-      message: 'Recording started successfully'
-    });
-
+    res.json(files);
   } catch (err) {
-    console.error('Start recording error:', err);
-    res.status(500).json({ message: 'Failed to start recording' });
+    console.error("Recordings list error:", err);
+    res.status(500).json({ message: "Failed to list recordings" });
   }
 });
 
-// Stop recording
-app.post('/stop-recording', async (req, res) => {
-  try {
-    const { recordingId, roomId } = req.body;
-    
-    const recordings = await loadRecordingsDB();
-    const recordingIndex = recordings.findIndex(r => 
-      (recordingId && r.id === recordingId) || (roomId && r.roomId === roomId && r.status === 'recording')
-    );
-
-    if (recordingIndex === -1) {
-      return res.status(404).json({ message: 'No active recording found' });
-    }
-
-    recordings[recordingIndex].status = 'completed';
-    recordings[recordingIndex].endTime = new Date().toISOString();
-    
-    await saveRecordingsDB(recordings);
-
-    console.log(`🛑 Stopped recording: ${recordings[recordingIndex].id}`);
-    res.json({ 
-      success: true, 
-      recording: recordings[recordingIndex],
-      message: 'Recording saved successfully'
-    });
-
-  } catch (err) {
-    console.error('Stop recording error:', err);
-    res.status(500).json({ message: 'Failed to stop recording' });
-  }
-});
-
-// Get user recordings
-app.get('/recordings', async (req, res) => {
-  try {
-    const userEmail = (req.query.email || '').toLowerCase();
-    if (!userEmail) {
-      return res.status(400).json({ message: 'User email required' });
-    }
-
-    const recordings = await loadRecordingsDB();
-    const userRecordings = recordings.filter(r => 
-      r.userEmail.toLowerCase() === userEmail && r.status === 'completed'
-    );
-
-    res.json(userRecordings);
-
-  } catch (err) {
-    console.error('Get recordings error:', err);
-    res.status(500).json({ message: 'Failed to get recordings' });
-  }
-});
-
-// Delete recording
-app.delete('/recordings/:recordingId', async (req, res) => {
-  try {
-    const { recordingId } = req.params;
-    const userEmail = (req.query.email || '').toLowerCase();
-
-    const recordings = await loadRecordingsDB();
-    const recordingIndex = recordings.findIndex(r => 
-      r.id === recordingId && r.userEmail.toLowerCase() === userEmail
-    );
-
-    if (recordingIndex === -1) {
-      return res.status(404).json({ message: 'Recording not found' });
-    }
-
-    const recording = recordings[recordingIndex];
-    
-    // Delete the file if it exists
-    try {
-      const filePath = path.join(recordingsDir, recording.fileName);
-      if (fs.existsSync(filePath)) {
-        await fs.promises.unlink(filePath);
-        console.log(`🗑️ Deleted recording file: ${recording.fileName}`);
-      }
-    } catch (err) {
-      console.warn('Could not delete recording file:', err);
-    }
-
-    recordings.splice(recordingIndex, 1);
-    await saveRecordingsDB(recordings);
-
-    console.log(`🗑️ Deleted recording: ${recordingId}`);
-    res.json({ success: true, message: 'Recording deleted successfully' });
-
-  } catch (err) {
-    console.error('Delete recording error:', err);
-    res.status(500).json({ message: 'Failed to delete recording' });
-  }
-});
-
-// Serve recording files
-app.use('/recordings', express.static(recordingsDir));
-
-// Health check endpoint
-app.get('/health', (req, res) => {
-  res.json({ 
-    status: 'OK', 
-    recording: nms ? 'available' : 'unavailable',
-    timestamp: new Date().toISOString()
-  });
-});
+// Serve recordings files
+app.use("/recordings", express.static(recordingsDir));
 
 // ---------- SOCKET.IO (signalling) ----------
-const roomPeers = {};
+const roomPeers = {}; // store { roomId: { [socketId]: { name, avatar } } }
 
 io.on("connection", (socket) => {
   console.log("🔗 Socket connected:", socket.id);
@@ -475,55 +360,70 @@ io.on("connection", (socket) => {
     
     socket.join(roomId);
     
+    // Initialize room if not exists
     if (!roomPeers[roomId]) {
       roomPeers[roomId] = {};
     }
     
+    // Store peer info
     roomPeers[roomId][socket.id] = { 
       name: name || "Guest", 
       avatar: null 
     };
 
-    const room = io.sockets.adapter.rooms.get(roomId);
-    if (!room) return;
-
-    const peerIds = Array.from(room).filter(id => id !== socket.id);
-    const peers = peerIds.map(peerId => ({
+    // Get all peers in the room except current user
+    const peersInRoom = Object.keys(roomPeers[roomId]).filter(id => id !== socket.id);
+    
+    // Create peers array with proper structure
+    const peers = peersInRoom.map(peerId => ({
       peerId: peerId,
-      name: roomPeers[roomId]?.[peerId]?.name || "User"
+      name: roomPeers[roomId][peerId].name
     }));
 
-    console.log(`📨 Sending ${peers.length} existing peers to ${socket.id}`);
+    console.log(`📨 Sending ${peers.length} existing peers to ${socket.id}:`, peers);
+
+    // Send existing peers to the new joiner
     socket.emit("existing-peers", { peers });
 
+    // Tell others about this new joiner
     socket.to(roomId).emit("peer-joined", {
       peerId: socket.id,
       name: roomPeers[roomId][socket.id].name
     });
 
-    console.log(`👥 ${name} joined ${roomId} (${peers.length} peers in room)`);
+    console.log(`👥 ${name} joined ${roomId} (${peers.length + 1} total peers)`);
   });
 
-  // WebRTC signaling
+  // WebRTC signaling - FIXED: Better error handling
   socket.on("webrtc-offer", ({ to, sdp }) => {
+    console.log(`📨 Offer from ${socket.id} to ${to}`);
     if (io.sockets.sockets.has(to)) {
       io.to(to).emit("webrtc-offer", { from: socket.id, sdp });
+    } else {
+      console.log(`❌ Target peer ${to} not found`);
+      socket.emit("peer-disconnected", { peerId: to });
     }
   });
   
   socket.on("webrtc-answer", ({ to, sdp }) => {
+    console.log(`📨 Answer from ${socket.id} to ${to}`);
     if (io.sockets.sockets.has(to)) {
       io.to(to).emit("webrtc-answer", { from: socket.id, sdp });
+    } else {
+      console.log(`❌ Target peer ${to} not found`);
+      socket.emit("peer-disconnected", { peerId: to });
     }
   });
   
   socket.on("webrtc-ice-candidate", ({ to, candidate }) => {
     if (io.sockets.sockets.has(to)) {
       io.to(to).emit("webrtc-ice-candidate", { from: socket.id, candidate });
+    } else {
+      console.log(`❌ Target peer ${to} not found for ICE candidate`);
     }
   });
 
-  // Chat messages
+  // Chat messages with timestamp
   socket.on("chat-message", ({ roomId, name, message }) => {
     const timestamp = new Date().toISOString();
     io.to(roomId).emit("chat-message", { 
@@ -531,41 +431,52 @@ io.on("connection", (socket) => {
       message,
       timestamp 
     });
+    console.log(`💬 ${name} in ${roomId}: ${message}`);
   });
 
   // Avatar handling
   socket.on("set-avatar", ({ roomId, avatar, name }) => {
+    // Update peer avatar in room data
     if (roomPeers[roomId] && roomPeers[roomId][socket.id]) {
       roomPeers[roomId][socket.id].avatar = avatar;
     }
     
+    // Broadcast to ALL peers in room
     socket.to(roomId).emit("peer-avatar", { 
       peerId: socket.id, 
       avatar, 
       name: name || roomPeers[roomId]?.[socket.id]?.name 
     });
+    console.log(`🖼️ ${name} set avatar in ${roomId}`);
   });
 
   socket.on("avatar-off", ({ roomId, name }) => {
+    // Remove avatar from room data
     if (roomPeers[roomId] && roomPeers[roomId][socket.id]) {
       roomPeers[roomId][socket.id].avatar = null;
     }
     
+    // Broadcast to ALL peers in room
     socket.to(roomId).emit("avatar-off", { 
       peerId: socket.id, 
       name: name || roomPeers[roomId]?.[socket.id]?.name 
     });
+    console.log(`🖼️ ${name} removed avatar in ${roomId}`);
   });
 
-  // Leave meeting
+  // Leave meeting (end meeting button)
   socket.on("leave-meeting", ({ roomId, name }) => {
+    // Notify others that this peer ended call
     socket.to(roomId).emit("peer-left", { 
       peerId: socket.id, 
       name: name || roomPeers[roomId]?.[socket.id]?.name 
     });
     
+    // Clean up room data
     if (roomPeers[roomId]) {
       delete roomPeers[roomId][socket.id];
+      
+      // Clean up empty rooms
       if (Object.keys(roomPeers[roomId]).length === 0) {
         delete roomPeers[roomId];
       }
@@ -578,15 +489,21 @@ io.on("connection", (socket) => {
   socket.on("disconnect", () => {
     console.log(`❌ Socket disconnected: ${socket.id}`);
     
+    // Find which rooms this socket was in and clean up
     Object.entries(roomPeers).forEach(([roomId, peers]) => {
       if (peers[socket.id]) {
         const peerName = peers[socket.id].name;
+        
+        // Notify others about disconnection
         socket.to(roomId).emit("peer-left", { 
           peerId: socket.id, 
           name: peerName 
         });
         
+        // Clean up room data
         delete roomPeers[roomId][socket.id];
+        
+        // Clean up empty rooms
         if (Object.keys(roomPeers[roomId]).length === 0) {
           delete roomPeers[roomId];
         }
@@ -599,8 +516,6 @@ io.on("connection", (socket) => {
 
 // ---------- START ----------
 const PORT = process.env.PORT || 4000;
-server.listen(PORT, () => {
-  console.log(`🚀 Server running at http://localhost:${PORT}`);
-  console.log(`📊 Health check: http://localhost:${PORT}/health`);
-  console.log(`🎥 Recording: ${nms ? 'Available' : 'Not available (install node-media-server)'}`);
-});
+server.listen(PORT, () =>
+  console.log(`🚀 Server running at http://localhost:${PORT}`)
+);
