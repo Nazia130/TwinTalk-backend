@@ -1,4 +1,4 @@
-// server.js – TwinTalk full server (auth + signalling + history)
+// server.js – TwinTalk full server (auth + signalling + history + recording)
 const express = require("express");
 const http = require("http");
 const { Server } = require("socket.io");
@@ -32,9 +32,45 @@ console.log("ℹ️ Using frontend path:", frontendPath);
 const signupFile = path.join(__dirname, "signup.csv");
 const historyFile = path.join(__dirname, "history.csv");
 
+// ---------- RECORDING CONFIG ----------
+const recordingsDir = path.join(__dirname, 'recordings');
+const recordingsDB = path.join(__dirname, 'recordings.json');
+
+// Store active recording sessions
+const activeRecordings = new Map();
+
+// Ensure recordings directory exists
+function ensureRecordingsDir() {
+  if (!fs.existsSync(recordingsDir)) {
+    fs.mkdirSync(recordingsDir, { recursive: true });
+    console.log('✅ Created recordings directory');
+  }
+}
+
+// Load recordings database
+function loadRecordingsDB() {
+  try {
+    if (!fs.existsSync(recordingsDB)) {
+      return [];
+    }
+    const data = fs.readFileSync(recordingsDB, 'utf8');
+    return JSON.parse(data);
+  } catch {
+    return [];
+  }
+}
+
+// Save recordings database
+function saveRecordingsDB(data) {
+  fs.writeFileSync(recordingsDB, JSON.stringify(data, null, 2));
+}
+
+// Initialize recordings system
+ensureRecordingsDir();
+
 // ---------- MIDDLEWARE ----------
-app.use(bodyParser.json());
-app.use(bodyParser.urlencoded({ extended: true }));
+app.use(bodyParser.json({ limit: '50mb' }));
+app.use(bodyParser.urlencoded({ extended: true, limit: '50mb' }));
 
 // ---------- CSV HELPERS ----------
 function ensureFile(filePath) {
@@ -277,6 +313,220 @@ app.delete("/history/:index", (req, res) => {
   }
 });
 
+// ---------- RECORDING ROUTES ----------
+
+// Start recording
+app.post('/start-recording', async (req, res) => {
+  try {
+    const { roomId, userEmail, recordingId } = req.body;
+    
+    if (!roomId || !userEmail) {
+      return res.status(400).json({ message: 'Room ID and user email required' });
+    }
+
+    const recordings = loadRecordingsDB();
+    
+    // Check if already recording
+    const existingRecording = recordings.find(r => r.roomId === roomId && r.status === 'recording');
+    if (existingRecording) {
+      return res.status(400).json({ message: 'Recording already in progress for this room' });
+    }
+
+    const recording = {
+      id: recordingId || `rec_${Date.now()}`,
+      roomId,
+      userEmail,
+      startTime: new Date().toISOString(),
+      status: 'recording',
+      fileName: `${roomId}_${Date.now()}.webm`
+    };
+
+    recordings.push(recording);
+    saveRecordingsDB(recordings);
+
+    // Store recording session
+    activeRecordings.set(recording.id, {
+      roomId,
+      userEmail,
+      startTime: recording.startTime,
+      chunks: []
+    });
+
+    console.log(`🎥 Started recording: ${recording.id} for room ${roomId}`);
+    
+    // Notify all clients in the room that recording has started
+    io.to(roomId).emit('recording-started', { recordingId: recording.id });
+    
+    res.json({ 
+      success: true, 
+      recordingId: recording.id,
+      message: 'Recording started successfully'
+    });
+
+  } catch (err) {
+    console.error('Start recording error:', err);
+    res.status(500).json({ message: 'Failed to start recording' });
+  }
+});
+
+// Upload recording data
+app.post('/upload-recording', async (req, res) => {
+  try {
+    const { recordingId, chunk, isLast } = req.body;
+    
+    if (!recordingId || !chunk) {
+      return res.status(400).json({ message: 'Recording ID and chunk data required' });
+    }
+
+    const recordingSession = activeRecordings.get(recordingId);
+    if (!recordingSession) {
+      return res.status(404).json({ message: 'Recording session not found' });
+    }
+
+    // Store the chunk
+    recordingSession.chunks.push(chunk);
+
+    // If this is the last chunk, save the complete recording
+    if (isLast) {
+      try {
+        // Convert base64 chunks to buffer and save as file
+        const fileBuffer = Buffer.from(recordingSession.chunks.join(''), 'base64');
+        const fileName = `${recordingSession.roomId}_${Date.now()}.webm`;
+        const filePath = path.join(recordingsDir, fileName);
+        
+        fs.writeFileSync(filePath, fileBuffer);
+        
+        // Update recording in database
+        const recordings = loadRecordingsDB();
+        const recordingIndex = recordings.findIndex(r => r.id === recordingId);
+        if (recordingIndex !== -1) {
+          recordings[recordingIndex].fileName = fileName;
+          recordings[recordingIndex].fileSize = fileBuffer.length;
+          saveRecordingsDB(recordings);
+        }
+
+        // Clean up session
+        activeRecordings.delete(recordingId);
+        
+        console.log(`💾 Recording saved: ${fileName} (${fileBuffer.length} bytes)`);
+        
+      } catch (fileError) {
+        console.error('Error saving recording file:', fileError);
+        return res.status(500).json({ message: 'Failed to save recording file' });
+      }
+    }
+
+    res.json({ 
+      success: true, 
+      message: 'Recording chunk received successfully'
+    });
+
+  } catch (err) {
+    console.error('Upload recording error:', err);
+    res.status(500).json({ message: 'Failed to upload recording' });
+  }
+});
+
+// Stop recording
+app.post('/stop-recording', async (req, res) => {
+  try {
+    const { recordingId, roomId } = req.body;
+    
+    const recordings = loadRecordingsDB();
+    const recordingIndex = recordings.findIndex(r => 
+      (recordingId && r.id === recordingId) || (roomId && r.roomId === roomId && r.status === 'recording')
+    );
+
+    if (recordingIndex === -1) {
+      return res.status(404).json({ message: 'No active recording found' });
+    }
+
+    recordings[recordingIndex].status = 'completed';
+    recordings[recordingIndex].endTime = new Date().toISOString();
+    
+    saveRecordingsDB(recordings);
+
+    console.log(`🛑 Stopped recording: ${recordings[recordingIndex].id}`);
+    
+    // Notify all clients that recording has stopped
+    io.to(roomId).emit('recording-stopped', { recordingId: recordings[recordingIndex].id });
+    
+    res.json({ 
+      success: true, 
+      recording: recordings[recordingIndex],
+      message: 'Recording saved successfully'
+    });
+
+  } catch (err) {
+    console.error('Stop recording error:', err);
+    res.status(500).json({ message: 'Failed to stop recording' });
+  }
+});
+
+// Get user recordings
+app.get('/recordings', async (req, res) => {
+  try {
+    const userEmail = (req.query.email || '').toLowerCase();
+    if (!userEmail) {
+      return res.status(400).json({ message: 'User email required' });
+    }
+
+    const recordings = loadRecordingsDB();
+    const userRecordings = recordings.filter(r => 
+      r.userEmail.toLowerCase() === userEmail && r.status === 'completed'
+    );
+
+    res.json(userRecordings);
+
+  } catch (err) {
+    console.error('Get recordings error:', err);
+    res.status(500).json({ message: 'Failed to get recordings' });
+  }
+});
+
+// Delete recording
+app.delete('/recordings/:recordingId', async (req, res) => {
+  try {
+    const { recordingId } = req.params;
+    const userEmail = (req.query.email || '').toLowerCase();
+
+    const recordings = loadRecordingsDB();
+    const recordingIndex = recordings.findIndex(r => 
+      r.id === recordingId && r.userEmail.toLowerCase() === userEmail
+    );
+
+    if (recordingIndex === -1) {
+      return res.status(404).json({ message: 'Recording not found' });
+    }
+
+    const recording = recordings[recordingIndex];
+    
+    // Delete the file if it exists
+    try {
+      const filePath = path.join(recordingsDir, recording.fileName);
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+        console.log(`🗑️ Deleted recording file: ${recording.fileName}`);
+      }
+    } catch (err) {
+      console.warn('Could not delete recording file:', err);
+    }
+
+    recordings.splice(recordingIndex, 1);
+    saveRecordingsDB(recordings);
+
+    console.log(`🗑️ Deleted recording: ${recordingId}`);
+    res.json({ success: true, message: 'Recording deleted successfully' });
+
+  } catch (err) {
+    console.error('Delete recording error:', err);
+    res.status(500).json({ message: 'Failed to delete recording' });
+  }
+});
+
+// Serve recording files
+app.use('/recordings', express.static(recordingsDir));
+
 // ---------- SOCKET.IO (signalling) ----------
 const roomPeers = {}; // store { roomId: { [socketId]: { name, avatar } } }
 
@@ -363,6 +613,42 @@ io.on("connection", (socket) => {
     console.log(`💬 ${name} in ${roomId}: ${message}`);
   });
 
+  // Recording data from client via socket (alternative method)
+  socket.on('recording-chunk', ({ recordingId, chunk, isLast }) => {
+    console.log(`📹 Received recording chunk for ${recordingId}, size: ${chunk.length}`);
+    
+    const recordingSession = activeRecordings.get(recordingId);
+    if (recordingSession) {
+      recordingSession.chunks.push(chunk);
+      
+      if (isLast) {
+        // Save the complete recording
+        try {
+          const fileBuffer = Buffer.from(recordingSession.chunks.join(''), 'base64');
+          const fileName = `${recordingSession.roomId}_${Date.now()}.webm`;
+          const filePath = path.join(recordingsDir, fileName);
+          
+          fs.writeFileSync(filePath, fileBuffer);
+          
+          // Update recording in database
+          const recordings = loadRecordingsDB();
+          const recordingIndex = recordings.findIndex(r => r.id === recordingId);
+          if (recordingIndex !== -1) {
+            recordings[recordingIndex].fileName = fileName;
+            recordings[recordingIndex].fileSize = fileBuffer.length;
+            saveRecordingsDB(recordings);
+          }
+
+          activeRecordings.delete(recordingId);
+          console.log(`💾 Recording saved via socket: ${fileName}`);
+          
+        } catch (error) {
+          console.error('Error saving recording via socket:', error);
+        }
+      }
+    }
+  });
+
   // Avatar handling
   socket.on("set-avatar", ({ roomId, avatar, name }) => {
     // Update peer avatar in room data
@@ -445,6 +731,7 @@ io.on("connection", (socket) => {
 
 // ---------- START ----------
 const PORT = process.env.PORT || 4000;
-server.listen(PORT, () =>
-  console.log(`🚀 Server running at http://localhost:${PORT}`)
-);
+server.listen(PORT, () => {
+  console.log(`🚀 Server running at http://localhost:${PORT}`);
+  console.log(`🎥 Recording system ready - files will be saved in /recordings folder`);
+});
