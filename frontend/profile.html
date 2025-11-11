@@ -1,51 +1,906 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Profile - MeetTwin</title>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css">
-<style>
-body.dark { background:#121212; color:#fff; }
-body.dark input, body.dark button { background:#1f1f1f; color:#fff; border:1px solid #ccc; }
-.container { max-width:500px; margin:5rem auto; padding:2rem; background:#fff; border-radius:10px; box-shadow:0 0 10px rgba(0,0,0,0.1); }
-body.dark .container { background:#1f1f1f; }
-label { display:block; margin-bottom:0.5rem; font-weight:600; }
-input { width:100%; padding:0.5rem; margin-bottom:1rem; border-radius:5px; border:1px solid #ccc; font-size:1rem; }
-button { padding:0.5rem 1rem; border:none; border-radius:5px; font-weight:600; cursor:pointer; background:#4b2aad; color:#fff; }
-button:hover { background:#3a1f8f; }
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Profile - TwinTalk</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        :root {
+            --primary: #1a2a6c;
+            --secondary: #4a569d;
+            --accent: #00b4db;
+            --light: #f8f9fa;
+            --dark: #333;
+            --gray: #666;
+            --success: #28a745;
+            --danger: #dc3545;
+            --warning: #ffc107;
+            --card-bg: #ffffff;
+            --border: #e1e5e9;
+        }
+
+        [data-theme="dark"] {
+            --primary: #2d3a8c;
+            --secondary: #5a67a8;
+            --accent: #00c6ff;
+            --light: #1a1a2e;
+            --dark: #e6e6e6;
+            --gray: #a0a0a0;
+            --card-bg: #252525;
+            --border: #444;
+        }
+
+        body {
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            color: var(--dark);
+            line-height: 1.6;
+            min-height: 100vh;
+            padding: 20px;
+            transition: all 0.3s ease;
+        }
+
+        [data-theme="dark"] body {
+            background: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        /* Header */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .header h1 {
+            color: var(--primary);
+            font-size: 2.2rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 15px;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: var(--secondary);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .btn-outline {
+            background: transparent;
+            color: var(--primary);
+            border: 1px solid var(--primary);
+        }
+
+        .btn-outline:hover {
+            background: var(--primary);
+            color: white;
+        }
+
+        .btn-danger {
+            background: var(--danger);
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #c82333;
+        }
+
+        /* Profile Layout */
+        .profile-container {
+            display: grid;
+            grid-template-columns: 300px 1fr;
+            gap: 30px;
+        }
+
+        @media (max-width: 768px) {
+            .profile-container {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Profile Card */
+        .profile-card {
+            background: var(--card-bg);
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .profile-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, var(--primary), var(--accent));
+        }
+
+        .profile-avatar {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--primary), var(--accent));
+            margin: 0 auto 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2.5rem;
+            color: white;
+            border: 4px solid var(--card-bg);
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .profile-name {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 5px;
+            color: var(--primary);
+        }
+
+        .profile-email {
+            color: var(--gray);
+            margin-bottom: 20px;
+            font-size: 0.9rem;
+        }
+
+        .profile-stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin: 25px 0;
+        }
+
+        .stat-item {
+            text-align: center;
+            padding: 15px;
+            background: rgba(0, 180, 219, 0.05);
+            border-radius: 10px;
+        }
+
+        .stat-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--primary);
+        }
+
+        .stat-label {
+            font-size: 0.8rem;
+            color: var(--gray);
+            margin-top: 5px;
+        }
+
+        /* Profile Details */
+        .profile-details {
+            background: var(--card-bg);
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+        }
+
+        .section-title {
+            font-size: 1.3rem;
+            font-weight: 600;
+            margin-bottom: 20px;
+            color: var(--primary);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .section-title i {
+            color: var(--accent);
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: var(--dark);
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 12px 15px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+            background: var(--card-bg);
+            color: var(--dark);
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(0, 180, 219, 0.1);
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+
+        @media (max-width: 576px) {
+            .form-row {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Theme Toggle */
+        .theme-toggle {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin: 25px 0;
+            padding: 15px;
+            background: rgba(0, 0, 0, 0.03);
+            border-radius: 10px;
+        }
+
+        .theme-toggle span {
+            font-weight: 500;
+            color: var(--dark);
+        }
+
+        .theme-switch {
+            position: relative;
+            display: inline-block;
+            width: 50px;
+            height: 24px;
+        }
+
+        .theme-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 24px;
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 16px;
+            width: 16px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+
+        input:checked + .slider {
+            background-color: var(--accent);
+        }
+
+        input:checked + .slider:before {
+            transform: translateX(26px);
+        }
+
+        /* Preferences Section */
+        .preferences {
+            margin-top: 30px;
+        }
+
+        .pref-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 0;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .pref-item:last-child {
+            border-bottom: none;
+        }
+
+        .pref-label {
+            font-weight: 500;
+        }
+
+        .pref-description {
+            font-size: 0.85rem;
+            color: var(--gray);
+            margin-top: 3px;
+        }
+
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 44px;
+            height: 24px;
+        }
+
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 24px;
+        }
+
+        .toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 16px;
+            width: 16px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+
+        input:checked + .toggle-slider {
+            background-color: var(--success);
+        }
+
+        input:checked + .toggle-slider:before {
+            transform: translateX(20px);
+        }
+
+        /* Notification */
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 15px 20px;
+            border-radius: 8px;
+            color: white;
+            font-weight: 500;
+            z-index: 10000;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            max-width: 350px;
+        }
+
+        .notification.success {
+            background: var(--success);
+        }
+
+        .notification.error {
+            background: var(--danger);
+        }
+
+        .notification.hidden {
+            opacity: 0;
+            transform: translateX(100%);
+        }
+
+        /* Loading Spinner */
+        .loading {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 40px 20px;
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid rgba(26, 42, 108, 0.2);
+            border-left: 4px solid var(--primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 15px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Avatar Upload */
+        .avatar-upload {
+            position: relative;
+            display: inline-block;
+            margin-bottom: 20px;
+        }
+
+        .avatar-upload-btn {
+            position: absolute;
+            bottom: 5px;
+            right: 5px;
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: var(--accent);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            border: 3px solid var(--card-bg);
+            transition: all 0.3s ease;
+        }
+
+        .avatar-upload-btn:hover {
+            background: var(--primary);
+            transform: scale(1.1);
+        }
+
+        /* Danger Zone */
+        .danger-zone {
+            margin-top: 40px;
+            padding: 20px;
+            border: 1px solid var(--danger);
+            border-radius: 10px;
+            background: rgba(220, 53, 69, 0.05);
+        }
+
+        .danger-zone h3 {
+            color: var(--danger);
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+    </style>
 </head>
 <body>
-<div class="container">
-  <h2>Edit Profile</h2>
-  <form id="profileForm">
-    <label for="name">Your Name:</label>
-    <input type="text" id="name" placeholder="Enter your name" required>
-    <button type="submit">Save</button>
-  </form>
-  <button onclick="goBack()">Back to Home</button>
-</div>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1>
+                <i class="fas fa-user-circle"></i>
+                My Profile
+            </h1>
+            <div class="header-actions">
+                <button class="btn btn-outline" onclick="goBack()">
+                    <i class="fas fa-arrow-left"></i>
+                    Back to Home
+                </button>
+            </div>
+        </div>
 
-<script>
-// Persist theme
-if(localStorage.getItem('theme')==='dark') document.body.classList.add('dark');
+        <!-- Profile Content -->
+        <div class="profile-container">
+            <!-- Profile Card -->
+            <div class="profile-card">
+                <div class="avatar-upload">
+                    <div class="profile-avatar" id="profileAvatar">
+                        <i class="fas fa-user"></i>
+                    </div>
+                    <div class="avatar-upload-btn" onclick="document.getElementById('avatarInput').click()">
+                        <i class="fas fa-camera"></i>
+                    </div>
+                    <input type="file" id="avatarInput" accept="image/*" style="display: none;" onchange="handleAvatarUpload(event)">
+                </div>
+                
+                <h2 class="profile-name" id="profileName">Guest User</h2>
+                <p class="profile-email" id="profileEmail">user@example.com</p>
+                
+                <div class="profile-stats">
+                    <div class="stat-item">
+                        <div class="stat-value" id="meetingsCount">0</div>
+                        <div class="stat-label">Meetings</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="hoursSaved">0</div>
+                        <div class="stat-label">Hours Saved</div>
+                    </div>
+                </div>
+                
+                <button class="btn btn-primary" style="width: 100%;" onclick="downloadProfileData()">
+                    <i class="fas fa-download"></i>
+                    Export Profile Data
+                </button>
+            </div>
 
-// Save profile name
-const profileForm = document.getElementById('profileForm');
-profileForm.addEventListener('submit', e => {
-  e.preventDefault();
-  const name = document.getElementById('name').value;
-  localStorage.setItem('profileName', name);
-  alert('Profile updated!');
-});
+            <!-- Profile Details -->
+            <div class="profile-details">
+                <h2 class="section-title">
+                    <i class="fas fa-user-edit"></i>
+                    Profile Information
+                </h2>
+                
+                <form id="profileForm">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label" for="firstName">First Name</label>
+                            <input type="text" id="firstName" class="form-control" placeholder="Enter your first name">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="lastName">Last Name</label>
+                            <input type="text" id="lastName" class="form-control" placeholder="Enter your last name">
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label" for="displayName">Display Name</label>
+                        <input type="text" id="displayName" class="form-control" placeholder="How you'll appear in meetings">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label" for="email">Email Address</label>
+                        <input type="email" id="email" class="form-control" placeholder="your.email@example.com">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label" for="jobTitle">Job Title</label>
+                        <input type="text" id="jobTitle" class="form-control" placeholder="Your professional title">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label" for="company">Company/Organization</label>
+                        <input type="text" id="company" class="form-control" placeholder="Where you work">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label" for="timezone">Timezone</label>
+                        <select id="timezone" class="form-control">
+                            <option value="">Select your timezone</option>
+                            <option value="est">Eastern Time (ET)</option>
+                            <option value="cst">Central Time (CT)</option>
+                            <option value="mst">Mountain Time (MT)</option>
+                            <option value="pst">Pacific Time (PT)</option>
+                            <option value="gmt">Greenwich Mean Time (GMT)</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label" for="bio">Bio</label>
+                        <textarea id="bio" class="form-control" rows="4" placeholder="Tell us a bit about yourself..."></textarea>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary" style="width: 100%;">
+                        <i class="fas fa-save"></i>
+                        Save Profile
+                    </button>
+                </form>
+                
+                <!-- Theme Toggle -->
+                <div class="theme-toggle">
+                    <span><i class="fas fa-palette"></i> Dark Mode</span>
+                    <label class="theme-switch">
+                        <input type="checkbox" id="themeToggle">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+                
+                <!-- Preferences -->
+                <div class="preferences">
+                    <h2 class="section-title">
+                        <i class="fas fa-cog"></i>
+                        Preferences
+                    </h2>
+                    
+                    <div class="pref-item">
+                        <div>
+                            <div class="pref-label">Email Notifications</div>
+                            <div class="pref-description">Receive email updates about your meetings</div>
+                        </div>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="emailNotifications" checked>
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    
+                    <div class="pref-item">
+                        <div>
+                            <div class="pref-label">Auto-join Audio</div>
+                            <div class="pref-description">Automatically join with audio in meetings</div>
+                        </div>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="autoJoinAudio">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    
+                    <div class="pref-item">
+                        <div>
+                            <div class="pref-label">AI Summary Emails</div>
+                            <div class="pref-description">Send AI-generated summaries after meetings</div>
+                        </div>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="aiSummaryEmails" checked>
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                </div>
+                
+                <!-- Danger Zone -->
+                <div class="danger-zone">
+                    <h3><i class="fas fa-exclamation-triangle"></i> Danger Zone</h3>
+                    <p>These actions are irreversible. Please proceed with caution.</p>
+                    <div style="display: flex; gap: 10px; margin-top: 15px;">
+                        <button class="btn btn-danger" onclick="clearMeetingHistory()">
+                            <i class="fas fa-trash"></i>
+                            Clear Meeting History
+                        </button>
+                        <button class="btn btn-danger" onclick="deleteAccount()">
+                            <i class="fas fa-user-slash"></i>
+                            Delete Account
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 
-// Prefill saved name
-const savedName = localStorage.getItem('profileName');
-if(savedName) document.getElementById('name').value = savedName;
+    <!-- Notification -->
+    <div class="notification hidden" id="notification"></div>
 
-function goBack(){ window.location.href = 'index.html'; }
-</script>
+    <script>
+        // Initialize the page
+        document.addEventListener('DOMContentLoaded', function() {
+            loadProfileData();
+            setupEventListeners();
+            loadUserStats();
+        });
+
+        // Load saved profile data
+        function loadProfileData() {
+            // Load theme preference
+            const currentTheme = localStorage.getItem('theme') || 'light';
+            document.documentElement.setAttribute('data-theme', currentTheme);
+            document.getElementById('themeToggle').checked = currentTheme === 'dark';
+            
+            // Load profile data
+            const profileData = JSON.parse(localStorage.getItem('profileData') || '{}');
+            
+            // Set form values
+            document.getElementById('firstName').value = profileData.firstName || '';
+            document.getElementById('lastName').value = profileData.lastName || '';
+            document.getElementById('displayName').value = profileData.displayName || '';
+            document.getElementById('email').value = profileData.email || '';
+            document.getElementById('jobTitle').value = profileData.jobTitle || '';
+            document.getElementById('company').value = profileData.company || '';
+            document.getElementById('timezone').value = profileData.timezone || '';
+            document.getElementById('bio').value = profileData.bio || '';
+            
+            // Set preferences
+            document.getElementById('emailNotifications').checked = profileData.emailNotifications !== false;
+            document.getElementById('autoJoinAudio').checked = profileData.autoJoinAudio || false;
+            document.getElementById('aiSummaryEmails').checked = profileData.aiSummaryEmails !== false;
+            
+            // Update profile card
+            updateProfileCard(profileData);
+        }
+
+        // Update profile card with user data
+        function updateProfileCard(profileData) {
+            const displayName = profileData.displayName || 
+                               `${profileData.firstName || ''} ${profileData.lastName || ''}`.trim() || 
+                               'Guest User';
+            
+            document.getElementById('profileName').textContent = displayName;
+            document.getElementById('profileEmail').textContent = profileData.email || 'user@example.com';
+            
+            // Set avatar initials
+            if (profileData.firstName || profileData.lastName) {
+                const initials = `${(profileData.firstName || '').charAt(0)}${(profileData.lastName || '').charAt(0)}`.toUpperCase();
+                if (initials) {
+                    document.getElementById('profileAvatar').innerHTML = initials;
+                }
+            }
+        }
+
+        // Setup event listeners
+        function setupEventListeners() {
+            // Theme toggle
+            document.getElementById('themeToggle').addEventListener('change', function() {
+                const theme = this.checked ? 'dark' : 'light';
+                document.documentElement.setAttribute('data-theme', theme);
+                localStorage.setItem('theme', theme);
+            });
+            
+            // Profile form submission
+            document.getElementById('profileForm').addEventListener('submit', function(e) {
+                e.preventDefault();
+                saveProfileData();
+            });
+            
+            // Preference toggles
+            document.querySelectorAll('.toggle-switch input').forEach(toggle => {
+                toggle.addEventListener('change', function() {
+                    savePreferences();
+                });
+            });
+        }
+
+        // Save profile data
+        function saveProfileData() {
+            const profileData = {
+                firstName: document.getElementById('firstName').value,
+                lastName: document.getElementById('lastName').value,
+                displayName: document.getElementById('displayName').value,
+                email: document.getElementById('email').value,
+                jobTitle: document.getElementById('jobTitle').value,
+                company: document.getElementById('company').value,
+                timezone: document.getElementById('timezone').value,
+                bio: document.getElementById('bio').value,
+                lastUpdated: new Date().toISOString()
+            };
+            
+            localStorage.setItem('profileData', JSON.stringify(profileData));
+            updateProfileCard(profileData);
+            showNotification('Profile updated successfully!', 'success');
+        }
+
+        // Save preferences
+        function savePreferences() {
+            const profileData = JSON.parse(localStorage.getItem('profileData') || '{}');
+            
+            profileData.emailNotifications = document.getElementById('emailNotifications').checked;
+            profileData.autoJoinAudio = document.getElementById('autoJoinAudio').checked;
+            profileData.aiSummaryEmails = document.getElementById('aiSummaryEmails').checked;
+            
+            localStorage.setItem('profileData', JSON.stringify(profileData));
+            showNotification('Preferences saved!', 'success');
+        }
+
+        // Load user stats
+        function loadUserStats() {
+            // In a real app, this would come from your database/API
+            // For demo purposes, we'll use localStorage or generate random data
+            const meetingsCount = localStorage.getItem('meetingsCount') || Math.floor(Math.random() * 50) + 5;
+            const hoursSaved = Math.floor(meetingsCount * 0.75); // Estimate 45 minutes saved per meeting
+            
+            document.getElementById('meetingsCount').textContent = meetingsCount;
+            document.getElementById('hoursSaved').textContent = hoursSaved;
+        }
+
+        // Handle avatar upload
+        function handleAvatarUpload(event) {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const avatar = document.getElementById('profileAvatar');
+                    avatar.innerHTML = '';
+                    avatar.style.backgroundImage = `url(${e.target.result})`;
+                    avatar.style.backgroundSize = 'cover';
+                    avatar.style.backgroundPosition = 'center';
+                    
+                    // Save to localStorage (in a real app, this would be uploaded to a server)
+                    const profileData = JSON.parse(localStorage.getItem('profileData') || '{}');
+                    profileData.avatar = e.target.result;
+                    localStorage.setItem('profileData', JSON.stringify(profileData));
+                    
+                    showNotification('Profile picture updated!', 'success');
+                };
+                reader.readAsDataURL(file);
+            }
+        }
+
+        // Download profile data
+        function downloadProfileData() {
+            const profileData = localStorage.getItem('profileData');
+            if (!profileData) {
+                showNotification('No profile data to export', 'error');
+                return;
+            }
+            
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(profileData);
+            const downloadAnchorNode = document.createElement('a');
+            downloadAnchorNode.setAttribute("href", dataStr);
+            downloadAnchorNode.setAttribute("download", "twinTalk_profile_data.json");
+            document.body.appendChild(downloadAnchorNode);
+            downloadAnchorNode.click();
+            downloadAnchorNode.remove();
+            
+            showNotification('Profile data exported successfully!', 'success');
+        }
+
+        // Clear meeting history
+        function clearMeetingHistory() {
+            if (confirm('Are you sure you want to clear all your meeting history? This action cannot be undone.')) {
+                // In a real app, this would call your API to delete meeting history
+                localStorage.removeItem('meetingsCount');
+                showNotification('Meeting history cleared!', 'success');
+                loadUserStats(); // Refresh stats
+            }
+        }
+
+        // Delete account
+        function deleteAccount() {
+            if (confirm('This will permanently delete your account and all associated data. This action cannot be undone. Are you sure?')) {
+                if (confirm('This is your final warning. All your data will be lost. Type "DELETE" to confirm.')) {
+                    // In a real app, this would call your API to delete the account
+                    localStorage.removeItem('profileData');
+                    localStorage.removeItem('meetingsCount');
+                    showNotification('Account deleted successfully', 'success');
+                    
+                    // Redirect to home after a delay
+                    setTimeout(() => {
+                        window.location.href = 'index.html';
+                    }, 2000);
+                }
+            }
+        }
+
+        // Show notification
+        function showNotification(message, type) {
+            const notification = document.getElementById('notification');
+            notification.textContent = message;
+            notification.className = `notification ${type}`;
+            
+            // Show notification
+            setTimeout(() => {
+                notification.classList.remove('hidden');
+            }, 100);
+            
+            // Hide after 3 seconds
+            setTimeout(() => {
+                notification.classList.add('hidden');
+            }, 3000);
+        }
+
+        // Go back to home
+        function goBack() {
+            window.location.href = 'index.html';
+        }
+    </script>
 </body>
 </html>

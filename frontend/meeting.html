@@ -267,8 +267,8 @@
     position: absolute;
     right: 20px;
     bottom: 80px;
-    width: 300px;
-    height: 350px;
+    width: 350px;
+    height: 400px;
     background: #fff;
     color: #000;
     border-radius: var(--border-radius);
@@ -327,27 +327,83 @@
     float: right;
   }
 
-  #chat-input {
+  #chat-input-container {
     display: flex;
     border-top: 1px solid #ddd;
     background: white;
+    padding: 8px;
+    gap: 5px;
   }
 
-  #chat-input input {
+  #chat-input {
     flex: 1;
-    padding: 10px;
-    border: none;
+    display: flex;
+    gap: 5px;
+  }
+
+  #chatText {
+    flex: 1;
+    padding: 8px 12px;
+    border: 1px solid #ddd;
+    border-radius: 20px;
     outline: none;
     font-size: 14px;
   }
 
-  #chat-input button {
+  #emojiBtn {
+    background: none;
+    border: none;
+    font-size: 18px;
+    cursor: pointer;
+    padding: 0 8px;
+    border-radius: 50%;
+    transition: background 0.2s;
+  }
+
+  #emojiBtn:hover {
+    background: #f0f0f0;
+  }
+
+  #sendChat {
     background: var(--secondary-color);
     border: none;
     color: #fff;
-    padding: 0 15px;
+    padding: 8px 16px;
+    border-radius: 20px;
     cursor: pointer;
     font-weight: 600;
+    font-size: 12px;
+  }
+
+  /* Emoji Picker */
+  #emojiPicker {
+    position: absolute;
+    bottom: 60px;
+    right: 20px;
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 10px;
+    display: none;
+    flex-wrap: wrap;
+    gap: 5px;
+    width: 200px;
+    max-height: 150px;
+    overflow-y: auto;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+    z-index: 1001;
+  }
+
+  .emoji {
+    font-size: 18px;
+    cursor: pointer;
+    padding: 5px;
+    border-radius: 4px;
+    transition: background 0.2s;
+  }
+
+  .emoji:hover {
+    background: #f0f0f0;
   }
 
   /* MEMO Panel */
@@ -512,6 +568,10 @@
     <span>🧑</span>
     <span class="btn-label">Avatar</span>
   </button>
+  <button class="control-btn" id="chatBtn">
+    <span>💬</span>
+    <span class="btn-label">Chat</span>
+  </button>
   <button class="control-btn" id="recordBtn">
     <span>⏺️</span>
     <span class="btn-label">Record</span>
@@ -529,10 +589,18 @@
     <button class="close-chat">✕</button>
   </div>
   <div id="chat-messages"></div>
-  <div id="chat-input">
-    <input type="text" id="chatText" placeholder="Type a message...">
+  <div id="chat-input-container">
+    <div id="chat-input">
+      <input type="text" id="chatText" placeholder="Type a message...">
+      <button id="emojiBtn">😊</button>
+    </div>
     <button id="sendChat">Send</button>
   </div>
+</div>
+
+<!-- Emoji Picker -->
+<div id="emojiPicker">
+  <!-- Emojis will be populated by JavaScript -->
 </div>
 
 <!-- MEMO Panel -->
@@ -625,6 +693,90 @@ async function startMeeting(user) {
     const s = Math.floor((elapsed % 60000) / 1000);
     timerDisplay.textContent = `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`;
   }, 1000);
+
+  // Initialize Chat functionality
+  function initializeChat() {
+    const chatBtn = document.getElementById('chatBtn');
+    const chatbox = document.getElementById('chatbox');
+    const closeChat = document.querySelector('.close-chat');
+    const emojiBtn = document.getElementById('emojiBtn');
+    const emojiPicker = document.getElementById('emojiPicker');
+    const chatText = document.getElementById('chatText');
+    
+    // Chat button click handler
+    chatBtn.addEventListener('click', () => {
+      if (chatbox.style.display === 'none') {
+        chatbox.style.display = 'flex';
+        chatBtn.classList.add('active');
+        chatText.focus();
+      } else {
+        chatbox.style.display = 'none';
+        chatBtn.classList.remove('active');
+      }
+    });
+    
+    // Close chat panel
+    closeChat.addEventListener('click', () => {
+      chatbox.style.display = 'none';
+      chatBtn.classList.remove('active');
+    });
+    
+    // Emoji button click handler
+    emojiBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      emojiPicker.style.display = emojiPicker.style.display === 'flex' ? 'none' : 'flex';
+    });
+    
+    // Initialize emoji picker
+    initializeEmojiPicker();
+    
+    // Close emoji picker when clicking outside
+    document.addEventListener('click', (e) => {
+      if (!emojiPicker.contains(e.target) && e.target !== emojiBtn) {
+        emojiPicker.style.display = 'none';
+      }
+    });
+  }
+  
+  // Initialize Emoji Picker
+  function initializeEmojiPicker() {
+    const emojiPicker = document.getElementById('emojiPicker');
+    const chatText = document.getElementById('chatText');
+    
+    const emojis = [
+      '😀', '😃', '😄', '😁', '😆', '😅', '😂', '🤣', '😊', '😇',
+      '🙂', '🙃', '😉', '😌', '😍', '🥰', '😘', '😗', '😙', '😚',
+      '😋', '😛', '😝', '😜', '🤪', '🤨', '🧐', '🤓', '😎', '🤩',
+      '🥳', '😏', '😒', '😞', '😔', '😟', '😕', '🙁', '☹️', '😣',
+      '😖', '😫', '😩', '🥺', '😢', '😭', '😤', '😠', '😡', '🤬',
+      '🤯', '😳', '🥵', '🥶', '😱', '😨', '😰', '😥', '😓', '🤗',
+      '🤔', '🤭', '🤫', '🤥', '😶', '😐', '😑', '😬', '🙄', '😯',
+      '😦', '😧', '😮', '😲', '🥱', '😴', '🤤', '😪', '😵', '🤐',
+      '🥴', '🤢', '🤮', '🤧', '😷', '🤒', '🤕', '🤑', '🤠', '😈',
+      '👿', '👹', '👺', '🤡', '💩', '👻', '💀', '☠️', '👽', '👾',
+      '🤖', '🎃', '😺', '😸', '😹', '😻', '😼', '😽', '🙀', '😿',
+      '😾', '👋', '🤚', '🖐️', '✋', '🖖', '👌', '🤏', '✌️', '🤞',
+      '🤟', '🤘', '🤙', '👈', '👉', '👆', '🖕', '👇', '☝️', '👍',
+      '👎', '✊', '👊', '🤛', '🤜', '👏', '🙌', '👐', '🤲', '🤝',
+      '🙏', '✍️', '💅', '🤳', '💪', '🦾', '🦵', '🦿', '🦶', '👂',
+      '🦻', '👃', '🧠', '🦷', '🦴', '👀', '👁️', '👅', '👄', '💋',
+      '🩸', '❤️', '🧡', '💛', '💚', '💙', '💜', '🖤', '🤍', '🤎',
+      '💔', '❣️', '💕', '💞', '💓', '💗', '💖', '💘', '💝', '💟'
+    ];
+    
+    emojiPicker.innerHTML = '';
+    emojis.forEach(emoji => {
+      const emojiElement = document.createElement('span');
+      emojiElement.className = 'emoji';
+      emojiElement.textContent = emoji;
+      emojiElement.addEventListener('click', () => {
+        chatText.value += emoji;
+        chatText.focus();
+        emojiPicker.style.display = 'none';
+      });
+      emojiPicker.appendChild(emojiElement);
+    });
+  }
 
   // Initialize MEMO functionality
   function initializeMemo() {
@@ -777,11 +929,25 @@ async function startMeeting(user) {
       tile = document.createElement("div");
       tile.className = "small-tile";
       tile.id = "tile-" + id;
-      tile.onclick = () => setMainSpeaker(id, label, stream, avatarURL);
+      
+      // FIXED: Proper tile click handler for enlargement
+      tile.onclick = () => {
+        console.log("🖱️ Tile clicked:", id, label);
+        if (id === "me") {
+          setMainSpeaker(id, label, stream, avatarURL);
+        } else {
+          const peerStream = peerStreams[id];
+          setMainSpeaker(id, label, peerStream, avatarURL);
+        }
+      };
+      
       document.getElementById("top-strip").appendChild(tile);
     }
 
+    // Remove active class from all tiles first
     document.querySelectorAll('.small-tile').forEach(t => t.classList.remove('active'));
+    
+    // Add active class to current tile
     tile.classList.add('active');
 
     if (avatarURL) {
@@ -800,10 +966,15 @@ async function startMeeting(user) {
     }
   }
 
+  // FIXED: Enhanced setMainSpeaker function
   function setMainSpeaker(id, label, stream, avatar) {
+    console.log("🎯 Setting main speaker:", id, label);
     currentMainSpeaker = id;
     const main = document.getElementById("main-speaker");
     const mainSpeakerName = document.getElementById("mainSpeakerName");
+    
+    // Clear main speaker area
+    main.innerHTML = '';
     
     if (avatar) {
       main.innerHTML = `<img src="${avatar}"><div class="name-label">${label}</div>`;
@@ -819,13 +990,17 @@ async function startMeeting(user) {
         console.warn("Failed to set srcObject on main video:", err);
       }
     } else {
-      main.innerHTML = `<div style="width:80%;height:60%;display:flex;align-items:center;justify-content:center;color:#999">No active video</div><div class="name-label">${label}</div>`;
+      main.innerHTML = `<div style="width:80%;height:60%;display:flex;align-items:center;justify-content:center;color:#999;font-size:18px;">No active video</div><div class="name-label">${label}</div>`;
       mainSpeakerName.textContent = label;
     }
 
+    // Update active tile highlighting
     document.querySelectorAll('.small-tile').forEach(t => t.classList.remove('active'));
     const activeTile = document.getElementById("tile-" + id);
-    if (activeTile) activeTile.classList.add('active');
+    if (activeTile) {
+      activeTile.classList.add('active');
+      console.log("✅ Active tile set:", id);
+    }
   }
 
   // Stable speech recognition with better error handling
@@ -1067,11 +1242,6 @@ async function startMeeting(user) {
                       console.log(`▶️ Playing remote video for ${label}`);
                   }
               }, 500);
-              
-              // Set as main speaker if no one else is active
-              if (currentMainSpeaker === "me" && Object.keys(peerStreams).length === 1) {
-                  setMainSpeaker(peerId, label, remoteStream);
-              }
           }
       };
 
@@ -1278,6 +1448,74 @@ async function startMeeting(user) {
       if (currentMainSpeaker === peerId) {
           setMainSpeaker(peerId, name || "User", stream);
       }
+  });
+
+  // Enhanced Chat functionality with socket
+  const chatMessages = document.getElementById("chat-messages");
+  const chatInput = document.getElementById("chatText");
+  const sendChat = document.getElementById("sendChat");
+  let chatHistory = JSON.parse(localStorage.getItem(`chat-${roomId}`)) || [];
+
+  // Load chat history
+  chatHistory.forEach(msg => {
+    const d = document.createElement("div");
+    d.className = "chat-message";
+    d.innerHTML = `
+      <div class="chat-sender">${msg.name} <span class="chat-time">${new Date(msg.timestamp).toLocaleTimeString()}</span></div>
+      <div>${msg.message}</div>
+    `;
+    chatMessages.appendChild(d);
+  });
+  chatMessages.scrollTop = chatMessages.scrollHeight;
+
+  // Send chat message
+  function sendChatMessage() {
+    const message = chatInput.value.trim();
+    if (!message) return;
+    
+    socket.emit("chat-message", { roomId, name, message });
+    chatInput.value = "";
+    chatInput.focus();
+  }
+
+  sendChat.addEventListener('click', sendChatMessage);
+  chatInput.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') sendChatMessage();
+  });
+
+  // Receive chat messages
+  socket.on("chat-message", ({ name: sender, message, timestamp }) => {
+    const chatItem = { name: sender, message, timestamp: timestamp || Date.now() };
+    chatHistory.push(chatItem);
+    
+    if (chatHistory.length > 100) {
+      chatHistory = chatHistory.slice(-100);
+    }
+    
+    localStorage.setItem(`chat-${roomId}`, JSON.stringify(chatHistory));
+    
+    const chatTimestamp = new Date().toLocaleTimeString();
+    const chatTranscriptEntry = `[${chatTimestamp}] [CHAT] ${sender}: ${message}\n`;
+    meetingTranscript += chatTranscriptEntry;
+    
+    const d = document.createElement("div");
+    d.className = "chat-message";
+    d.innerHTML = `
+      <div class="chat-sender">${sender} <span class="chat-time">${new Date(timestamp).toLocaleTimeString()}</span></div>
+      <div>${message}</div>
+    `;
+    chatMessages.appendChild(d);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+    
+    // Show notification if chat is closed
+    const chatbox = document.getElementById('chatbox');
+    if (chatbox.style.display === 'none') {
+      const chatBtn = document.getElementById('chatBtn');
+      chatBtn.style.animation = 'pulse 1s 3';
+      setTimeout(() => {
+        chatBtn.style.animation = '';
+      }, 3000);
+    }
   });
 
   // Control buttons
@@ -1612,59 +1850,6 @@ async function startMeeting(user) {
     alert("Recording feature will be implemented in the next update!");
   };
 
-  // CHAT functionality
-  const chatMessages = document.getElementById("chat-messages");
-  const chatInput = document.getElementById("chatText");
-  let chatHistory = JSON.parse(localStorage.getItem(`chat-${roomId}`)) || [];
-
-  chatHistory.forEach(msg => {
-    const d = document.createElement("div");
-    d.className = "chat-message";
-    d.innerHTML = `
-      <div class="chat-sender">${msg.name} <span class="chat-time">${new Date(msg.timestamp).toLocaleTimeString()}</span></div>
-      <div>${msg.message}</div>
-    `;
-    chatMessages.appendChild(d);
-  });
-  chatMessages.scrollTop = chatMessages.scrollHeight;
-
-  document.getElementById("sendChat").onclick = sendChatMessage;
-  chatInput.addEventListener('keypress', (e) => {
-    if (e.key === 'Enter') sendChatMessage();
-  });
-
-  function sendChatMessage() {
-    const message = chatInput.value.trim();
-    if (!message) return;
-    
-    socket.emit("chat-message", { roomId, name, message });
-    chatInput.value = "";
-  }
-
-  socket.on("chat-message", ({ name: sender, message, timestamp }) => {
-    const chatItem = { name: sender, message, timestamp: timestamp || Date.now() };
-    chatHistory.push(chatItem);
-    
-    if (chatHistory.length > 100) {
-      chatHistory = chatHistory.slice(-100);
-    }
-    
-    localStorage.setItem(`chat-${roomId}`, JSON.stringify(chatHistory));
-    
-    const chatTimestamp = new Date().toLocaleTimeString();
-    const chatTranscriptEntry = `[${chatTimestamp}] [CHAT] ${sender}: ${message}\n`;
-    meetingTranscript += chatTranscriptEntry;
-    
-    const d = document.createElement("div");
-    d.className = "chat-message";
-    d.innerHTML = `
-      <div class="chat-sender">${sender} <span class="chat-time">${new Date(timestamp).toLocaleTimeString()}</span></div>
-      <div>${message}</div>
-    `;
-    chatMessages.appendChild(d);
-    chatMessages.scrollTop = chatMessages.scrollHeight;
-  });
-
   // Handle page unload
   window.addEventListener('beforeunload', () => {
     if (meetingTranscript.trim()) {
@@ -1674,6 +1859,7 @@ async function startMeeting(user) {
   });
 
   // Initialize the meeting
+  initializeChat();
   initializeMemo();
   checkAutoEnableAvatar(); // Check if we need to auto-enable avatar
 }

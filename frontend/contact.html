@@ -3,29 +3,667 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Contact Us - MeetTwin</title>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+  <title>Contact Us - TwinTalk</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <style>
-    body { font-family:'Inter', sans-serif; background:#f3e9ff; margin:0; padding:0; display:flex; justify-content:center; align-items:center; height:100vh; }
-    .container { background:#fff; padding:2rem; border-radius:12px; box-shadow:0 0 10px rgba(0,0,0,0.1); width:100%; max-width:400px; }
-    h2 { text-align:center; color:#4b2aad; }
-    form { display:flex; flex-direction:column; }
-    input, textarea { margin:10px 0; padding:12px; border:1px solid #ccc; border-radius:8px; }
-    button { padding:12px; background:#4b2aad; color:#fff; border:none; border-radius:8px; cursor:pointer; font-weight:600; }
-    button:hover { background:#361f7f; }
-    .back { display:block; text-align:center; margin-top:1rem; text-decoration:none; color:#4b2aad; font-weight:600; }
+    :root {
+      --primary: #1a2a6c;
+      --secondary: #4a569d;
+      --accent: #00b4db;
+      --light: #f8f9fa;
+      --dark: #333;
+      --gray: #666;
+      --text: #333;
+      --bg: #f8f9fa;
+      --card-bg: #ffffff;
+      --border: #e1e5e9;
+      --success: #28a745;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: 'Inter', sans-serif;
+    }
+
+    body {
+      background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+      color: var(--dark);
+      line-height: 1.6;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .container {
+      width: 90%;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 15px;
+    }
+
+    /* Header */
+    header {
+      background: linear-gradient(135deg, var(--primary), var(--secondary));
+      color: white;
+      padding: 1rem 0;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    }
+
+    .navbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .logo {
+      font-size: 1.5rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      color: white;
+      text-decoration: none;
+    }
+
+    .logo i {
+      margin-right: 10px;
+    }
+
+    .back-button {
+      background-color: white;
+      color: var(--primary);
+      border: none;
+      padding: 0.6rem 1.2rem;
+      border-radius: 30px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .back-button:hover {
+      background-color: var(--accent);
+      color: white;
+    }
+
+    /* Contact Section */
+    .contact-section {
+      padding: 4rem 0;
+      flex: 1;
+    }
+
+    .section-title {
+      text-align: center;
+      margin-bottom: 3rem;
+    }
+
+    .section-title h2 {
+      font-size: 2.5rem;
+      color: var(--primary);
+      margin-bottom: 1rem;
+    }
+
+    .section-title p {
+      color: var(--gray);
+      max-width: 700px;
+      margin: 0 auto;
+    }
+
+    .contact-container {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 3rem;
+      background: var(--card-bg);
+      border-radius: 15px;
+      overflow: hidden;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+    }
+
+    @media (max-width: 992px) {
+      .contact-container {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* Contact Info */
+    .contact-info {
+      background: linear-gradient(135deg, var(--primary), var(--secondary));
+      color: white;
+      padding: 3rem;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+
+    .contact-info h3 {
+      font-size: 1.8rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .contact-info p {
+      margin-bottom: 2rem;
+      opacity: 0.9;
+    }
+
+    .contact-details {
+      margin-top: 2rem;
+    }
+
+    .contact-detail {
+      display: flex;
+      align-items: center;
+      margin-bottom: 1.5rem;
+    }
+
+    .contact-detail i {
+      margin-right: 1rem;
+      font-size: 1.2rem;
+      color: var(--accent);
+      width: 20px;
+      text-align: center;
+    }
+
+    .contact-detail span {
+      font-size: 1rem;
+    }
+
+    .social-links {
+      display: flex;
+      gap: 1rem;
+      margin-top: 2rem;
+    }
+
+    .social-link {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 40px;
+      height: 40px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 50%;
+      color: white;
+      text-decoration: none;
+      transition: all 0.3s;
+    }
+
+    .social-link:hover {
+      background: var(--accent);
+      transform: translateY(-3px);
+    }
+
+    /* Contact Form */
+    .contact-form {
+      padding: 3rem;
+    }
+
+    .form-group {
+      margin-bottom: 1.5rem;
+    }
+
+    .form-label {
+      display: block;
+      margin-bottom: 0.5rem;
+      color: var(--dark);
+      font-weight: 500;
+    }
+
+    .form-control {
+      width: 100%;
+      padding: 0.8rem 1rem;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 1rem;
+      transition: border-color 0.3s;
+      background-color: var(--light);
+      color: var(--dark);
+    }
+
+    .form-control:focus {
+      border-color: var(--accent);
+      outline: none;
+      box-shadow: 0 0 0 3px rgba(0, 180, 219, 0.1);
+    }
+
+    textarea.form-control {
+      min-height: 150px;
+      resize: vertical;
+    }
+
+    .submit-btn {
+      background: linear-gradient(135deg, var(--accent), var(--primary));
+      color: white;
+      border: none;
+      padding: 0.8rem 2rem;
+      border-radius: 30px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.3s;
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .submit-btn:hover {
+      transform: translateY(-3px);
+    }
+
+    /* FAQ Section */
+    .faq-section {
+      padding: 3rem 0;
+      background: var(--light);
+      margin-top: 3rem;
+    }
+
+    .faq-container {
+      max-width: 800px;
+      margin: 0 auto;
+    }
+
+    .faq-item {
+      background: var(--card-bg);
+      border-radius: 8px;
+      margin-bottom: 1rem;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+      overflow: hidden;
+    }
+
+    .faq-question {
+      padding: 1.5rem;
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-weight: 600;
+    }
+
+    .faq-question:hover {
+      background: rgba(0, 0, 0, 0.02);
+    }
+
+    .faq-answer {
+      padding: 0 1.5rem;
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.3s ease, padding 0.3s ease;
+    }
+
+    .faq-answer.active {
+      padding: 0 1.5rem 1.5rem;
+      max-height: 500px;
+    }
+
+    .faq-toggle {
+      transition: transform 0.3s;
+    }
+
+    .faq-toggle.active {
+      transform: rotate(180deg);
+    }
+
+    /* Notification */
+    .notification {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      padding: 15px 20px;
+      border-radius: 8px;
+      color: white;
+      font-weight: 500;
+      z-index: 10000;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+      transition: all 0.3s ease;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      max-width: 350px;
+    }
+
+    .notification.success {
+      background: var(--success);
+    }
+
+    .notification.error {
+      background: #dc3545;
+    }
+
+    .notification.hidden {
+      opacity: 0;
+      transform: translateX(100%);
+    }
+
+    /* Footer */
+    footer {
+      background-color: #0d1b48;
+      color: white;
+      padding: 3rem 0 1.5rem;
+      margin-top: auto;
+    }
+
+    .footer-content {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 2rem;
+      margin-bottom: 2rem;
+    }
+
+    .footer-column h4 {
+      font-size: 1.2rem;
+      margin-bottom: 1.5rem;
+      color: var(--accent);
+    }
+
+    .footer-links {
+      list-style: none;
+    }
+
+    .footer-links li {
+      margin-bottom: 0.8rem;
+    }
+
+    .footer-links a {
+      color: #ddd;
+      text-decoration: none;
+      transition: color 0.3s;
+    }
+
+    .footer-links a:hover {
+      color: var(--accent);
+    }
+
+    .copyright {
+      text-align: center;
+      padding-top: 1.5rem;
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+      color: #aaa;
+      font-size: 0.9rem;
+    }
+
+    /* Responsive Design */
+    @media (max-width: 768px) {
+      .contact-info, .contact-form {
+        padding: 2rem;
+      }
+      
+      .section-title h2 {
+        font-size: 2rem;
+      }
+    }
   </style>
 </head>
 <body>
-  <div class="container">
-    <h2>📩 Contact Us</h2>
-    <form action="/contact" method="POST">
-      <input type="text" name="name" placeholder="Your Name" required />
-      <input type="email" name="email" placeholder="Your Email" required />
-      <textarea name="message" rows="5" placeholder="Your Message" required></textarea>
-      <button type="submit">Send Message</button>
-    </form>
-    <a href="index.html" class="back">⬅ Back to Home</a>
-  </div>
+  <!-- Header -->
+  <header>
+    <div class="container">
+      <nav class="navbar">
+        <a href="index.html" class="logo">
+          <i class="fas fa-comments"></i>
+          TwinTalk
+        </a>
+        <a href="index.html" class="back-button">
+          <i class="fas fa-arrow-left"></i> Back to Home
+        </a>
+      </nav>
+    </div>
+  </header>
+
+  <!-- Contact Section -->
+  <section class="contact-section">
+    <div class="container">
+      <div class="section-title">
+        <h2>Contact Us</h2>
+        <p>Have questions? Get in touch with our team. We're here to help you get the most out of TwinTalk.</p>
+      </div>
+      
+      <div class="contact-container">
+        <!-- Contact Info -->
+        <div class="contact-info">
+          <h3>Let's Start a Conversation</h3>
+          <p>We're here to answer any questions you might have about TwinTalk. Reach out to us and we'll respond as soon as we can.</p>
+          
+          <div class="contact-details">
+            <div class="contact-detail">
+              <i class="fas fa-envelope"></i>
+              <span>info@twintalk.com</span>
+            </div>
+            <div class="contact-detail">
+              <i class="fas fa-phone"></i>
+              <span>+1 (555) 123-4567</span>
+            </div>
+            <div class="contact-detail">
+              <i class="fas fa-map-marker-alt"></i>
+              <span>San Francisco, CA</span>
+            </div>
+            <div class="contact-detail">
+              <i class="fas fa-clock"></i>
+              <span>Mon - Fri: 9:00 AM - 6:00 PM PST</span>
+            </div>
+          </div>
+          
+          <div class="social-links">
+            <a href="#" class="social-link">
+              <i class="fab fa-twitter"></i>
+            </a>
+            <a href="#" class="social-link">
+              <i class="fab fa-linkedin-in"></i>
+            </a>
+            <a href="#" class="social-link">
+              <i class="fab fa-facebook-f"></i>
+            </a>
+            <a href="#" class="social-link">
+              <i class="fab fa-instagram"></i>
+            </a>
+          </div>
+        </div>
+        
+        <!-- Contact Form -->
+        <div class="contact-form">
+          <form id="contactForm">
+            <div class="form-group">
+              <label class="form-label" for="name">Full Name</label>
+              <input type="text" id="name" class="form-control" placeholder="Your Name" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="email">Email Address</label>
+              <input type="email" id="email" class="form-control" placeholder="Your Email" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="subject">Subject</label>
+              <input type="text" id="subject" class="form-control" placeholder="Subject" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="message">Message</label>
+              <textarea id="message" class="form-control" placeholder="Your Message" required></textarea>
+            </div>
+            <button type="submit" class="submit-btn">
+              <i class="fas fa-paper-plane"></i>
+              Send Message
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FAQ Section -->
+  <section class="faq-section">
+    <div class="container">
+      <div class="section-title">
+        <h2>Frequently Asked Questions</h2>
+        <p>Quick answers to common questions about TwinTalk</p>
+      </div>
+      
+      <div class="faq-container">
+        <div class="faq-item">
+          <div class="faq-question">
+            How does the AI avatar feature work?
+            <i class="fas fa-chevron-down faq-toggle"></i>
+          </div>
+          <div class="faq-answer">
+            <p>Our AI avatar can attend meetings on your behalf by analyzing your speech patterns and meeting history. It can actively participate, take notes, and provide summaries based on your preferences and past behavior.</p>
+          </div>
+        </div>
+        
+        <div class="faq-item">
+          <div class="faq-question">
+            Is my meeting data secure?
+            <i class="fas fa-chevron-down faq-toggle"></i>
+          </div>
+          <div class="faq-answer">
+            <p>Yes, we use bank-level encryption and follow strict security protocols to ensure all your meeting data, recordings, and notes are protected. We comply with GDPR and other privacy regulations.</p>
+          </div>
+        </div>
+        
+        <div class="faq-item">
+          <div class="faq-question">
+            Can I integrate TwinTalk with my calendar?
+            <i class="fas fa-chevron-down faq-toggle"></i>
+          </div>
+          <div class="faq-answer">
+            <p>Absolutely! TwinTalk integrates seamlessly with Google Calendar, Outlook, and other popular calendar applications. You can schedule meetings directly from your calendar and our AI will automatically join at the scheduled time.</p>
+          </div>
+        </div>
+        
+        <div class="faq-item">
+          <div class="faq-question">
+            What languages does TwinTalk support?
+            <i class="fas fa-chevron-down faq-toggle"></i>
+          </div>
+          <div class="faq-answer">
+            <p>Currently, TwinTalk supports English, Spanish, French, German, and Japanese. We're continuously working to add more languages to better serve our global user base.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer>
+    <div class="container">
+      <div class="footer-content">
+        <div class="footer-column">
+          <h4>TwinTalk</h4>
+          <p>Intelligent meeting assistant that transforms how teams collaborate and capture insights.</p>
+        </div>
+        <div class="footer-column">
+          <h4>Product</h4>
+          <ul class="footer-links">
+            <li><a href="index.html#features">Features</a></li>
+            <li><a href="#">Pricing</a></li>
+            <li><a href="#">Enterprise</a></li>
+            <li><a href="#">Updates</a></li>
+          </ul>
+        </div>
+        <div class="footer-column">
+          <h4>Resources</h4>
+          <ul class="footer-links">
+            <li><a href="#">Documentation</a></li>
+            <li><a href="#">Tutorials</a></li>
+            <li><a href="#">Blog</a></li>
+            <li><a href="#">Support</a></li>
+          </ul>
+        </div>
+        <div class="footer-column">
+          <h4>Company</h4>
+          <ul class="footer-links">
+            <li><a href="about.html">About Us</a></li>
+            <li><a href="#">Careers</a></li>
+            <li><a href="contact.html">Contact</a></li>
+            <li><a href="#">Partners</a></li>
+          </ul>
+        </div>
+      </div>
+      <div class="copyright">
+        <p>&copy; 2023 TwinTalk. All rights reserved.</p>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Notification -->
+  <div class="notification hidden" id="notification"></div>
+
+  <script>
+    // Initialize the page
+    document.addEventListener('DOMContentLoaded', function() {
+      setupEventListeners();
+      setupFAQ();
+    });
+
+    // Setup event listeners
+    function setupEventListeners() {
+      // Form submission
+      document.getElementById('contactForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        submitContactForm();
+      });
+    }
+
+    // Setup FAQ functionality
+    function setupFAQ() {
+      const faqQuestions = document.querySelectorAll('.faq-question');
+      
+      faqQuestions.forEach(question => {
+        question.addEventListener('click', function() {
+          const answer = this.nextElementSibling;
+          const toggle = this.querySelector('.faq-toggle');
+          
+          // Close all other FAQ answers
+          document.querySelectorAll('.faq-answer').forEach(item => {
+            if (item !== answer) {
+              item.classList.remove('active');
+            }
+          });
+          
+          document.querySelectorAll('.faq-toggle').forEach(item => {
+            if (item !== toggle) {
+              item.classList.remove('active');
+            }
+          });
+          
+          // Toggle current FAQ answer
+          answer.classList.toggle('active');
+          toggle.classList.toggle('active');
+        });
+      });
+    }
+
+    // Submit contact form
+    function submitContactForm() {
+      const name = document.getElementById('name').value;
+      const email = document.getElementById('email').value;
+      const subject = document.getElementById('subject').value;
+      const message = document.getElementById('message').value;
+      
+      // In a real implementation, you would send this data to a server
+      // For now, we'll just show a success message
+      showNotification('Thank you for your message! We will get back to you soon.', 'success');
+      
+      // Reset the form
+      document.getElementById('contactForm').reset();
+    }
+
+    // Show notification
+    function showNotification(message, type) {
+      const notification = document.getElementById('notification');
+      notification.textContent = message;
+      notification.className = `notification ${type}`;
+      
+      // Show notification
+      setTimeout(() => {
+        notification.classList.remove('hidden');
+      }, 100);
+      
+      // Hide after 5 seconds
+      setTimeout(() => {
+        notification.classList.add('hidden');
+      }, 5000);
+    }
+  </script>
 </body>
 </html>

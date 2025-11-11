@@ -3,57 +3,465 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>TwinTalk - Auth</title>
+  <title>TwinTalk - Intelligent Meeting Assistant | Authentication</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', sans-serif; }
+    :root {
+      --primary: #1a2a6c;
+      --secondary: #4a569d;
+      --accent: #00b4db;
+      --accent-light: #00c6ff;
+      --light: #f8f9fa;
+      --dark: #2d3748;
+      --gray: #718096;
+      --text: #2d3748;
+      --bg: #ffffff;
+      --card-bg: #ffffff;
+      --success: #10b981;
+      --error: #ef4444;
+      --warning: #f59e0b;
+      --gradient-primary: linear-gradient(135deg, var(--primary), var(--secondary));
+      --gradient-accent: linear-gradient(135deg, var(--accent), var(--accent-light));
+      --shadow-sm: 0 4px 6px rgba(0, 0, 0, 0.05);
+      --shadow-md: 0 10px 15px rgba(0, 0, 0, 0.1);
+      --shadow-lg: 0 20px 25px rgba(0, 0, 0, 0.15);
+      --border-radius: 12px;
+    }
+
+    * { 
+      box-sizing: border-box; 
+      margin: 0; 
+      padding: 0; 
+      font-family: 'Inter', sans-serif; 
+    }
+    
     body {
-      background: url('https://img.freepik.com/premium-photo/thoughtful-robot-white-background-ai-generative_955712-4604.jpg?w=2000') no-repeat center center fixed;
-      background-size: cover;
-      height: 100vh;
+      background: linear-gradient(135deg, #1a2a6c 0%, #4a569d 50%, #00b4db 100%);
+      min-height: 100vh;
       display: flex;
       justify-content: center;
       align-items: center;
+      padding: 20px;
+      position: relative;
+      overflow-x: hidden;
+    }
+    
+    .background-animation {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 0;
+      overflow: hidden;
+    }
+    
+    .bubble {
+      position: absolute;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.1);
+      animation: float 15s infinite ease-in-out;
+    }
+    
+    @keyframes float {
+      0%, 100% { transform: translateY(0) translateX(0); }
+      25% { transform: translateY(-20px) translateX(10px); }
+      50% { transform: translateY(-10px) translateX(20px); }
+      75% { transform: translateY(-30px) translateX(-10px); }
+    }
+    
+    .auth-container {
+      display: flex;
+      width: 100%;
+      max-width: 1000px;
+      height: 600px;
+      background-color: rgba(255, 255, 255, 0.95);
+      box-shadow: var(--shadow-lg);
+      border-radius: var(--border-radius);
+      overflow: hidden;
+      position: relative;
+      z-index: 10;
+      backdrop-filter: blur(10px);
+    }
+    
+    .left-panel {
+      width: 50%;
+      background: var(--gradient-primary);
+      color: white;
+      padding: 50px 40px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      position: relative;
+      overflow: hidden;
+    }
+    
+    .left-panel::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" preserveAspectRatio="none"><path d="M0,0 L100,0 L100,100 Z" fill="rgba(255,255,255,0.05)"/></svg>');
+      background-size: cover;
+    }
+    
+    .logo {
+      display: flex;
+      align-items: center;
+      margin-bottom: 30px;
+    }
+    
+    .logo-icon {
+      width: 50px;
+      height: 50px;
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-right: 15px;
+      font-size: 24px;
+    }
+    
+    .logo-text {
+      font-size: 28px;
+      font-weight: 800;
+    }
+    
+    .left-panel h1 {
+      font-size: 42px;
+      font-weight: 800;
+      line-height: 1.1;
+      margin-bottom: 20px;
+    }
+    
+    .left-panel p {
+      font-size: 16px;
+      margin-bottom: 30px;
+      line-height: 1.6;
+      opacity: 0.9;
+    }
+    
+    .features {
+      list-style: none;
+      margin-top: 20px;
+    }
+    
+    .features li {
+      margin-bottom: 15px;
+      display: flex;
+      align-items: center;
+      font-size: 15px;
+    }
+    
+    .features li i {
+      margin-right: 12px;
+      background: rgba(255, 255, 255, 0.2);
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+    }
+    
+    .right-panel {
+      width: 50%;
+      padding: 50px 40px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      background: var(--bg);
+    }
+    
+    .tabs {
+      display: flex;
+      margin-bottom: 25px;
+      border-bottom: 1px solid #e2e8f0;
+    }
+    
+    .tab {
+      flex: 1;
+      text-align: center;
+      padding: 15px 0;
+      cursor: pointer;
+      font-weight: 600;
+      color: var(--gray);
+      border-bottom: 3px solid transparent;
+      transition: all 0.3s ease;
+    }
+    
+    .tab.active {
+      color: var(--primary);
+      border-bottom: 3px solid var(--accent);
+    }
+    
+    .form-title {
+      font-size: 28px;
+      font-weight: 700;
+      margin-bottom: 8px;
+      color: var(--dark);
+    }
+    
+    .form-subtitle {
+      font-size: 15px;
+      margin-bottom: 30px;
+      color: var(--gray);
+    }
+    
+    .form-group {
+      margin-bottom: 20px;
       position: relative;
     }
-    .overlay { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(255, 255, 255, 0.1); z-index: 0; }
-    .auth-wrapper {
-      display: flex; width: 900px; height: 550px; background-color: rgba(255, 255, 255, 0.9);
-      box-shadow: 0 0 20px rgba(0,0,0,0.1); border-radius: 10px; overflow: hidden;
-      position: relative; z-index: 1; transform: translateX(260px);
+    
+    .form-group i {
+      position: absolute;
+      left: 15px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--gray);
     }
-    .left-panel { width: 50%; background-color: #4b2aad; color: #fff; padding: 40px; display: flex; flex-direction: column; justify-content: center; }
-    .left-panel h1 { font-size: 72px; font-weight: 800; line-height: 1; margin-bottom: 20px; }
-    .left-panel p { font-size: 16px; margin-bottom: 30px; line-height: 1.5; }
-    .left-panel ul { list-style: none; font-size: 14px; }
-    .left-panel ul li { margin-bottom: 10px; position: relative; padding-left: 20px; }
-    .left-panel ul li::before { content: "✔"; position: absolute; left: 0; color: #fff; }
-    .right-panel { width: 50%; padding: 40px; display: flex; flex-direction: column; justify-content: center; }
-    .tabs { display: flex; margin-bottom: 20px; }
-    .tab { flex: 1; text-align: center; padding: 10px; cursor: pointer; font-weight: bold; border-bottom: 2px solid transparent; }
-    .tab.active { border-bottom: 2px solid #ad2aad; color: #4b2aad; }
-    .form-title { font-size: 24px; margin-bottom: 10px; }
-    .form-subtitle { font-size: 14px; margin-bottom: 20px; color: #666; }
-    form input { width: 100%; padding: 12px; margin-bottom: 15px; border: 1px solid #ccc; border-radius: 5px; font-size: 14px; }
-    form button { width: 100%; padding: 12px; background-color: #4b2aad; color: #fff; border: none; border-radius: 5px; font-size: 16px; cursor: pointer; }
-    form button:hover { background-color: #3a1f8f; }
-    .terms { font-size: 12px; color: #999; margin-top: 10px; text-align: center; }
-    .logo-circle { position: absolute; top: 20px; right: 20px; background-color: #4b2aad; color: #fff; width: 40px; height: 40px; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-weight: bold; font-size: 16px; z-index: 2; }
+    
+    .form-control {
+      width: 100%;
+      padding: 15px 15px 15px 45px;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      font-size: 15px;
+      transition: all 0.3s ease;
+      background: var(--light);
+    }
+    
+    .form-control:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(0, 180, 219, 0.1);
+    }
+    
+    .password-toggle {
+      position: absolute;
+      right: 15px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--gray);
+      cursor: pointer;
+    }
+    
+    .submit-btn {
+      width: 100%;
+      padding: 15px;
+      background: var(--gradient-accent);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      margin-top: 10px;
+    }
+    
+    .submit-btn:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-md);
+    }
+    
+    .submit-btn:disabled {
+      opacity: 0.7;
+      cursor: not-allowed;
+    }
+    
+    .google-btn {
+      width: 100%;
+      padding: 15px;
+      background: white;
+      color: #333;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      margin-top: 10px;
+    }
+    
+    .google-btn:hover {
+      border-color: var(--accent);
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-md);
+    }
+    
+    .divider {
+      display: flex;
+      align-items: center;
+      margin: 25px 0;
+      color: var(--gray);
+      font-size: 14px;
+    }
+    
+    .divider::before,
+    .divider::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: #e2e8f0;
+    }
+    
+    .divider span {
+      padding: 0 15px;
+    }
+    
+    .terms {
+      font-size: 13px;
+      color: var(--gray);
+      margin-top: 20px;
+      text-align: center;
+      line-height: 1.5;
+    }
+    
+    .terms a {
+      color: var(--accent);
+      text-decoration: none;
+    }
+    
+    .forgot-password {
+      text-align: right;
+      margin-top: -10px;
+      margin-bottom: 20px;
+    }
+    
+    .forgot-password a {
+      color: var(--accent);
+      text-decoration: none;
+      font-size: 14px;
+    }
+    
+    /* Notification */
+    .notification {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      padding: 15px 20px;
+      border-radius: 8px;
+      color: white;
+      font-weight: 500;
+      z-index: 10000;
+      box-shadow: var(--shadow-md);
+      transition: all 0.3s ease;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      max-width: 350px;
+    }
+    
+    .notification.success {
+      background: var(--success);
+    }
+    
+    .notification.error {
+      background: var(--error);
+    }
+    
+    .notification.warning {
+      background: var(--warning);
+    }
+    
+    .notification.hidden {
+      opacity: 0;
+      transform: translateX(100%);
+    }
+    
+    .password-requirements {
+      margin-top: 10px;
+      font-size: 12px;
+      color: var(--gray);
+    }
+    
+    .requirement {
+      display: flex;
+      align-items: center;
+      margin-bottom: 5px;
+    }
+    
+    .requirement i {
+      margin-right: 5px;
+      font-size: 10px;
+    }
+    
+    .requirement.met {
+      color: var(--success);
+    }
+    
+    .requirement.unmet {
+      color: var(--gray);
+    }
+    
+    /* Responsive Design */
+    @media (max-width: 900px) {
+      .auth-container {
+        flex-direction: column;
+        height: auto;
+        max-width: 500px;
+      }
+      
+      .left-panel, .right-panel {
+        width: 100%;
+      }
+      
+      .left-panel {
+        padding: 40px 30px;
+      }
+      
+      .right-panel {
+        padding: 40px 30px;
+      }
+    }
+    
+    @media (max-width: 480px) {
+      .left-panel h1 {
+        font-size: 32px;
+      }
+    }
   </style>
 </head>
 <body>
-  <div class="overlay"></div>
-  <div class="auth-wrapper">
-    <div class="logo-circle">TT</div>
+  <!-- Background Animation -->
+  <div class="background-animation" id="backgroundAnimation"></div>
+
+  <!-- Auth Container -->
+  <div class="auth-container">
+    <!-- Left Panel -->
     <div class="left-panel">
-      <h1>TalkTwin</h1>
-      <p>Connect, communicate, and collaborate with people around the world in real-time.</p>
-      <ul>
-        <li>Instant messaging & video calls</li>
-        <li>AI Avatar for unavailable moments</li>
-        <li>Secure end-to-end encryption</li>
-        <li>Cross-platform compatibility</li>
+      <div class="logo">
+        <div class="logo-icon">
+          <i class="fas fa-comments"></i>
+        </div>
+        <div class="logo-text">TwinTalk</div>
+      </div>
+      <h1>Intelligent Meeting Assistant</h1>
+      <p>Transform your meetings with AI-powered avatars, smart note-taking, and intelligent summaries.</p>
+      <ul class="features">
+        <li><i class="fas fa-check"></i> AI Avatar Attendance</li>
+        <li><i class="fas fa-check"></i> Smart Note Taking</li>
+        <li><i class="fas fa-check"></i> Meeting Analytics</li>
+        <li><i class="fas fa-check"></i> Action Item Tracking</li>
+        <li><i class="fas fa-check"></i> Enterprise Security</li>
       </ul>
     </div>
+
+    <!-- Right Panel -->
     <div class="right-panel">
       <div class="tabs">
         <div class="tab active" id="signinTab">Sign In</div>
@@ -61,42 +469,154 @@
       </div>
 
       <div id="formTitle" class="form-title">Welcome back</div>
-      <div id="formSubtitle" class="form-subtitle">Sign in to your TalkTwin account</div>
+      <div id="formSubtitle" class="form-subtitle">Sign in to your TwinTalk account</div>
+
+      <!-- Google Sign-in Button -->
+      <button class="google-btn" id="googleSignIn">
+        <i class="fab fa-google"></i>
+        Continue with Google
+      </button>
+
+      <div class="divider">
+        <span>or continue with email</span>
+      </div>
 
       <form id="authForm">
-        <input type="text" id="username" placeholder="Enter your name" style="display:none" />
-        <input type="email" id="email" placeholder="Enter your email" required />
-        <input type="password" id="password" placeholder="Enter your password" required />
-        <button type="submit">Sign In</button>
+        <div class="form-group" id="nameField" style="display: none;">
+          <i class="fas fa-user"></i>
+          <input type="text" id="username" class="form-control" placeholder="Enter your full name" />
+        </div>
+        
+        <div class="form-group">
+          <i class="fas fa-envelope"></i>
+          <input type="email" id="email" class="form-control" placeholder="Enter your email" required />
+        </div>
+        
+        <div class="form-group">
+          <i class="fas fa-lock"></i>
+          <input type="password" id="password" class="form-control" placeholder="Enter your password" required />
+          <span class="password-toggle" id="passwordToggle">
+            <i class="fas fa-eye"></i>
+          </span>
+        </div>
+        
+        <!-- Password Requirements (Visible only during signup) -->
+        <div class="password-requirements" id="passwordRequirements" style="display: none;">
+          <div class="requirement unmet" id="reqLength">
+            <i class="fas fa-circle"></i> At least 8 characters
+          </div>
+          <div class="requirement unmet" id="reqUppercase">
+            <i class="fas fa-circle"></i> One uppercase letter
+          </div>
+          <div class="requirement unmet" id="reqLowercase">
+            <i class="fas fa-circle"></i> One lowercase letter
+          </div>
+          <div class="requirement unmet" id="reqNumber">
+            <i class="fas fa-circle"></i> One number
+          </div>
+        </div>
+        
+        <div class="forgot-password" id="forgotPassword">
+          <a href="#" id="forgotPasswordLink">Forgot your password?</a>
+        </div>
+        
+        <button type="submit" class="submit-btn" id="submitBtn">
+          <i class="fas fa-sign-in-alt"></i>
+          <span id="submitText">Sign In</span>
+        </button>
       </form>
 
-      <div class="terms">By continuing, you agree to our Terms of Service and Privacy Policy</div>
+      <div class="terms">
+        By continuing, you agree to our <a href="#">Terms of Service</a> and <a href="#">Privacy Policy</a>
+      </div>
     </div>
   </div>
 
-  <!-- 🔥 Firebase Auth Integration -->
-  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
-    import { 
-      getAuth, 
-      onAuthStateChanged, 
-      createUserWithEmailAndPassword, 
-      signInWithEmailAndPassword, 
-      updateProfile 
-    } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
+  <!-- Notification -->
+  <div class="notification hidden" id="notification"></div>
 
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-auth-compat.js"></script>
+  <script>
+    // ✅ YOUR FIREBASE CONFIGURATION
     const firebaseConfig = {
       apiKey: "AIzaSyBcrgAsbXlBtL_YQHMCqE4ppYODOInTB0g",
       authDomain: "twintalk-35672.firebaseapp.com",
       projectId: "twintalk-35672",
       storageBucket: "twintalk-35672.firebasestorage.app",
       messagingSenderId: "373581191413",
-      appId: "1:373581191413:web:f3bb95f18f20dfe62b4dbc",
-      measurementId: "G-CJMY9LJZ7Q"
+      appId: "1:373581191413:web:cf565f730972cbde2b4dbc",
+      measurementId: "G-SJ4PG5NTL2"
     };
 
-    const app = initializeApp(firebaseConfig);
-    const auth = getAuth(app);
+    // Initialize Firebase
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+
+    // Create background animation
+    function createBubbles() {
+      const container = document.getElementById('backgroundAnimation');
+      const colors = [
+        'rgba(255, 255, 255, 0.1)',
+        'rgba(255, 255, 255, 0.05)',
+        'rgba(255, 255, 255, 0.07)'
+      ];
+      
+      for (let i = 0; i < 15; i++) {
+        const bubble = document.createElement('div');
+        bubble.classList.add('bubble');
+        
+        const size = Math.random() * 100 + 50;
+        bubble.style.width = `${size}px`;
+        bubble.style.height = `${size}px`;
+        bubble.style.background = colors[Math.floor(Math.random() * colors.length)];
+        bubble.style.left = `${Math.random() * 100}%`;
+        bubble.style.top = `${Math.random() * 100}%`;
+        bubble.style.animationDelay = `${Math.random() * 15}s`;
+        
+        container.appendChild(bubble);
+      }
+    }
+    
+    // Show notification
+    function showNotification(message, type) {
+      const notification = document.getElementById('notification');
+      notification.innerHTML = `
+        <i class="fas fa-${type === 'success' ? 'check-circle' : type === 'error' ? 'exclamation-circle' : 'exclamation-triangle'}"></i>
+        ${message}
+      `;
+      notification.className = `notification ${type}`;
+      
+      // Show notification
+      setTimeout(() => {
+        notification.classList.remove('hidden');
+      }, 100);
+      
+      // Hide after 5 seconds
+      setTimeout(() => {
+        notification.classList.add('hidden');
+      }, 5000);
+    }
+
+    // Check password strength
+    function checkPasswordStrength(password) {
+      const requirements = {
+        length: password.length >= 8,
+        uppercase: /[A-Z]/.test(password),
+        lowercase: /[a-z]/.test(password),
+        number: /[0-9]/.test(password)
+      };
+      
+      // Update UI
+      document.getElementById('reqLength').className = requirements.length ? 'requirement met' : 'requirement unmet';
+      document.getElementById('reqUppercase').className = requirements.uppercase ? 'requirement met' : 'requirement unmet';
+      document.getElementById('reqLowercase').className = requirements.lowercase ? 'requirement met' : 'requirement unmet';
+      document.getElementById('reqNumber').className = requirements.number ? 'requirement met' : 'requirement unmet';
+      
+      // Check if all requirements are met
+      return Object.values(requirements).every(req => req);
+    }
 
     // Tab switching logic
     let mode = "signin";
@@ -104,8 +624,15 @@
     const signupTab = document.getElementById("signupTab");
     const formTitle = document.getElementById("formTitle");
     const formSubtitle = document.getElementById("formSubtitle");
-    const usernameField = document.getElementById("username");
-    const submitBtn = document.querySelector("button");
+    const nameField = document.getElementById("nameField");
+    const submitText = document.getElementById("submitText");
+    const forgotPassword = document.getElementById("forgotPassword");
+    const passwordRequirements = document.getElementById("passwordRequirements");
+    const passwordToggle = document.getElementById("passwordToggle");
+    const passwordField = document.getElementById("password");
+    const submitBtn = document.getElementById("submitBtn");
+    const forgotPasswordLink = document.getElementById("forgotPasswordLink");
+    const googleSignInBtn = document.getElementById("googleSignIn");
 
     signinTab.onclick = () => switchMode("signin");
     signupTab.onclick = () => switchMode("signup");
@@ -115,62 +642,230 @@
       if (m === "signin") {
         signinTab.classList.add("active");
         signupTab.classList.remove("active");
-        usernameField.style.display = "none";
+        nameField.style.display = "none";
+        passwordRequirements.style.display = "none";
         formTitle.textContent = "Welcome back";
-        formSubtitle.textContent = "Sign in to your TalkTwin account";
-        submitBtn.textContent = "Sign In";
+        formSubtitle.textContent = "Sign in to your TwinTalk account";
+        submitText.textContent = "Sign In";
+        forgotPassword.style.display = "block";
       } else {
         signupTab.classList.add("active");
         signinTab.classList.remove("active");
-        usernameField.style.display = "block";
+        nameField.style.display = "block";
+        passwordRequirements.style.display = "block";
         formTitle.textContent = "Create Account";
-        formSubtitle.textContent = "Join TalkTwin and start connecting";
-        submitBtn.textContent = "Sign Up";
+        formSubtitle.textContent = "Join TwinTalk and transform your meetings";
+        submitText.textContent = "Sign Up";
+        forgotPassword.style.display = "none";
       }
     }
 
-    // Default to Sign-In view
-    switchMode("signin");
+    // Password visibility toggle
+    passwordToggle.addEventListener('click', function() {
+      const type = passwordField.getAttribute('type') === 'password' ? 'text' : 'password';
+      passwordField.setAttribute('type', type);
+      this.innerHTML = type === 'password' ? '<i class="fas fa-eye"></i>' : '<i class="fas fa-eye-slash"></i>';
+    });
 
-    // Handle sign in/up
-    document.getElementById("authForm").addEventListener("submit", async (e) => {
+    // Check password strength on input
+    passwordField.addEventListener('input', function() {
+      if (mode === 'signup') {
+        checkPasswordStrength(this.value);
+      }
+    });
+
+    // Google Sign-in
+    googleSignInBtn.addEventListener('click', function() {
+      const provider = new firebase.auth.GoogleAuthProvider();
+      
+      // Show loading state
+      const originalText = googleSignInBtn.innerHTML;
+      googleSignInBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Connecting...';
+      googleSignInBtn.disabled = true;
+      
+      auth.signInWithPopup(provider)
+        .then((result) => {
+          const user = result.user;
+          
+          // Store user data
+          sessionStorage.setItem("user", JSON.stringify({ 
+            name: user.displayName, 
+            email: user.email,
+            uid: user.uid,
+            photoURL: user.photoURL
+          }));
+          
+          showNotification(`Welcome ${user.displayName}!`, "success");
+          
+          // Redirect to main application
+          setTimeout(() => {
+            window.location.href = "index.html";
+          }, 1500);
+        })
+        .catch((error) => {
+          handleAuthError(error);
+          googleSignInBtn.innerHTML = originalText;
+          googleSignInBtn.disabled = false;
+        });
+    });
+
+    // Forgot password functionality
+    forgotPasswordLink.addEventListener('click', function(e) {
       e.preventDefault();
-      const name = usernameField.value.trim();
+      const email = document.getElementById('email').value.trim();
+      
+      if (!email) {
+        showNotification('Please enter your email address to reset password', 'warning');
+        return;
+      }
+      
+      auth.sendPasswordResetEmail(email)
+        .then(() => {
+          showNotification('Password reset email sent! Check your inbox.', 'success');
+        })
+        .catch((error) => {
+          showNotification('Error sending reset email: ' + error.message, 'error');
+        });
+    });
+
+    // Form submission
+    document.getElementById("authForm").addEventListener("submit", function(e) {
+      e.preventDefault();
+      
+      const name = document.getElementById("username").value.trim();
       const email = document.getElementById("email").value.trim().toLowerCase();
       const password = document.getElementById("password").value.trim();
-
-      try {
-        if (mode === "signup") {
-          const userCred = await createUserWithEmailAndPassword(auth, email, password);
-          await updateProfile(userCred.user, { displayName: name });
-          alert("✅ Signup successful! Please sign in now.");
-          switchMode("signin");
-        } else {
-          const userCred = await signInWithEmailAndPassword(auth, email, password);
-          const user = userCred.user;
-          sessionStorage.setItem("user", JSON.stringify({ name: user.displayName || email.split('@')[0], email }));
-          redirectAfterAuth();
+      
+      // Basic validation
+      if (!email || !password) {
+        showNotification("Please fill in all required fields", "error");
+        return;
+      }
+      
+      if (mode === "signup") {
+        if (!name) {
+          showNotification("Please enter your full name", "error");
+          return;
         }
-      } catch (err) {
-        alert("⚠️ " + (err.message || "Authentication error."));
+        
+        // Check password strength for signup
+        if (!checkPasswordStrength(password)) {
+          showNotification("Please ensure your password meets all requirements", "error");
+          return;
+        }
+      }
+      
+      // Show loading state
+      const originalText = submitBtn.innerHTML;
+      submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+      submitBtn.disabled = true;
+      
+      if (mode === "signup") {
+        // Create new user account
+        auth.createUserWithEmailAndPassword(email, password)
+          .then((userCredential) => {
+            // Update profile with name
+            return userCredential.user.updateProfile({
+              displayName: name
+            }).then(() => {
+              showNotification("Account created successfully! Welcome to TwinTalk.", "success");
+              
+              // Switch to signin after successful registration
+              setTimeout(() => {
+                switchMode("signin");
+                submitBtn.innerHTML = originalText;
+                submitBtn.disabled = false;
+              }, 2000);
+            });
+          })
+          .catch((error) => {
+            handleAuthError(error);
+            submitBtn.innerHTML = originalText;
+            submitBtn.disabled = false;
+          });
+      } else {
+        // Sign in existing user
+        auth.signInWithEmailAndPassword(email, password)
+          .then((userCredential) => {
+            const user = userCredential.user;
+            
+            // Store user data
+            sessionStorage.setItem("user", JSON.stringify({ 
+              name: user.displayName || email.split('@')[0], 
+              email: user.email,
+              uid: user.uid
+            }));
+            
+            showNotification("Welcome back to TwinTalk!", "success");
+            
+            // Redirect to main application
+            setTimeout(() => {
+              window.location.href = "index.html";
+            }, 1500);
+          })
+          .catch((error) => {
+            handleAuthError(error);
+            submitBtn.innerHTML = originalText;
+            submitBtn.disabled = false;
+          });
       }
     });
 
-    // Redirect after login
-    function redirectAfterAuth() {
-      const redirectUrl = sessionStorage.getItem("postLoginRedirect") || "/index.html";
-      sessionStorage.removeItem("postLoginRedirect");
-      window.location.href = redirectUrl;
+    // Handle authentication errors
+    function handleAuthError(error) {
+      let errorMessage = "Authentication failed";
+      
+      switch (error.code) {
+        case 'auth/email-already-in-use':
+          errorMessage = "This email is already registered. Please sign in instead.";
+          break;
+        case 'auth/invalid-email':
+          errorMessage = "Please enter a valid email address.";
+          break;
+        case 'auth/weak-password':
+          errorMessage = "Password is too weak. Please use a stronger password.";
+          break;
+        case 'auth/user-not-found':
+          errorMessage = "No account found with this email. Please sign up first.";
+          break;
+        case 'auth/wrong-password':
+          errorMessage = "Incorrect password. Please try again.";
+          break;
+        case 'auth/too-many-requests':
+          errorMessage = "Too many failed attempts. Please try again later.";
+          break;
+        case 'auth/popup-closed-by-user':
+          errorMessage = "Google sign-in was cancelled.";
+          break;
+        case 'auth/popup-blocked':
+          errorMessage = "Popup was blocked. Please allow popups for Google sign-in.";
+          break;
+        default:
+          errorMessage = error.message;
+      }
+      
+      showNotification(errorMessage, "error");
     }
 
-    // Auto-skip auth page if already signed in
-    onAuthStateChanged(auth, (user) => {
+    // Auto-redirect if already authenticated
+    auth.onAuthStateChanged((user) => {
       if (user) {
-        console.log("Already signed in as", user.email);
-        sessionStorage.setItem("user", JSON.stringify({ name: user.displayName || user.email.split('@')[0], email: user.email }));
-        redirectAfterAuth();
+        console.log("User already signed in:", user.email);
+        sessionStorage.setItem("user", JSON.stringify({ 
+          name: user.displayName || user.email.split('@')[0], 
+          email: user.email,
+          uid: user.uid,
+          photoURL: user.photoURL
+        }));
+        
+        // Redirect to main application
+        window.location.href = "index.html";
       }
     });
+
+    // Initialize
+    createBubbles();
+    switchMode("signin");
   </script>
 </body>
 </html>

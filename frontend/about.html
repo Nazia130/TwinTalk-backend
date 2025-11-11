@@ -1,160 +1,811 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>MeetTwin — About</title>
-  <meta name="description" content="MeetTwin — Lightweight browser 3D avatars that attend meetings, mimic expressions and summarize conversations." />
-  <meta property="og:title" content="MeetTwin — Avatar Meeting Assistant" />
-  <meta property="og:description" content="An overview of MeetTwin: what it does, how it works, the tech stack, privacy principles and roadmap." />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>About TwinTalk - Intelligent Meeting Assistant</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <style>
-    :root{--bg:#ffffff;--card:#f3e8ff;--muted:#4b5563;--accent:#7c3aed;--accent-dark:#5b21b6}
-    *{box-sizing:border-box}
-    html,body{height:100%;margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,'Helvetica Neue',Arial;color:#111827;background:var(--bg)}
-    .container{max-width:1100px;margin:36px auto;padding:28px}
-    header{display:flex;align-items:center;gap:16px}
-    .logo{width:64px;height:64px;border-radius:12px;background:linear-gradient(135deg,var(--accent),var(--accent-dark));display:flex;align-items:center;justify-content:center;color:white;font-weight:700}
-    h1{margin:0;font-size:28px}
-    p.lead{color:var(--muted);margin-top:6px}
-    .grid{display:grid;grid-template-columns:1fr 320px;gap:20px;margin-top:26px}
+    :root {
+      --primary: #1a2a6c;
+      --secondary: #4a569d;
+      --accent: #00b4db;
+      --light: #f8f9fa;
+      --dark: #333;
+      --gray: #666;
+      --text: #333;
+      --bg: #f8f9fa;
+      --card-bg: #ffffff;
+      --border: #e1e5e9;
+    }
 
-    .card{background:var(--card);padding:20px;border-radius:14px;box-shadow:0 6px 20px rgba(0,0,0,0.08);border:1px solid rgba(0,0,0,0.05)}
-    .hero-cta{display:flex;gap:10px;margin-top:16px}
-    a.btn{display:inline-block;padding:10px 14px;border-radius:10px;text-decoration:none;font-weight:600}
-    a.btn-primary{background:linear-gradient(90deg,var(--accent),var(--accent-dark));color:white}
-    a.btn-ghost{border:1px solid rgba(0,0,0,0.1);color:var(--accent-dark);background:transparent}
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: 'Inter', sans-serif;
+    }
 
-    .features{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-top:12px}
-    .feature{background:white;padding:12px;border-radius:10px;border:1px solid rgba(0,0,0,0.05)}
-    .feature h4{margin:0 0 6px 0;color:var(--accent-dark)}
-    .meta{font-size:13px;color:var(--muted)}
+    body {
+      background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+      color: var(--dark);
+      line-height: 1.6;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
 
-    .sidebar .stat{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px dashed rgba(0,0,0,0.08)}
-    .small{font-size:13px;color:var(--muted)}
+    .container {
+      width: 90%;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 15px;
+    }
 
-    section{margin-top:22px}
-    .how ul{padding-left:18px}
-    .tech{display:flex;flex-wrap:wrap;gap:8px}
-    .chip{padding:8px 10px;background:white;border-radius:999px;border:1px solid rgba(0,0,0,0.05);font-weight:600;color:var(--accent-dark)}
+    /* Header */
+    header {
+      background: linear-gradient(135deg, var(--primary), var(--secondary));
+      color: white;
+      padding: 1rem 0;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    }
 
-    footer{margin-top:36px;color:var(--muted);font-size:13px;text-align:center;padding-bottom:30px}
+    .navbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
 
-    @media (max-width:900px){
-      .grid{grid-template-columns:1fr}
-      .sidebar{order:2}
+    .logo {
+      font-size: 1.5rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      color: white;
+      text-decoration: none;
+    }
+
+    .logo i {
+      margin-right: 10px;
+    }
+
+    .back-button {
+      background-color: white;
+      color: var(--primary);
+      border: none;
+      padding: 0.6rem 1.2rem;
+      border-radius: 30px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .back-button:hover {
+      background-color: var(--accent);
+      color: white;
+    }
+
+    /* About Section */
+    .about-section {
+      padding: 4rem 0;
+      flex: 1;
+    }
+
+    .section-title {
+      text-align: center;
+      margin-bottom: 3rem;
+    }
+
+    .section-title h2 {
+      font-size: 2.5rem;
+      color: var(--primary);
+      margin-bottom: 1rem;
+    }
+
+    .section-title p {
+      color: var(--gray);
+      max-width: 700px;
+      margin: 0 auto;
+    }
+
+    .about-container {
+      display: grid;
+      grid-template-columns: 2fr 1fr;
+      gap: 3rem;
+    }
+
+    @media (max-width: 992px) {
+      .about-container {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* Cards */
+    .card {
+      background: var(--card-bg);
+      border-radius: 15px;
+      padding: 2rem;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+      margin-bottom: 2rem;
+    }
+
+    .card h3 {
+      font-size: 1.5rem;
+      color: var(--primary);
+      margin-bottom: 1.5rem;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .card h3 i {
+      color: var(--accent);
+    }
+
+    /* Hero Section */
+    .hero {
+      text-align: center;
+      padding: 3rem 0;
+      background: linear-gradient(135deg, var(--primary), var(--secondary));
+      color: white;
+      border-radius: 15px;
+      margin-bottom: 3rem;
+    }
+
+    .hero h1 {
+      font-size: 3rem;
+      margin-bottom: 1rem;
+    }
+
+    .hero p {
+      font-size: 1.2rem;
+      max-width: 700px;
+      margin: 0 auto 2rem;
+      opacity: 0.9;
+    }
+
+    .hero-actions {
+      display: flex;
+      justify-content: center;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      padding: 0.8rem 1.5rem;
+      border-radius: 30px;
+      font-weight: 600;
+      text-decoration: none;
+      transition: all 0.3s;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: white;
+    }
+
+    .btn-primary:hover {
+      background: #0099c3;
+      transform: translateY(-3px);
+    }
+
+    .btn-outline {
+      background: transparent;
+      color: white;
+      border: 1px solid white;
+    }
+
+    .btn-outline:hover {
+      background: white;
+      color: var(--primary);
+    }
+
+    /* Features Grid */
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 1.5rem;
+      margin-top: 1.5rem;
+    }
+
+    .feature-card {
+      background: var(--light);
+      border-radius: 10px;
+      padding: 1.5rem;
+      transition: transform 0.3s;
+      border-left: 4px solid var(--accent);
+    }
+
+    .feature-card:hover {
+      transform: translateY(-5px);
+    }
+
+    .feature-icon {
+      font-size: 2rem;
+      color: var(--accent);
+      margin-bottom: 1rem;
+    }
+
+    .feature-card h4 {
+      font-size: 1.2rem;
+      margin-bottom: 0.5rem;
+      color: var(--primary);
+    }
+
+    .feature-card p {
+      color: var(--gray);
+      font-size: 0.95rem;
+    }
+
+    /* How It Works */
+    .steps-container {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 2rem;
+      margin-top: 1.5rem;
+    }
+
+    .step-card {
+      background: var(--light);
+      border-radius: 10px;
+      padding: 1.5rem;
+      width: 100%;
+      max-width: 200px;
+      text-align: center;
+      transition: transform 0.3s;
+    }
+
+    .step-card:hover {
+      transform: translateY(-5px);
+    }
+
+    .step-icon {
+      background: linear-gradient(135deg, var(--accent), var(--primary));
+      width: 70px;
+      height: 70px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 1rem;
+      color: white;
+      font-size: 1.5rem;
+    }
+
+    .step-card h4 {
+      font-size: 1.1rem;
+      margin-bottom: 0.5rem;
+      color: var(--primary);
+    }
+
+    .step-card p {
+      color: var(--gray);
+      font-size: 0.9rem;
+    }
+
+    /* Team Section */
+    .team-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1.5rem;
+      margin-top: 1.5rem;
+    }
+
+    .team-member {
+      text-align: center;
+    }
+
+    .member-avatar {
+      width: 120px;
+      height: 120px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--accent), var(--primary));
+      margin: 0 auto 1rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-size: 2.5rem;
+      font-weight: 700;
+    }
+
+    .team-member h4 {
+      font-size: 1.2rem;
+      margin-bottom: 0.5rem;
+      color: var(--primary);
+    }
+
+    .team-member p {
+      color: var(--gray);
+      font-size: 0.9rem;
+    }
+
+    /* Tech Stack */
+    .tech-stack {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      margin-top: 1.5rem;
+    }
+
+    .tech-item {
+      background: var(--light);
+      padding: 0.8rem 1.2rem;
+      border-radius: 30px;
+      font-weight: 600;
+      color: var(--primary);
+      border: 1px solid var(--border);
+    }
+
+    /* Roadmap */
+    .roadmap-timeline {
+      position: relative;
+      margin-top: 2rem;
+      padding-left: 2rem;
+    }
+
+    .roadmap-timeline::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 4px;
+      background: var(--accent);
+      border-radius: 2px;
+    }
+
+    .roadmap-item {
+      position: relative;
+      margin-bottom: 2rem;
+      padding-left: 2rem;
+    }
+
+    .roadmap-item::before {
+      content: '';
+      position: absolute;
+      left: -2.3rem;
+      top: 0.5rem;
+      width: 12px;
+      height: 12px;
+      background: var(--accent);
+      border-radius: 50%;
+      border: 3px solid white;
+      box-shadow: 0 0 0 3px var(--accent);
+    }
+
+    .roadmap-item h4 {
+      font-size: 1.2rem;
+      margin-bottom: 0.5rem;
+      color: var(--primary);
+    }
+
+    .roadmap-item p {
+      color: var(--gray);
+    }
+
+    .roadmap-status {
+      display: inline-block;
+      padding: 0.3rem 0.8rem;
+      border-radius: 20px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+    }
+
+    .status-completed {
+      background: #e8f5e9;
+      color: #2e7d32;
+    }
+
+    .status-in-progress {
+      background: #e3f2fd;
+      color: #1565c0;
+    }
+
+    .status-upcoming {
+      background: #fff3e0;
+      color: #ef6c00;
+    }
+
+    /* Sidebar */
+    .sidebar-card {
+      background: var(--card-bg);
+      border-radius: 15px;
+      padding: 2rem;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+      margin-bottom: 2rem;
+    }
+
+    .sidebar-card h3 {
+      font-size: 1.3rem;
+      color: var(--primary);
+      margin-bottom: 1.5rem;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .sidebar-card h3 i {
+      color: var(--accent);
+    }
+
+    .stats-list {
+      list-style: none;
+    }
+
+    .stats-list li {
+      display: flex;
+      justify-content: space-between;
+      padding: 1rem 0;
+      border-bottom: 1px dashed var(--border);
+    }
+
+    .stats-list li:last-child {
+      border-bottom: none;
+    }
+
+    .stat-label {
+      color: var(--gray);
+    }
+
+    .stat-value {
+      font-weight: 600;
+      color: var(--primary);
+    }
+
+    /* Footer */
+    footer {
+      background-color: #0d1b48;
+      color: white;
+      padding: 3rem 0 1.5rem;
+      margin-top: auto;
+    }
+
+    .footer-content {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 2rem;
+      margin-bottom: 2rem;
+    }
+
+    .footer-column h4 {
+      font-size: 1.2rem;
+      margin-bottom: 1.5rem;
+      color: var(--accent);
+    }
+
+    .footer-links {
+      list-style: none;
+    }
+
+    .footer-links li {
+      margin-bottom: 0.8rem;
+    }
+
+    .footer-links a {
+      color: #ddd;
+      text-decoration: none;
+      transition: color 0.3s;
+    }
+
+    .footer-links a:hover {
+      color: var(--accent);
+    }
+
+    .copyright {
+      text-align: center;
+      padding-top: 1.5rem;
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+      color: #aaa;
+      font-size: 0.9rem;
+    }
+
+    /* Responsive Design */
+    @media (max-width: 768px) {
+      .hero h1 {
+        font-size: 2.2rem;
+      }
+      
+      .steps-container {
+        flex-direction: column;
+        align-items: center;
+      }
+      
+      .step-card {
+        max-width: 100%;
+      }
     }
   </style>
 </head>
 <body>
-  <div class="container">
-    <header>
-      <div class="logo">MT</div>
-      <div>
-        <h1>MeetTwin — Project About</h1>
-        <p class="lead">Lightweight browser avatars that can attend meetings, mimic speech & facial cues, take notes and summarize conversations while respecting user privacy.</p>
-        <div class="hero-cta">
-          <a class="btn btn-primary" href="#how-it-works">How it works</a>
-          <a class="btn btn-ghost" href="#contact">Contact</a>
+  <!-- Header -->
+  <header>
+    <div class="container">
+      <nav class="navbar">
+        <a href="index.html" class="logo">
+          <i class="fas fa-comments"></i>
+          TwinTalk
+        </a>
+        <a href="index.html" class="back-button">
+          <i class="fas fa-arrow-left"></i> Back to Home
+        </a>
+      </nav>
+    </div>
+  </header>
+
+  <!-- About Section -->
+  <section class="about-section">
+    <div class="container">
+      <div class="hero">
+        <h1>About TwinTalk</h1>
+        <p>Intelligent Meeting Assistant that transforms how teams collaborate and capture insights with AI-powered avatars and smart note-taking.</p>
+        <div class="hero-actions">
+          <a href="#how-it-works" class="btn btn-primary">
+            <i class="fas fa-play-circle"></i> How It Works
+          </a>
+          <a href="#features" class="btn btn-outline">
+            <i class="fas fa-star"></i> Features
+          </a>
         </div>
       </div>
-    </header>
 
-    <div class="grid">
-      <main>
-        <div class="card">
-          <h2>What MeetTwin Does</h2>
-          <p class="meta">MeetTwin creates a lightweight, real-time 3D avatar that joins video meetings and behaves on your behalf according to rules you set. It can speak pre-approved lines, nod, react to conversational cues, and produce meeting summaries for the owner.</p>
+      <div class="about-container">
+        <main>
+          <!-- What TwinTalk Does -->
+          <div class="card">
+            <h3><i class="fas fa-rocket"></i> What TwinTalk Does</h3>
+            <p>TwinTalk creates intelligent, real-time AI avatars that can attend meetings on your behalf, mimic your speech patterns and expressions, take comprehensive notes, and produce detailed meeting summaries. Our technology respects user privacy while enhancing meeting productivity.</p>
+          </div>
 
-          <section id="how-it-works" class="how">
-            <h3>How it works — overview</h3>
-            <ol>
-              <li><strong>Avatar creation:</strong> Capture a short video or photo set. A pipeline generates a lightweight 3D model and expression rig optimized for browsers.</li>
-
-              <li><strong>Real-time proxy:</strong> The avatar joins meetings via a secure session token and streams synthesized audio & lightweight animation frames rather than raw webcam video when permitted.</li>
-              <li><strong>Summary & logs:</strong> After meetings, MeetTwin provides a concise summary and optional timestamps. Logs and audio are stored only if the user opts in.</li>
-            </ol>
-          </section>
-
-          <section>
-            <h3>Key features</h3>
-            <div class="features">
-              <div class="feature">
-                <h4>Low-bandwidth avatar</h4>
-                <div class="small">Optimized mesh + expression blending that avoids streaming full video.</div>
+          <!-- How It Works -->
+          <div class="card" id="how-it-works">
+            <h3><i class="fas fa-cogs"></i> How TwinTalk Works</h3>
+            <div class="steps-container">
+              <div class="step-card">
+                <div class="step-icon">
+                  <i class="fas fa-user-circle"></i>
+                </div>
+                <h4>Avatar Creation</h4>
+                <p>Create your AI avatar with a simple photo or short video. Our system generates a lightweight 3D model optimized for browser performance.</p>
               </div>
-              <div class="feature">
-                <h4>Policy-driven actions</h4>
-                <div class="small">Set rules for what the avatar can say or do; sensitive actions require confirmation.</div>
+              <div class="step-card">
+                <div class="step-icon">
+                  <i class="fas fa-video"></i>
+                </div>
+                <h4>Meeting Integration</h4>
+                <p>Your avatar joins meetings via secure tokens, streaming synthesized audio and animations instead of raw video for low bandwidth usage.</p>
               </div>
-              <div class="feature">
-                <h4>Real-time text & audio</h4>
-                <div class="small">Optional on-device TTS and speech recognition for natural interaction.</div>
+              <div class="step-card">
+                <div class="step-icon">
+                  <i class="fas fa-sticky-note"></i>
+                </div>
+                <h4>Smart Note-Taking</h4>
+                <p>Our AI listens, understands context, and captures key information, action items, and decisions during the meeting.</p>
               </div>
-              <div class="feature">
-                <h4>Post-meeting summaries</h4>
-                <div class="small">Automatic meeting highlights, action items and speaker timestamps.</div>
+              <div class="step-card">
+                <div class="step-icon">
+                  <i class="fas fa-file-alt"></i>
+                </div>
+                <h4>Post-Meeting Summary</h4>
+                <p>Receive intelligent summaries with highlights, action items, and speaker timestamps after each meeting.</p>
               </div>
             </div>
-          </section>
+          </div>
 
-          <section>
-            <h3>Privacy & ethics</h3>
-            <p class="meta">MeetTwin is designed with privacy first: avatar generation happens client-side when possible, recordings are opt-in, and any automated action must conform to the owner-defined policy. We recommend clear consent from other participants before using an avatar in a meeting.</p>
-          </section>
+          <!-- Key Features -->
+          <div class="card" id="features">
+            <h3><i class="fas fa-star"></i> Key Features</h3>
+            <div class="features-grid">
+              <div class="feature-card">
+                <div class="feature-icon">
+                  <i class="fas fa-robot"></i>
+                </div>
+                <h4>AI Avatar Attendance</h4>
+                <p>Let your AI avatar attend meetings on your behalf while you focus on more important tasks.</p>
+              </div>
+              <div class="feature-card">
+                <div class="feature-icon">
+                  <i class="fas fa-brain"></i>
+                </div>
+                <h4>Smart Note Taking</h4>
+                <p>Our AI understands context and captures the most important information from your meetings.</p>
+              </div>
+              <div class="feature-card">
+                <div class="feature-icon">
+                  <i class="fas fa-chart-pie"></i>
+                </div>
+                <h4>Meeting Analytics</h4>
+                <p>Gain insights into meeting effectiveness, participation, and outcomes.</p>
+              </div>
+              <div class="feature-card">
+                <div class="feature-icon">
+                  <i class="fas fa-tasks"></i>
+                </div>
+                <h4>Action Item Tracking</h4>
+                <p>Never miss a follow-up task with our intelligent action item detection and tracking.</p>
+              </div>
+              <div class="feature-card">
+                <div class="feature-icon">
+                  <i class="fas fa-shield-alt"></i>
+                </div>
+                <h4>Enterprise Security</h4>
+                <p>Bank-level encryption and security protocols to protect your sensitive meeting data.</p>
+              </div>
+              <div class="feature-card">
+                <div class="feature-icon">
+                  <i class="fas fa-language"></i>
+                </div>
+                <h4>Multi-Language Support</h4>
+                <p>Supports English, Spanish, French, German, and Japanese with more languages coming soon.</p>
+              </div>
+            </div>
+          </div>
 
-          <section>
-            <h3>Roadmap</h3>
-            <ul>
-              <li>Phase 1 — Core avatar generation & browser runtime (MVP)</li>
-              <li>Phase 2 — Policy editor, meeting integration (WebRTC adapters)</li>
-              <li>Phase 3 — Natural language action rules, improved on-device models</li>
-              <li>Phase 4 — Enterprise features: audit logs, admin controls, SSO</li>
+          <!-- Privacy & Ethics -->
+          <div class="card">
+            <h3><i class="fas fa-user-shield"></i> Privacy & Ethics</h3>
+            <p>TwinTalk is designed with privacy as a core principle. Avatar generation happens client-side when possible, recordings are strictly opt-in, and all automated actions must conform to owner-defined policies. We strongly recommend obtaining clear consent from all meeting participants before using an AI avatar.</p>
+          </div>
+
+          <!-- Roadmap -->
+          <div class="card">
+            <h3><i class="fas fa-map-marked-alt"></i> Product Roadmap</h3>
+            <div class="roadmap-timeline">
+              <div class="roadmap-item">
+                <span class="roadmap-status status-completed">Completed</span>
+                <h4>Phase 1: Core Platform</h4>
+                <p>Basic avatar generation, browser runtime, and meeting integration foundation.</p>
+              </div>
+              <div class="roadmap-item">
+                <span class="roadmap-status status-in-progress">In Progress</span>
+                <h4>Phase 2: Enhanced Features</h4>
+                <p>Policy editor, advanced meeting integrations (WebRTC adapters), and improved AI models.</p>
+              </div>
+              <div class="roadmap-item">
+                <span class="roadmap-status status-upcoming">Upcoming</span>
+                <h4>Phase 3: Advanced AI</h4>
+                <p>Natural language action rules, improved on-device models, and expanded language support.</p>
+              </div>
+              <div class="roadmap-item">
+                <span class="roadmap-status status-upcoming">Future</span>
+                <h4>Phase 4: Enterprise Features</h4>
+                <p>Advanced audit logs, admin controls, SSO integration, and custom deployment options.</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Team -->
+          <div class="card">
+            <h3><i class="fas fa-users"></i> Our Team</h3>
+            <div class="team-grid">
+              <div class="team-member">
+                <div class="member-avatar">NP</div>
+                <h4>Naziya Parveen</h4>
+                <p>Founder & CEO</p>
+                <p>Avatar research, product strategy</p>
+              </div>
+              <div class="team-member">
+                <div class="member-avatar">AI</div>
+                <h4>AI Engineering Team</h4>
+                <p>AI Research & Development</p>
+                <p>TTS/ASR and summarization technology</p>
+              </div>
+              <div class="team-member">
+                <div class="member-avatar">DEV</div>
+                <h4>Development Team</h4>
+                <p>Software Engineering</p>
+                <p>Platform development and integration</p>
+              </div>
+            </div>
+          </div>
+        </main>
+
+        <aside>
+          <!-- Project Stats -->
+          <div class="sidebar-card">
+            <h3><i class="fas fa-chart-bar"></i> Project Stats</h3>
+            <ul class="stats-list">
+              <li>
+                <span class="stat-label">Platform</span>
+                <span class="stat-value">Web Browser</span>
+              </li>
+              <li>
+                <span class="stat-label">Languages</span>
+                <span class="stat-value">JavaScript / Python</span>
+              </li>
+              <li>
+                <span class="stat-label">Runtime</span>
+                <span class="stat-value">WebRTC / Node.js</span>
+              </li>
+              <li>
+                <span class="stat-label">Storage</span>
+                <span class="stat-value">Encrypted Cloud</span>
+              </li>
+              <li>
+                <span class="stat-label">Release</span>
+                <span class="stat-value">Q4 2023</span>
+              </li>
             </ul>
-          </section>
+          </div>
 
-          <section>
-            <h3 id="team">Team & contributors</h3>
-            <p class="small">Founder: Naziya Parveen — Avatar research, product
-            <br/>AI Engineer: Naziya Parveen — TTS/ASR and summarization
-            
-          </section>
-        </div>
-      </main>
-
-      <aside class="sidebar">
-        <div class="card">
-          <h3>Project at a glance</h3>
-          
-          <div class="stat"><div>Language</div><div>JavaScript / Python</div></div>
-          <div class="stat"><div>Runtime</div><div>Browser (WebRTC)</div></div>
-          <div class="stat"><div>Storage</div><div>CSV Files</div></div>
-
-          <section style="margin-top:12px">
-            <h4>Tech stack</h4>
-            <div class="tech">
-              <span class="chip">WebGL</span>
-              <span class="chip">WebRTC</span>
-              <span class="chip">ONNX / WebAssembly</span>
-              <span class="chip">Node.js</span>
-              <span class="chip">React</span>
-              <span class="chip">SQLite / Firebase</span>
+          <!-- Tech Stack -->
+          <div class="sidebar-card">
+            <h3><i class="fas fa-code"></i> Tech Stack</h3>
+            <div class="tech-stack">
+              <span class="tech-item">WebGL</span>
+              <span class="tech-item">WebRTC</span>
+              <span class="tech-item">TensorFlow.js</span>
+              <span class="tech-item">Node.js</span>
+              <span class="tech-item">React</span>
+              <span class="tech-item">Firebase</span>
+              <span class="tech-item">WebAssembly</span>
+              <span class="tech-item">Web Audio API</span>
             </div>
-          </section>
+          </div>
 
-          <section style="margin-top:12px">
-            <h4>Contact</h4>
-            <p class="small">Project lead: <a href="mailto:you@example.com">you@example.com</a></p>
-            <p class="small">Repo: <a href="#">github.com/your-repo</a></p>
-            <a class="btn btn-ghost" href="#contact">Request demo</a>
-          </section>
-        </div>
-      </aside>
+          <!-- Contact -->
+          <div class="sidebar-card">
+            <h3><i class="fas fa-envelope"></i> Contact</h3>
+            <p>Have questions about TwinTalk? Get in touch with our team.</p>
+            <a href="contact.html" class="btn btn-primary" style="margin-top: 1rem; width: 100%; text-align: center;">
+              <i class="fas fa-paper-plane"></i> Contact Us
+            </a>
+          </div>
+        </aside>
+      </div>
     </div>
+  </section>
 
-    <footer>
-      <div class="small">© MeetTwin — Built with care. Always ask consent before using avatars in real meetings.</div>
-    </footer>
-  </div>
+  <!-- Footer -->
+  <footer>
+    <div class="container">
+      <div class="footer-content">
+        <div class="footer-column">
+          <h4>TwinTalk</h4>
+          <p>Intelligent meeting assistant that transforms how teams collaborate and capture insights.</p>
+        </div>
+        <div class="footer-column">
+          <h4>Product</h4>
+          <ul class="footer-links">
+            <li><a href="index.html#features">Features</a></li>
+            <li><a href="#">Pricing</a></li>
+            <li><a href="#">Enterprise</a></li>
+            <li><a href="#">Updates</a></li>
+          </ul>
+        </div>
+        <div class="footer-column">
+          <h4>Resources</h4>
+          <ul class="footer-links">
+            <li><a href="#">Documentation</a></li>
+            <li><a href="#">Tutorials</a></li>
+            <li><a href="#">Blog</a></li>
+            <li><a href="#">Support</a></li>
+          </ul>
+        </div>
+        <div class="footer-column">
+          <h4>Company</h4>
+          <ul class="footer-links">
+            <li><a href="about.html">About Us</a></li>
+            <li><a href="#">Careers</a></li>
+            <li><a href="contact.html">Contact</a></li>
+            <li><a href="#">Partners</a></li>
+          </ul>
+        </div>
+      </div>
+      <div class="copyright">
+        <p>&copy; 2023 TwinTalk. All rights reserved. Always ask consent before using avatars in real meetings.</p>
+      </div>
+    </div>
+  </footer>
 </body>
 </html>

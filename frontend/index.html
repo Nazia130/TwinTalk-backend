@@ -1,227 +1,1345 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>TwinTalk</title>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css">
-<style>
-/* Preserve your existing CSS exactly */
-body { margin:0; font-family:'Inter',sans-serif; transition: background 0.3s, color 0.3s; }
-body.dark { background:#121212; color:#fff; }
-.navbar { display:flex; justify-content:space-between; align-items:center; padding:1rem 2rem; background:#fff; position:relative; z-index:10; transition: background 0.3s; }
-body.dark .navbar { background:#1f1f1f; }
-.logo span { font-weight:700; margin-left:0.5rem; }
-.nav-links a { margin-right:1rem; text-decoration:none; color:#000; font-weight:600; }
-body.dark .nav-links a { color:#fff; }
-.profile-avatar { width:40px; height:40px; border-radius:50%; background:#4b2aad; display:flex; justify-content:center; align-items:center; color:#fff; font-weight:700; cursor:pointer; position:relative; z-index:11; }
-.sidebar { position:fixed; top:0; right:-250px; width:250px; height:100%; background:#fff; box-shadow:-3px 0 10px rgba(0,0,0,0.2); z-index:1000; display:flex; flex-direction:column; transition:right 0.3s; padding:1rem; }
-body.dark .sidebar { background:#1f1f1f; }
-.sidebar.show { right:0; }
-.sidebar .close-btn { align-self:flex-end; font-size:1.5rem; cursor:pointer; margin-bottom:1rem; }
-.sidebar .username { font-weight:700; margin-bottom:1rem; text-align:center; color:#4b2aad; }
-body.dark .sidebar .username { color:#ad2aad; }
-.sidebar button { background:none; border:none; padding:12px; text-align:left; cursor:pointer; font-weight:600; margin-bottom:5px; border-radius:5px; transition: background 0.2s; }
-.sidebar button:hover { background:#f0f0f0; }
-body.dark .sidebar button:hover { background:#333; }
-.overlay { position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.3); opacity:0; visibility:hidden; transition: opacity 0.3s; z-index:999; }
-.overlay.show { opacity:1; visibility:visible; }
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TwinTalk - Intelligent Meeting Assistant</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
 
-.hero { padding:4rem 2rem; text-align:center; }
-.features, .how { padding:2rem; display:flex; justify-content:space-around; flex-wrap:wrap; }
-.card, .step { width:250px; margin:1rem; padding:1rem; background:#fff; border-radius:10px; box-shadow:0 0 10px rgba(0,0,0,0.1); transition: background 0.3s; }
-body.dark .card, body.dark .step { background:#1f1f1f; }
-.highlight { color:#4b2aad; }
-body.dark .highlight { color:#ad2aad; }
-.btn-gradient { padding:0.7rem 1.2rem; background:#4b2aad; color:#fff; border-radius:6px; text-decoration:none; font-weight:600; margin-right:10px; cursor:pointer; }
-.btn-outline { padding:0.7rem 1.2rem; background:#fff; color:#4b2aad; border:2px solid #4b2aad; border-radius:6px; text-decoration:none; font-weight:600; cursor:pointer; }
+        :root {
+            --primary: #1a2a6c;
+            --secondary: #4a569d;
+            --accent: #00b4db;
+            --light: #f8f9fa;
+            --dark: #333;
+            --gray: #666;
+            --text: #333;
+            --bg: #f8f9fa;
+            --sidebar-width: 280px;
+            --sidebar-collapsed: 70px;
+        }
 
-/* Contact & Feedback Section */
-.contact-section { margin:3rem auto; max-width:800px; padding:2rem; background:#fff; border-radius:10px; box-shadow:0 4px 10px rgba(0,0,0,0.1); }
-body.dark .contact-section { background:#1f1f1f; }
-.contact-section h2 { text-align:center; color:#4b2aad; margin-bottom:1rem; }
-.contact-info { text-align:center; margin:0.5rem 0; font-size:16px; }
-.contact-info a { color:#4b2aad; text-decoration:none; }
-.feedback-box { margin-top:1.5rem; }
-.feedback-box h3 { margin-bottom:0.5rem; }
-.stars { display:flex; gap:5px; margin-bottom:10px; }
-.stars input { display:none; }
-.stars label { font-size:24px; color:#ccc; cursor:pointer; }
-.stars input:checked ~ label,
-.stars label:hover,
-.stars label:hover ~ label { color:gold; }
-textarea, input { width:100%; border-radius:8px; border:1px solid #ccc; padding:8px; margin-bottom:10px; }
-textarea { height:80px; resize:none; }
-.btn { background:#4b2aad; color:#fff; border:none; padding:10px 18px; border-radius:8px; cursor:pointer; }
-.btn:hover { background:#311b92; }
-footer { margin-top:40px; text-align:center; background:#eee; padding:15px; font-size:14px; color:#555; }
-body.dark footer { background:#1f1f1f; color:#aaa; }
-</style>
+        [data-theme="dark"] {
+            --primary: #2d3a8c;
+            --secondary: #5a67a8;
+            --accent: #00c6ff;
+            --light: #1a1a2e;
+            --dark: #e6e6e6;
+            --gray: #a0a0a0;
+            --text: #e6e6e6;
+            --bg: #16213e;
+        }
+
+        body {
+            background-color: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+            transition: all 0.3s ease;
+            display: flex;
+            min-height: 100vh;
+        }
+
+        .container {
+            width: 90%;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 15px;
+        }
+
+        /* Sidebar Styles */
+        .sidebar {
+            width: var(--sidebar-width);
+            background: var(--light);
+            height: 100vh;
+            position: fixed;
+            left: 0;
+            top: 0;
+            transition: all 0.3s ease;
+            box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
+            z-index: 1000;
+            overflow-y: auto;
+        }
+
+        .sidebar.collapsed {
+            width: var(--sidebar-collapsed);
+        }
+
+        .sidebar-header {
+            padding: 1.5rem;
+            border-bottom: 1px solid var(--gray);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .sidebar-header .logo {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--primary);
+            display: flex;
+            align-items: center;
+        }
+
+        .sidebar-header .logo i {
+            margin-right: 10px;
+        }
+
+        .toggle-sidebar {
+            background: none;
+            border: none;
+            color: var(--dark);
+            font-size: 1.2rem;
+            cursor: pointer;
+            transition: transform 0.3s ease;
+        }
+
+        .sidebar.collapsed .toggle-sidebar {
+            transform: rotate(180deg);
+        }
+
+        .sidebar.collapsed .logo span,
+        .sidebar.collapsed .nav-item span {
+            display: none;
+        }
+
+        .sidebar-nav {
+            padding: 1rem 0;
+        }
+
+        .nav-item {
+            display: flex;
+            align-items: center;
+            padding: 1rem 1.5rem;
+            color: var(--dark);
+            text-decoration: none;
+            transition: all 0.3s ease;
+            border-left: 3px solid transparent;
+        }
+
+        .nav-item:hover {
+            background: rgba(0, 180, 219, 0.1);
+            border-left-color: var(--accent);
+            color: var(--accent);
+        }
+
+        .nav-item.active {
+            background: rgba(0, 180, 219, 0.15);
+            border-left-color: var(--accent);
+            color: var(--accent);
+        }
+
+        .nav-item i {
+            margin-right: 12px;
+            font-size: 1.2rem;
+            width: 20px;
+            text-align: center;
+        }
+
+        .sidebar.collapsed .nav-item {
+            justify-content: center;
+            padding: 1rem;
+        }
+
+        .sidebar.collapsed .nav-item i {
+            margin-right: 0;
+        }
+
+        .nav-divider {
+            height: 1px;
+            background: var(--gray);
+            margin: 1rem 1.5rem;
+            opacity: 0.3;
+        }
+
+        .sidebar.collapsed .nav-divider {
+            margin: 1rem;
+        }
+
+        /* Main Content */
+        .main-content {
+            flex: 1;
+            margin-left: var(--sidebar-width);
+            transition: margin-left 0.3s ease;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .sidebar.collapsed ~ .main-content {
+            margin-left: var(--sidebar-collapsed);
+        }
+
+        /* Header Styles */
+        header {
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: white;
+            padding: 1rem 0;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            position: sticky;
+            top: 0;
+            z-index: 999;
+        }
+
+        .navbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .mobile-logo {
+            font-size: 1.5rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+        }
+
+        .mobile-logo i {
+            margin-right: 10px;
+        }
+
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .cta-button {
+            background-color: var(--accent);
+            color: white;
+            border: none;
+            padding: 0.7rem 1.5rem;
+            border-radius: 30px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        .cta-button:hover {
+            background-color: #0099c3;
+        }
+
+        .action-button {
+            background-color: white;
+            color: var(--primary);
+            border: none;
+            padding: 0.6rem 1.2rem;
+            border-radius: 30px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-left: 0.5rem;
+        }
+
+        .action-button:hover {
+            background-color: var(--accent);
+            color: white;
+        }
+
+        /* Hamburger Menu for Mobile */
+        .hamburger {
+            display: none;
+            flex-direction: column;
+            cursor: pointer;
+            padding: 5px;
+        }
+
+        .hamburger span {
+            height: 3px;
+            width: 25px;
+            background: white;
+            margin-bottom: 5px;
+            border-radius: 5px;
+            transition: all 0.3s ease;
+        }
+
+        .mobile-menu {
+            display: none;
+            position: fixed;
+            top: 0;
+            right: 0;
+            width: 300px;
+            height: 100vh;
+            background: var(--light);
+            box-shadow: -5px 0 15px rgba(0, 0, 0, 0.1);
+            z-index: 1001;
+            padding: 2rem;
+            overflow-y: auto;
+            transform: translateX(100%);
+            transition: transform 0.3s ease;
+        }
+
+        .mobile-menu.active {
+            transform: translateX(0);
+        }
+
+        .mobile-menu-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid var(--gray);
+        }
+
+        .mobile-menu-header .logo {
+            color: var(--primary);
+        }
+
+        .close-menu {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: var(--dark);
+        }
+
+        .overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 999;
+        }
+
+        .overlay.active {
+            display: block;
+        }
+
+        /* Hero Section */
+        .hero {
+            background: linear-gradient(rgba(26, 42, 108, 0.9), rgba(74, 86, 157, 0.9)), url('https://images.unsplash.com/photo-1559136555-9303baea8ebd?ixlib=rb-4.0.3&auto=format&fit=crop&w=1350&q=80');
+            background-size: cover;
+            background-position: center;
+            color: white;
+            padding: 5rem 0;
+            text-align: center;
+        }
+
+        .hero h1 {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            font-weight: 700;
+        }
+
+        .hero p {
+            font-size: 1.2rem;
+            max-width: 700px;
+            margin: 0 auto 2rem;
+        }
+
+        .hero-actions {
+            display: flex;
+            justify-content: center;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        /* How It Works Section */
+        .how-it-works {
+            padding: 5rem 0;
+            background-color: var(--light);
+        }
+
+        .section-title {
+            text-align: center;
+            margin-bottom: 3rem;
+        }
+
+        .section-title h2 {
+            font-size: 2.5rem;
+            color: var(--primary);
+            margin-bottom: 1rem;
+        }
+
+        .section-title p {
+            color: var(--gray);
+            max-width: 700px;
+            margin: 0 auto;
+        }
+
+        .steps-container {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 2rem;
+        }
+
+        .step-card {
+            background: var(--bg);
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+            padding: 2rem;
+            width: 100%;
+            max-width: 250px;
+            text-align: center;
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+
+        .step-card:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 15px 30px rgba(0, 0, 0, 0.1);
+        }
+
+        .step-icon {
+            background: linear-gradient(135deg, var(--accent), var(--primary));
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 1.5rem;
+            color: white;
+            font-size: 2rem;
+        }
+
+        .step-card h3 {
+            font-size: 1.3rem;
+            margin-bottom: 1rem;
+            color: var(--primary);
+        }
+
+        .step-card p {
+            color: var(--gray);
+        }
+
+        /* Features Section */
+        .features {
+            padding: 5rem 0;
+            background-color: var(--bg);
+        }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+        }
+
+        .feature-card {
+            background: var(--light);
+            border-radius: 10px;
+            padding: 2rem;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+            transition: transform 0.3s;
+        }
+
+        .feature-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .feature-icon {
+            font-size: 2.5rem;
+            color: var(--accent);
+            margin-bottom: 1.5rem;
+        }
+
+        .feature-card h3 {
+            font-size: 1.5rem;
+            margin-bottom: 1rem;
+            color: var(--primary);
+        }
+
+        .feature-card p {
+            color: var(--gray);
+        }
+
+        .coming-soon {
+            background-color: #ffeb3b;
+            color: #333;
+            padding: 0.3rem 0.8rem;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            display: inline-block;
+            margin-top: 1rem;
+        }
+
+        /* Feedback Section */
+        .feedback {
+            padding: 5rem 0;
+            background-color: var(--light);
+        }
+
+        .feedback-form {
+            max-width: 700px;
+            margin: 0 auto;
+            background: var(--bg);
+            padding: 2rem;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+        }
+
+        .rating {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .rating input {
+            display: none;
+        }
+
+        .rating label {
+            font-size: 2rem;
+            color: #ddd;
+            cursor: pointer;
+            margin: 0 5px;
+            transition: color 0.3s;
+        }
+
+        .rating input:checked ~ label,
+        .rating label:hover,
+        .rating label:hover ~ label {
+            color: #ffc107;
+        }
+
+        /* Contact Section */
+        .contact {
+            padding: 5rem 0;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: white;
+        }
+
+        .contact-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 3rem;
+        }
+
+        .contact-info h3 {
+            font-size: 1.8rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .contact-info p {
+            margin-bottom: 2rem;
+            opacity: 0.9;
+        }
+
+        .contact-details {
+            margin-top: 2rem;
+        }
+
+        .contact-detail {
+            display: flex;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
+        .contact-detail i {
+            margin-right: 1rem;
+            font-size: 1.2rem;
+            color: var(--accent);
+        }
+
+        .contact-form {
+            background: var(--bg);
+            padding: 2rem;
+            border-radius: 10px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: var(--dark);
+            font-weight: 500;
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 0.8rem 1rem;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 1rem;
+            transition: border-color 0.3s;
+            background-color: var(--light);
+            color: var(--dark);
+        }
+
+        .form-control:focus {
+            border-color: var(--accent);
+            outline: none;
+        }
+
+        textarea.form-control {
+            min-height: 150px;
+            resize: vertical;
+        }
+
+        .submit-btn {
+            background: linear-gradient(135deg, var(--accent), var(--primary));
+            color: white;
+            border: none;
+            padding: 0.8rem 2rem;
+            border-radius: 30px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.3s;
+            width: 100%;
+        }
+
+        .submit-btn:hover {
+            transform: translateY(-3px);
+        }
+
+        /* Footer */
+        footer {
+            background-color: #0d1b48;
+            color: white;
+            padding: 3rem 0 1.5rem;
+            margin-top: auto;
+        }
+
+        .footer-content {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 2rem;
+            margin-bottom: 2rem;
+        }
+
+        .footer-column h4 {
+            font-size: 1.2rem;
+            margin-bottom: 1.5rem;
+            color: var(--accent);
+        }
+
+        .footer-links {
+            list-style: none;
+        }
+
+        .footer-links li {
+            margin-bottom: 0.8rem;
+        }
+
+        .footer-links a {
+            color: #ddd;
+            text-decoration: none;
+            transition: color 0.3s;
+        }
+
+        .footer-links a:hover {
+            color: var(--accent);
+        }
+
+        .copyright {
+            text-align: center;
+            padding-top: 1.5rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            color: #aaa;
+            font-size: 0.9rem;
+        }
+
+        /* Modal Styles */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1002;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-content {
+            background: var(--bg);
+            padding: 2rem;
+            border-radius: 10px;
+            width: 90%;
+            max-width: 500px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid var(--gray);
+        }
+
+        .modal-header h3 {
+            color: var(--primary);
+        }
+
+        .close-modal {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: var(--dark);
+        }
+
+        .modal-body {
+            margin-bottom: 1.5rem;
+        }
+
+        .modal-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 1rem;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 1024px) {
+            .sidebar {
+                transform: translateX(-100%);
+            }
+            
+            .sidebar.active {
+                transform: translateX(0);
+            }
+            
+            .main-content {
+                margin-left: 0;
+            }
+            
+            .hamburger {
+                display: flex;
+            }
+            
+            .mobile-logo {
+                display: flex;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .hero h1 {
+                font-size: 2.2rem;
+            }
+            
+            .steps-container {
+                flex-direction: column;
+                align-items: center;
+            }
+            
+            .step-card {
+                max-width: 100%;
+            }
+            
+            .hero-actions {
+                flex-direction: column;
+                align-items: center;
+            }
+            
+            .hero-actions button {
+                width: 100%;
+                max-width: 300px;
+            }
+            
+            .header-actions .action-button {
+                display: none;
+            }
+        }
+    </style>
 </head>
 <body>
-
-<header class="navbar">
-  <div class="logo">📹 <span>TwinTalk</span></div>
-  <nav class="nav-links">
-    <a href="contact.html">Contact</a>
-    <a href="about.html">About</a>
-  </nav>
-  <div class="profile-avatar" id="profileAvatar">U</div>
-</header>
-
+    <!-- Sidebar Navigation -->
+   <!-- Sidebar Navigation -->
 <div class="sidebar" id="sidebar">
-  <div class="close-btn" id="closeSidebar">&times;</div>
-  <div class="username" id="sidebarName">Hello, Guest</div>
-  <button id="profileBtn">Profile</button>
-  <button id="themeBtn">Theme</button>
-  <button id="historyBtn">History</button>
-  <button id="settingsBtn">Settings</button>
+    <div class="sidebar-header">
+        <div class="logo">
+            <i class="fas fa-comments"></i>
+            <span>TwinTalk</span>
+        </div>
+        <button class="toggle-sidebar" id="toggleSidebar">
+            <i class="fas fa-chevron-left"></i>
+        </button>
+    </div>
+    
+    <nav class="sidebar-nav">
+        <a href="#" class="nav-item active">
+            <i class="fas fa-home"></i>
+            <span>Dashboard</span>
+        </a>
+        <a href="#how-it-works" class="nav-item">
+            <i class="fas fa-play-circle"></i>
+            <span>How It Works</span>
+        </a>
+        <a href="#features" class="nav-item">
+            <i class="fas fa-star"></i>
+            <span>Features</span>
+        </a>
+        
+        <div class="nav-divider"></div>
+        
+        <a href="profile.html" class="nav-item">
+            <i class="fas fa-user"></i>
+            <span>Profile</span>
+        </a>
+        <a href="history.html" class="nav-item">
+            <i class="fas fa-history"></i>
+            <span>Meeting History</span>
+        </a>
+        <a href="settings.html" class="nav-item">
+            <i class="fas fa-cog"></i>
+            <span>Settings</span>
+        </a>
+        <a href="#" class="nav-item" id="recordingsBtn">
+            <i class="fas fa-record-vinyl"></i>
+            <span>Recordings</span>
+        </a>
+        
+        <div class="nav-divider"></div>
+        
+        <!-- Updated Feedback link to navigate to feedback section -->
+        <a href="#feedback" class="nav-item">
+            <i class="fas fa-comment-dots"></i>
+            <span>Give Feedback</span>
+        </a>
+        <!-- New Reviews link to view all feedback -->
+        <a href="feedback.html" class="nav-item">
+            <i class="fas fa-star-half-alt"></i>
+            <span>Reviews</span>
+        </a>
+        <a href="#contact" class="nav-item">
+            <i class="fas fa-envelope"></i>
+            <span>Contact</span>
+        </a>
+        <a href="about.html" class="nav-item">
+            <i class="fas fa-info-circle"></i>
+            <span>About</span>
+        </a>
+    </nav>
 </div>
-<div class="overlay" id="overlay"></div>
 
-<section class="hero">
-  <h1>Meet Smarter with <br><span class="highlight">AI-Powered Summaries</span></h1>
-  <p>Create meetings, join with an ID, or send your AI avatar when you’re unavailable. 
-     Get intelligent summaries, action items, and transcriptions delivered automatically.</p>
-  
-  <div class="hero-buttons">
-    <button class="btn-gradient" onclick="createMeeting()">➕ Create Meeting</button>
-    <button class="btn-gradient" onclick="scheduleMeeting()">📅 Schedule Meeting</button>
-    <button class="btn-gradient" onclick="joinMeeting()">Join by ID</button>
-  </div>
+    <!-- Main Content -->
+    <div class="main-content">
+        <!-- Header -->
+        <header>
+            <div class="container">
+                <nav class="navbar">
+                    <div class="mobile-logo">
+                        <i class="fas fa-comments"></i>
+                        TwinTalk
+                    </div>
+                    <div class="header-actions">
+                        <button class="action-button" id="createMeetingBtn">Create Meeting</button>
+                        <button class="action-button" id="joinMeetingBtn">Join Meeting</button>
+                        <button class="action-button" onclick="window.location.href='schedule.html'">Schedule</button>
+                        <button class="cta-button">Get Started</button>
+                        <div class="hamburger" id="hamburger">
+                            <span></span>
+                            <span></span>
+                            <span></span>
+                        </div>
+                    </div>
+                </nav>
+            </div>
+        </header>
+
+        <!-- Mobile Menu Overlay -->
+        <div class="overlay" id="overlay"></div>
+
+        <!-- Hero Section -->
+        <section class="hero">
+            <div class="container">
+                <h1>Intelligent Meeting Assistant</h1>
+                <p>Simple, powerful, and intelligent. Get more value from every meeting in just 4 steps.</p>
+                <div class="hero-actions">
+                    <button class="cta-button" id="heroCreateBtn">Start Meeting Now</button>
+                    <button class="action-button" id="heroJoinBtn">Join with ID</button>
+                    <button class="action-button" onclick="window.location.href='schedule.html'">Schedule for Later</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- How It Works Section -->
+        <section class="how-it-works" id="how-it-works">
+            <div class="container">
+                <div class="section-title">
+                    <h2>How TwinTalk Works</h2>
+                    <p>Transform your meetings with our intelligent AI assistant in four simple steps</p>
+                </div>
+                <div class="steps-container">
+                    <div class="step-card">
+                        <div class="step-icon">
+                            <i class="fas fa-plus"></i>
+                        </div>
+                        <h3>Create or Join</h3>
+                        <p>Create a new meeting or join existing ones with just a Meeting ID.</p>
+                    </div>
+                    <div class="step-card">
+                        <div class="step-icon">
+                            <i class="fas fa-video"></i>
+                        </div>
+                        <h3>Meet & Collaborate</h3>
+                        <p>Video conference with participants or let your AI avatar attend for you.</p>
+                    </div>
+                    <div class="step-card">
+                        <div class="step-icon">
+                            <i class="fas fa-sticky-note"></i>
+                        </div>
+                        <h3>AI Takes Notes</h3>
+                        <p>Your avatar listens, understands context, and captures key information.</p>
+                    </div>
+                    <div class="step-card">
+                        <div class="step-icon">
+                            <i class="fas fa-file-alt"></i>
+                        </div>
+                        <h3>Get Summaries</h3>
+                        <p>Receive intelligent summaries and action items after each meeting.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Features Section -->
+        <section class="features" id="features">
+            <div class="container">
+                <div class="section-title">
+                    <h2>Powerful Features</h2>
+                    <p>Discover how TwinTalk enhances your meeting experience</p>
+                </div>
+                <div class="features-grid">
+                    <div class="feature-card">
+                        <div class="feature-icon">
+                            <i class="fas fa-robot"></i>
+                        </div>
+                        <h3>AI Avatar Attendance</h3>
+                        <p>Let your AI avatar attend meetings on your behalf while you focus on more important tasks.</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">
+                            <i class="fas fa-brain"></i>
+                        </div>
+                        <h3>Smart Note Taking</h3>
+                        <p>Our AI understands context and captures the most important information from your meetings.</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">
+                            <i class="fas fa-chart-pie"></i>
+                        </div>
+                        <h3>Meeting Analytics</h3>
+                        <p>Gain insights into meeting effectiveness, participation, and outcomes.</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">
+                            <i class="fas fa-record-vinyl"></i>
+                        </div>
+                        <h3>Meeting Recordings</h3>
+                        <p>Automatically record and store your meetings for future reference.</p>
+                        <span class="coming-soon">Coming Soon</span>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">
+                            <i class="fas fa-tasks"></i>
+                        </div>
+                        <h3>Action Item Tracking</h3>
+                        <p>Never miss a follow-up task with our intelligent action item detection and tracking.</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">
+                            <i class="fas fa-shield-alt"></i>
+                        </div>
+                        <h3>Enterprise Security</h3>
+                        <p>Bank-level encryption and security protocols to protect your sensitive meeting data.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Feedback Section -->
+        <!-- Feedback Section -->
+<section class="feedback" id="feedback">
+    <div class="container">
+        <div class="section-title">
+            <h2>Share Your Feedback</h2>
+            <p>Help us improve TwinTalk by sharing your experience</p>
+        </div>
+        <div class="feedback-form">
+            <form id="feedbackForm">
+                <div class="form-group">
+                    <label for="feedbackName">Your Name</label>
+                    <input type="text" id="feedbackName" class="form-control" placeholder="Enter your name" required>
+                </div>
+                <div class="form-group">
+                    <label for="feedbackEmail">Your Email</label>
+                    <input type="email" id="feedbackEmail" class="form-control" placeholder="Enter your email" required>
+                </div>
+                <div class="form-group">
+                    <label>Rate Your Experience</label>
+                    <div class="rating">
+                        <input type="radio" id="star1" name="rating" value="1">
+                        <label for="star1">★</label>
+                        <input type="radio" id="star2" name="rating" value="2">
+                        <label for="star2">★</label>
+                        <input type="radio" id="star3" name="rating" value="3">
+                        <label for="star3">★</label>
+                        <input type="radio" id="star4" name="rating" value="4">
+                        <label for="star4">★</label>
+                        <input type="radio" id="star5" name="rating" value="5">
+                        <label for="star5">★</label>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="feedbackMessage">Your Feedback</label>
+                    <textarea id="feedbackMessage" class="form-control" placeholder="Tell us about your experience with TwinTalk" rows="5" required></textarea>
+                </div>
+                <button type="submit" class="submit-btn">Submit Feedback</button>
+            </form>
+        </div>
+    </div>
 </section>
 
-<section class="features">
-  <div class="card">
-    <div class="icon">📹</div>
-    <h3>Instant Meetings</h3>
-    <p>Create and join meetings with just a Meeting ID. No downloads, no complexity.</p>
-  </div>
-  <div class="card">
-    <div class="icon">🤖</div>
-    <h3>AI Avatar Attendee</h3>
-    <p>Can’t attend? Send your AI avatar to listen, take notes, and provide summaries.</p>
-  </div>
-  <div class="card">
-    <div class="icon">📑</div>
-    <h3>Smart Summaries</h3>
-    <p>Get AI-generated summaries with key decisions, action items, and follow-ups.</p>
-  </div>
-</section>
+        <!-- Contact Section -->
+        <section class="contact" id="contact">
+            <div class="container">
+                <div class="section-title">
+                    <h2>Contact Us</h2>
+                    <p>Have questions? Get in touch with our team</p>
+                </div>
+                <div class="contact-container">
+                    <div class="contact-info">
+                        <h3>Let's Start a Conversation</h3>
+                        <p>We're here to answer any questions you might have about TwinTalk. Reach out to us and we'll respond as soon as we can.</p>
+                        <div class="contact-details">
+                            <div class="contact-detail">
+                                <i class="fas fa-envelope"></i>
+                                <span>syedanaziya506@gmail.com</span>
+                            </div>
+                            <div class="contact-detail">
+                                <i class="fas fa-phone"></i>
+                                <span>+91 8884178492</span>
+                            </div>
+                            <div class="contact-detail">
+                                <i class="fas fa-map-marker-alt"></i>
+                                <span>Karnataka, India</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="contact-form">
+                        <form id="contactForm">
+                            <div class="form-group">
+                                <label for="name">Full Name</label>
+                                <input type="text" id="name" class="form-control" placeholder="Your Name" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="email">Email Address</label>
+                                <input type="email" id="email" class="form-control" placeholder="Your Email" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="subject">Subject</label>
+                                <input type="text" id="subject" class="form-control" placeholder="Subject" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="message">Message</label>
+                                <textarea id="message" class="form-control" placeholder="Your Message" required></textarea>
+                            </div>
+                            <button type="submit" class="submit-btn">Send Message</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </section>
 
-<section class="how">
-  <h2>How <span class="highlight">MeetTwin</span> Works</h2>
-  <p>Simple, powerful, and intelligent. Get more value from every meeting in just 4 steps.</p>
-  <div class="steps">
-    <div class="step"><div class="icon">📅</div><h3>1. Create or Join</h3><p>Create a new meeting or join existing ones with just a Meeting ID.</p></div>
-    <div class="step"><div class="icon">👥</div><h3>2. Meet & Collaborate</h3><p>Video conference with participants or let your AI avatar attend for you.</p></div>
-    <div class="step"><div class="icon">🤖</div><h3>3. AI Takes Notes</h3><p>Your avatar listens, understands context, and captures key information.</p></div>
-    <div class="step"><div class="icon">📧</div><h3>4. Get Summaries</h3><p>Receive intelligent summaries with action items via email after the meeting.</p></div>
-  </div>
-</section>
+        <!-- Footer -->
+        <footer>
+            <div class="container">
+                <div class="footer-content">
+                    <div class="footer-column">
+                        <h4>TwinTalk</h4>
+                        <p>Intelligent meeting assistant that transforms how teams collaborate and capture insights.</p>
+                    </div>
+                    <div class="footer-column">
+                        <h4>Product</h4>
+                        <ul class="footer-links">
+                            <li><a href="#">Features</a></li>
+                            <li><a href="#">Pricing</a></li>
+                            <li><a href="#">Enterprise</a></li>
+                            <li><a href="#">Updates</a></li>
+                        </ul>
+                    </div>
+                    <div class="footer-column">
+                        <h4>Resources</h4>
+                        <ul class="footer-links">
+                            <li><a href="#">Documentation</a></li>
+                            <li><a href="#">Tutorials</a></li>
+                            <li><a href="#">Blog</a></li>
+                            <li><a href="#">Support</a></li>
+                        </ul>
+                    </div>
+                    <div class="footer-column">
+                        <h4>Company</h4>
+                        <ul class="footer-links">
+                            <li><a href="about.html">About Us</a></li>
+                            <li><a href="#">Careers</a></li>
+                            <li><a href="#contact">Contact</a></li>
+                            <li><a href="#">Partners</a></li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="copyright">
+                    <p>&copy; 2023 TwinTalk. All rights reserved.</p>
+                </div>
+            </div>
+        </footer>
+    </div>
 
-<section class="contact-section">
-  <h2>Contact Us</h2>
-  <div class="contact-info">📞 Phone: <a href="tel:+918884178492">+91 8884178492</a></div>
-  <div class="contact-info">📧 Email: <a href="mailto:syedanaziya506@gmail.com">syedanaziya@gmail.com</a></div>
+    <!-- Create Meeting Modal -->
+    <div class="modal" id="createMeetingModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Create New Meeting</h3>
+                <button class="close-modal" id="closeCreateModal">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="createMeetingForm">
+                    <div class="form-group">
+                        <label for="userName">Your Name</label>
+                        <input type="text" id="userName" class="form-control" placeholder="Enter your name" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="meetingTitle">Meeting Title</label>
+                        <input type="text" id="meetingTitle" class="form-control" placeholder="Enter meeting title" required>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-actions">
+                <button class="action-button" id="cancelCreateMeeting">Cancel</button>
+                <button class="cta-button" id="confirmCreateMeeting">Create Meeting</button>
+            </div>
+        </div>
+    </div>
 
-  <div class="feedback-box">
-    <h3>Feedback</h3>
-    <form id="feedbackForm" method="POST" action="/feedback">
-      <input type="text" name="name" placeholder="Your Name" required>
-      <input type="email" name="email" placeholder="Your Email" required>
-      <div class="stars">
-        <input type="radio" id="star5" name="rating" value="5" required><label for="star5">★</label>
-        <input type="radio" id="star4" name="rating" value="4"><label for="star4">★</label>
-        <input type="radio" id="star3" name="rating" value="3"><label for="star3">★</label>
-        <input type="radio" id="star2" name="rating" value="2"><label for="star2">★</label>
-        <input type="radio" id="star1" name="rating" value="1"><label for="star1">★</label>
-      </div>
-      <textarea name="description" placeholder="Write your feedback here..." required></textarea>
-      <button type="submit" class="btn">Submit Feedback</button>
-    </form>
-  </div>
-</section>
+    <!-- Join Meeting Modal -->
+    <div class="modal" id="joinMeetingModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Join Meeting</h3>
+                <button class="close-modal" id="closeJoinModal">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="joinMeetingForm">
+                    <div class="form-group">
+                        <label for="joinUserName">Your Name</label>
+                        <input type="text" id="joinUserName" class="form-control" placeholder="Enter your name" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="meetingLink">Meeting Link or ID</label>
+                        <input type="text" id="meetingLink" class="form-control" placeholder="Enter meeting link or ID" required>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-actions">
+                <button class="action-button" id="cancelJoinMeeting">Cancel</button>
+                <button class="cta-button" id="confirmJoinMeeting">Join Meeting</button>
+            </div>
+        </div>
+    </div>
 
-<footer>
-  © 2025 MeetTwin. All rights reserved. Built with ❤️ for professionals.
-</footer>
+    <script>
+        // Sidebar Toggle
+        const sidebar = document.getElementById('sidebar');
+        const toggleSidebar = document.getElementById('toggleSidebar');
+        const hamburger = document.getElementById('hamburger');
+        const overlay = document.getElementById('overlay');
 
-<script>
-// Sidebar & overlay
-const profileAvatar = document.getElementById('profileAvatar');
-const sidebar = document.getElementById('sidebar');
-const overlay = document.getElementById('overlay');
-const closeSidebar = document.getElementById('closeSidebar');
+        toggleSidebar.addEventListener('click', () => {
+            sidebar.classList.toggle('collapsed');
+        });
 
-profileAvatar.addEventListener('click', ()=>{ sidebar.classList.add('show'); overlay.classList.add('show'); });
-closeSidebar.addEventListener('click', ()=>{ sidebar.classList.remove('show'); overlay.classList.remove('show'); });
-overlay.addEventListener('click', ()=>{ sidebar.classList.remove('show'); overlay.classList.remove('show'); });
+        hamburger.addEventListener('click', () => {
+            sidebar.classList.toggle('active');
+            overlay.classList.toggle('active');
+        });
 
-// Set username
-const sidebarName = document.getElementById('sidebarName');
-const savedName = localStorage.getItem('profileName') || "Guest";
-sidebarName.innerText = "Hello, " + savedName;
-profileAvatar.innerText = savedName.charAt(0).toUpperCase();
+        overlay.addEventListener('click', () => {
+            sidebar.classList.remove('active');
+            overlay.classList.remove('active');
+        });
 
-// Menu buttons
-document.getElementById('profileBtn').addEventListener('click', ()=>{ window.location.href='profile.html'; });
-document.getElementById('themeBtn').addEventListener('click', ()=> {
-  document.body.classList.toggle('dark');
-  localStorage.setItem('theme', document.body.classList.contains('dark')?'dark':'light');
+        // Recordings Button
+        document.getElementById('recordingsBtn').addEventListener('click', function(e) {
+            e.preventDefault();
+            alert('Recordings feature will be available soon!');
+        });
+
+        // Modal Handling
+        const createMeetingBtn = document.getElementById('createMeetingBtn');
+        const joinMeetingBtn = document.getElementById('joinMeetingBtn');
+        const heroCreateBtn = document.getElementById('heroCreateBtn');
+        const heroJoinBtn = document.getElementById('heroJoinBtn');
+
+        const createMeetingModal = document.getElementById('createMeetingModal');
+        const joinMeetingModal = document.getElementById('joinMeetingModal');
+        const closeCreateModal = document.getElementById('closeCreateModal');
+        const closeJoinModal = document.getElementById('closeJoinModal');
+        const cancelCreateMeeting = document.getElementById('cancelCreateMeeting');
+        const cancelJoinMeeting = document.getElementById('cancelJoinMeeting');
+        const confirmCreateMeeting = document.getElementById('confirmCreateMeeting');
+        const confirmJoinMeeting = document.getElementById('confirmJoinMeeting');
+
+        // Function to open create meeting modal
+        function openCreateMeetingModal() {
+            createMeetingModal.style.display = 'flex';
+            document.body.style.overflow = 'hidden';
+        }
+
+        // Function to open join meeting modal
+        function openJoinMeetingModal() {
+            joinMeetingModal.style.display = 'flex';
+            document.body.style.overflow = 'hidden';
+        }
+
+        // Function to close modals
+        function closeModals() {
+            createMeetingModal.style.display = 'none';
+            joinMeetingModal.style.display = 'none';
+            document.body.style.overflow = 'auto';
+        }
+
+        // Event listeners for create meeting buttons
+        [createMeetingBtn, heroCreateBtn].forEach(btn => {
+            btn.addEventListener('click', openCreateMeetingModal);
+        });
+
+        // Event listeners for join meeting buttons
+        [joinMeetingBtn, heroJoinBtn].forEach(btn => {
+            btn.addEventListener('click', openJoinMeetingModal);
+        });
+
+        // Event listeners for closing modals
+        [closeCreateModal, cancelCreateMeeting, closeJoinModal, cancelJoinMeeting].forEach(btn => {
+            btn.addEventListener('click', closeModals);
+        });
+
+        // Confirm create meeting
+        confirmCreateMeeting.addEventListener('click', () => {
+            const userName = document.getElementById('userName').value;
+            const meetingTitle = document.getElementById('meetingTitle').value;
+            if (userName && meetingTitle) {
+                alert(`Meeting "${meetingTitle}" created successfully! Redirecting to meeting...`);
+                closeModals();
+                document.getElementById('createMeetingForm').reset();
+                // Redirect to meeting page
+                setTimeout(() => {
+                    window.location.href = 'meeting.html';
+                }, 1000);
+            } else {
+                alert('Please enter both your name and meeting title');
+            }
+        });
+
+        // Confirm join meeting
+        confirmJoinMeeting.addEventListener('click', () => {
+            const joinUserName = document.getElementById('joinUserName').value;
+            const meetingLink = document.getElementById('meetingLink').value;
+            if (joinUserName && meetingLink) {
+                alert(`Joining meeting as ${joinUserName}...`);
+                closeModals();
+                document.getElementById('joinMeetingForm').reset();
+                // Redirect to join page
+                setTimeout(() => {
+                    window.location.href = 'join.html';
+                }, 1000);
+            } else {
+                alert('Please enter both your name and meeting link');
+            }
+        });
+
+        // Form submission handlers
+        document.getElementById('contactForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            // Get form values
+            const name = document.getElementById('name').value;
+            const email = document.getElementById('email').value;
+            const subject = document.getElementById('subject').value;
+            const message = document.getElementById('message').value;
+            
+            // In a real implementation, you would send this data to a server
+            // For now, we'll just show an alert
+            alert(`Thank you, ${name}! Your message has been received. We'll get back to you at ${email} soon.`);
+            
+            // Reset the form
+            document.getElementById('contactForm').reset();
+        });
+
+        // Feedback form submission
+       // Feedback form submission
+// Feedback form submission
+document.getElementById('feedbackForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    // Get form values
+    const name = document.getElementById('feedbackName').value;
+    const email = document.getElementById('feedbackEmail').value;
+    const rating = document.querySelector('input[name="rating"]:checked');
+    const feedback = document.getElementById('feedbackMessage').value;
+    
+    if (!rating) {
+        alert('Please select a rating');
+        return;
+    }
+    
+    // Store feedback in localStorage for the reviews page
+    const feedbackData = {
+        name: name,
+        email: email,
+        rating: parseInt(rating.value),
+        message: feedback,
+        date: new Date().toISOString()
+    };
+    
+    // Get existing feedback or initialize empty array
+    let allFeedback = JSON.parse(localStorage.getItem('twinTalkReviews')) || [];
+    
+    // Add new feedback
+    allFeedback.unshift(feedbackData); // Add to beginning to show newest first
+    
+    // Save back to localStorage
+    localStorage.setItem('twinTalkReviews', JSON.stringify(allFeedback));
+    
+    // Show success message with option to view reviews
+    const userChoice = confirm(`Thank you, ${name}! Your feedback has been submitted. We appreciate your ${rating.value}-star rating.\n\nWould you like to view all reviews?`);
+    
+    if (userChoice) {
+        window.location.href = 'feedback.html';
+    }
+    
+    // Reset the form
+    document.getElementById('feedbackForm').reset();
 });
-document.getElementById('historyBtn').addEventListener('click', ()=>{ window.location.href='history.html'; });
-document.getElementById('settingsBtn').addEventListener('click', ()=>{ window.location.href='settings.html'; });
-
-// Persist theme
-if(localStorage.getItem('theme')==='dark') document.body.classList.add('dark');
-
-// ✅ Create Meeting – Host enters their name
-function createMeeting() {
-  const hostName = prompt("Enter your name to host the meeting:") || "Guest";
-  const roomId = Math.random().toString(36).substr(2, 8);
-  localStorage.setItem("profileName", hostName);
-  window.location.href = `/meeting.html?room=${roomId}&name=${encodeURIComponent(hostName)}`;
-}
-
-// ✅ Join by ID – Attendee enters their own name
-function joinMeeting() {
-  const meetingURL = prompt("Paste the meeting link or enter Meeting ID:");
-  if (!meetingURL) return;
-
-  let roomId = meetingURL;
-  try {
-    const urlObj = new URL(meetingURL);
-    roomId = urlObj.searchParams.get("room") || meetingURL;
-  } catch { /* if user entered only the ID */ }
-
-  const attendeeName = prompt("Enter your name to join the meeting:") || "Guest";
-  localStorage.setItem("profileName", attendeeName);
-  window.location.href = `/meeting.html?room=${roomId}&name=${encodeURIComponent(attendeeName)}`;
-}
-
-// ✅ Schedule Meeting
-function scheduleMeeting() {
-  window.location.href = "schedule.html";
-}
-
-// ✅ Feedback form
-document.getElementById("feedbackForm").addEventListener("submit", async function(e){
-  e.preventDefault();
-  const formData = new FormData(this);
-  const data = Object.fromEntries(formData.entries());
-  try {
-    const res = await fetch("/feedback", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(data)
-    });
-    if(res.ok){ alert("✅ Thank you for your feedback!"); this.reset(); }
-    else alert("❌ Failed to submit feedback!");
-  } catch(err) { alert("❌ Failed to submit feedback!"); }
-});
-</script>
-
+        // Smooth scrolling for navigation links
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                
+                const targetId = this.getAttribute('href');
+                if(targetId === '#') return;
+                
+                const targetElement = document.querySelector(targetId);
+                if(targetElement) {
+                    window.scrollTo({
+                        top: targetElement.offsetTop - 80,
+                        behavior: 'smooth'
+                    });
+                }
+            });
+        });
+    </script>
 </body>
 </html>

@@ -1,0 +1,1146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Customer Feedback - TwinTalk</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        :root {
+            --primary: #1a2a6c;
+            --secondary: #4a569d;
+            --accent: #00b4db;
+            --light: #f8f9fa;
+            --dark: #333;
+            --gray: #666;
+            --success: #28a745;
+            --danger: #dc3545;
+            --warning: #ffc107;
+            --card-bg: #ffffff;
+            --border: #e1e5e9;
+            --gold: #ffc107;
+        }
+
+        [data-theme="dark"] {
+            --primary: #2d3a8c;
+            --secondary: #5a67a8;
+            --accent: #00c6ff;
+            --light: #1a1a2e;
+            --dark: #e6e6e6;
+            --gray: #a0a0a0;
+            --card-bg: #252525;
+            --border: #444;
+        }
+
+        body {
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            color: var(--dark);
+            line-height: 1.6;
+            min-height: 100vh;
+            padding: 20px;
+            transition: all 0.3s ease;
+        }
+
+        [data-theme="dark"] body {
+            background: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        /* Header */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .header h1 {
+            color: var(--primary);
+            font-size: 2.2rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 15px;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: var(--secondary);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .btn-outline {
+            background: transparent;
+            color: var(--primary);
+            border: 1px solid var(--primary);
+        }
+
+        .btn-outline:hover {
+            background: var(--primary);
+            color: white;
+        }
+
+        /* Feedback Layout */
+        .feedback-container {
+            display: grid;
+            grid-template-columns: 1fr 350px;
+            gap: 30px;
+        }
+
+        @media (max-width: 992px) {
+            .feedback-container {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Feedback Form */
+        .feedback-form-container {
+            background: var(--card-bg);
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+            margin-bottom: 30px;
+        }
+
+        .section-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-bottom: 25px;
+            color: var(--primary);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .section-title i {
+            color: var(--accent);
+        }
+
+        /* Form Elements */
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: var(--dark);
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 12px 15px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+            background: var(--card-bg);
+            color: var(--dark);
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(0, 180, 219, 0.1);
+        }
+
+        textarea.form-control {
+            min-height: 120px;
+            resize: vertical;
+        }
+
+        /* Rating System */
+        .rating-section {
+            margin-bottom: 25px;
+        }
+
+        .rating-stars {
+            display: flex;
+            gap: 5px;
+            margin-bottom: 10px;
+        }
+
+        .star {
+            font-size: 2rem;
+            color: #ddd;
+            cursor: pointer;
+            transition: color 0.2s ease;
+        }
+
+        .star:hover,
+        .star.active {
+            color: var(--gold);
+        }
+
+        .rating-labels {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.9rem;
+            color: var(--gray);
+            margin-top: 5px;
+        }
+
+        /* Review Stats */
+        .review-stats {
+            background: var(--card-bg);
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+            margin-bottom: 30px;
+        }
+
+        .overall-rating {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .rating-value {
+            font-size: 3rem;
+            font-weight: 700;
+            color: var(--primary);
+            line-height: 1;
+        }
+
+        .rating-stars-large {
+            display: flex;
+            justify-content: center;
+            gap: 5px;
+            margin: 10px 0;
+        }
+
+        .star-large {
+            font-size: 1.5rem;
+            color: var(--gold);
+        }
+
+        .rating-count {
+            color: var(--gray);
+            font-size: 0.9rem;
+        }
+
+        .rating-bars {
+            margin-top: 20px;
+        }
+
+        .rating-bar {
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .rating-label {
+            width: 80px;
+            font-size: 0.9rem;
+            color: var(--gray);
+        }
+
+        .rating-bar-container {
+            flex: 1;
+            height: 8px;
+            background: var(--border);
+            border-radius: 4px;
+            overflow: hidden;
+            margin: 0 10px;
+        }
+
+        .rating-bar-fill {
+            height: 100%;
+            background: var(--gold);
+            border-radius: 4px;
+            transition: width 0.5s ease;
+        }
+
+        .rating-percentage {
+            width: 40px;
+            text-align: right;
+            font-size: 0.9rem;
+            color: var(--gray);
+        }
+
+        /* Reviews List */
+        .reviews-container {
+            background: var(--card-bg);
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+        }
+
+        .reviews-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 25px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .sort-options {
+            display: flex;
+            gap: 10px;
+        }
+
+        .sort-btn {
+            padding: 8px 15px;
+            border: 1px solid var(--border);
+            background: var(--card-bg);
+            color: var(--dark);
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .sort-btn.active {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary);
+        }
+
+        .review-card {
+            padding: 20px;
+            border-bottom: 1px solid var(--border);
+            transition: all 0.3s ease;
+        }
+
+        .review-card:hover {
+            background: rgba(0, 0, 0, 0.02);
+        }
+
+        .review-card:last-child {
+            border-bottom: none;
+        }
+
+        .review-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 10px;
+        }
+
+        .reviewer-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .reviewer-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--primary), var(--accent));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 600;
+        }
+
+        .reviewer-name {
+            font-weight: 600;
+            color: var(--dark);
+        }
+
+        .review-date {
+            font-size: 0.85rem;
+            color: var(--gray);
+        }
+
+        .review-rating {
+            display: flex;
+            gap: 3px;
+        }
+
+        .review-star {
+            color: var(--gold);
+            font-size: 0.9rem;
+        }
+
+        .review-title {
+            font-weight: 600;
+            margin: 10px 0 5px;
+            color: var(--dark);
+        }
+
+        .review-content {
+            color: var(--dark);
+            line-height: 1.6;
+        }
+
+        .review-actions {
+            display: flex;
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .review-action {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            background: none;
+            border: none;
+            color: var(--gray);
+            cursor: pointer;
+            transition: color 0.3s ease;
+            font-size: 0.9rem;
+        }
+
+        .review-action:hover {
+            color: var(--accent);
+        }
+
+        .review-action.liked {
+            color: var(--success);
+        }
+
+        .review-images {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+            flex-wrap: wrap;
+        }
+
+        .review-image {
+            width: 80px;
+            height: 80px;
+            border-radius: 8px;
+            object-fit: cover;
+            cursor: pointer;
+            transition: transform 0.3s ease;
+        }
+
+        .review-image:hover {
+            transform: scale(1.05);
+        }
+
+        /* Notification */
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 15px 20px;
+            border-radius: 8px;
+            color: white;
+            font-weight: 500;
+            z-index: 10000;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            max-width: 350px;
+        }
+
+        .notification.success {
+            background: var(--success);
+        }
+
+        .notification.error {
+            background: var(--danger);
+        }
+
+        .notification.hidden {
+            opacity: 0;
+            transform: translateX(100%);
+        }
+
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--gray);
+        }
+
+        .empty-icon {
+            font-size: 4rem;
+            margin-bottom: 20px;
+            color: #ddd;
+        }
+
+        .empty-state h3 {
+            font-size: 1.5rem;
+            margin-bottom: 10px;
+            color: var(--dark);
+        }
+
+        /* Pagination */
+        .pagination {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 30px;
+        }
+
+        .page-btn {
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid var(--border);
+            background: var(--card-bg);
+            color: var(--dark);
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .page-btn.active {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary);
+        }
+
+        .page-btn:hover:not(.active) {
+            background: rgba(0, 0, 0, 0.05);
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .reviews-header {
+                flex-direction: column;
+                gap: 15px;
+                align-items: flex-start;
+            }
+
+            .sort-options {
+                width: 100%;
+                justify-content: space-between;
+            }
+
+            .review-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1>
+                <i class="fas fa-comments"></i>
+                Customer Feedback
+            </h1>
+            <div class="header-actions">
+                <button class="btn btn-outline" onclick="goBack()">
+                    <i class="fas fa-arrow-left"></i>
+                    Back to Home
+                </button>
+            </div>
+        </div>
+
+        <!-- Feedback Content -->
+        <div class="feedback-container">
+            <!-- Main Content -->
+            <div>
+                <!-- Feedback Form -->
+                <div class="feedback-form-container">
+                    <h2 class="section-title">
+                        <i class="fas fa-edit"></i>
+                        Share Your Feedback
+                    </h2>
+                    
+                    <form id="feedbackForm">
+                        <div class="form-group">
+                            <label class="form-label" for="reviewerName">Your Name</label>
+                            <input type="text" id="reviewerName" class="form-control" placeholder="Enter your name" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label" for="reviewTitle">Review Title</label>
+                            <input type="text" id="reviewTitle" class="form-control" placeholder="Summarize your experience">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">Overall Rating</label>
+                            <div class="rating-section">
+                                <div class="rating-stars" id="ratingStars">
+                                    <span class="star" data-rating="1">★</span>
+                                    <span class="star" data-rating="2">★</span>
+                                    <span class="star" data-rating="3">★</span>
+                                    <span class="star" data-rating="4">★</span>
+                                    <span class="star" data-rating="5">★</span>
+                                </div>
+                                <div class="rating-labels">
+                                    <span>Poor</span>
+                                    <span>Excellent</span>
+                                </div>
+                                <input type="hidden" id="ratingValue" value="0">
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label" for="reviewText">Your Review</label>
+                            <textarea id="reviewText" class="form-control" placeholder="Tell us about your experience with TwinTalk..." required></textarea>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">Upload Images (Optional)</label>
+                            <input type="file" id="reviewImages" class="form-control" accept="image/*" multiple>
+                            <div id="imagePreview" class="review-images" style="margin-top: 10px;"></div>
+                        </div>
+                        
+                        <button type="submit" class="btn btn-primary" style="width: 100%;">
+                            <i class="fas fa-paper-plane"></i>
+                            Submit Review
+                        </button>
+                    </form>
+                </div>
+                
+                <!-- Reviews List -->
+                <div class="reviews-container">
+                    <div class="reviews-header">
+                        <h2 class="section-title" style="margin: 0;">
+                            <i class="fas fa-star"></i>
+                            Customer Reviews
+                        </h2>
+                        <div class="sort-options">
+                            <button class="sort-btn active" data-sort="newest">Newest</button>
+                            <button class="sort-btn" data-sort="highest">Highest Rated</button>
+                            <button class="sort-btn" data-sort="lowest">Lowest Rated</button>
+                        </div>
+                    </div>
+                    
+                    <div id="reviewsList">
+                        <!-- Reviews will be dynamically loaded here -->
+                    </div>
+                    
+                    <div class="pagination" id="pagination">
+                        <!-- Pagination will be dynamically generated -->
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Sidebar -->
+            <div>
+                <!-- Review Stats -->
+                <div class="review-stats">
+                    <div class="overall-rating">
+                        <div class="rating-value" id="averageRating">4.8</div>
+                        <div class="rating-stars-large">
+                            <span class="star-large">★</span>
+                            <span class="star-large">★</span>
+                            <span class="star-large">★</span>
+                            <span class="star-large">★</span>
+                            <span class="star-large">★</span>
+                        </div>
+                        <div class="rating-count" id="totalReviews">Based on 127 reviews</div>
+                    </div>
+                    
+                    <div class="rating-bars">
+                        <div class="rating-bar">
+                            <span class="rating-label">5 stars</span>
+                            <div class="rating-bar-container">
+                                <div class="rating-bar-fill" style="width: 85%"></div>
+                            </div>
+                            <span class="rating-percentage">85%</span>
+                        </div>
+                        <div class="rating-bar">
+                            <span class="rating-label">4 stars</span>
+                            <div class="rating-bar-container">
+                                <div class="rating-bar-fill" style="width: 10%"></div>
+                            </div>
+                            <span class="rating-percentage">10%</span>
+                        </div>
+                        <div class="rating-bar">
+                            <span class="rating-label">3 stars</span>
+                            <div class="rating-bar-container">
+                                <div class="rating-bar-fill" style="width: 3%"></div>
+                            </div>
+                            <span class="rating-percentage">3%</span>
+                        </div>
+                        <div class="rating-bar">
+                            <span class="rating-label">2 stars</span>
+                            <div class="rating-bar-container">
+                                <div class="rating-bar-fill" style="width: 1%"></div>
+                            </div>
+                            <span class="rating-percentage">1%</span>
+                        </div>
+                        <div class="rating-bar">
+                            <span class="rating-label">1 star</span>
+                            <div class="rating-bar-container">
+                                <div class="rating-bar-fill" style="width: 1%"></div>
+                            </div>
+                            <span class="rating-percentage">1%</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Review Guidelines -->
+                <div class="feedback-form-container">
+                    <h2 class="section-title">
+                        <i class="fas fa-info-circle"></i>
+                        Review Guidelines
+                    </h2>
+                    <ul style="color: var(--gray); padding-left: 20px; line-height: 1.6;">
+                        <li>Share your honest experience with TwinTalk</li>
+                        <li>Focus on specific features you liked or disliked</li>
+                        <li>Be respectful and constructive in your feedback</li>
+                        <li>Mention how TwinTalk has helped your meetings</li>
+                        <li>Avoid personal attacks or offensive language</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notification -->
+    <div class="notification hidden" id="notification"></div>
+
+    <script>
+        // Initialize the page
+                // Initialize the page
+        document.addEventListener('DOMContentLoaded', function() {
+            loadReviews();
+            setupEventListeners();
+            updateReviewStats();
+            loadHomePageFeedback(); // Add this line
+        });
+        // Sample reviews data (in a real app, this would come from a database)
+        let reviews = JSON.parse(localStorage.getItem('twinTalkReviews')) || [
+            {
+                id: 1,
+                name: "Sarah Johnson",
+                rating: 5,
+                title: "Game Changer for Remote Teams!",
+                content: "TwinTalk has completely transformed how our remote team collaborates. The AI summaries save us hours of work each week, and the meeting analytics help us identify which meetings are actually productive.",
+                date: "2023-10-15",
+                likes: 24,
+                liked: false
+            },
+            {
+                id: 2,
+                name: "Michael Chen",
+                rating: 4,
+                title: "Great tool with minor hiccups",
+                content: "Overall, TwinTalk is fantastic. The AI note-taking is incredibly accurate. My only complaint is that the mobile app could be more responsive. Looking forward to future updates!",
+                date: "2023-10-10",
+                likes: 12,
+                liked: false
+            },
+            {
+                id: 3,
+                name: "Emma Rodriguez",
+                rating: 5,
+                title: "Saved our company 20+ hours per week",
+                content: "As a project manager, I was skeptical at first, but TwinTalk has exceeded all expectations. The action item tracking alone has improved our team's productivity by 30%. Highly recommend!",
+                date: "2023-10-05",
+                likes: 31,
+                liked: false
+            },
+            {
+                id: 4,
+                name: "David Kim",
+                rating: 3,
+                title: "Good but needs improvement",
+                content: "The concept is great and the AI works well, but I've experienced some connectivity issues during important meetings. Customer support was helpful though.",
+                date: "2023-09-28",
+                likes: 5,
+                liked: false
+            },
+            {
+                id: 5,
+                name: "Lisa Thompson",
+                rating: 5,
+                title: "Best meeting tool I've used",
+                content: "I've tried every meeting tool out there, and TwinTalk is by far the best. The AI avatar feature is revolutionary - it actually sounds like me in meetings!",
+                date: "2023-09-20",
+                likes: 18,
+                liked: false
+            }
+        ];
+
+        // Current sort and pagination state
+        let currentSort = 'newest';
+        let currentPage = 1;
+        const reviewsPerPage = 5;
+
+        // Setup event listeners
+        function setupEventListeners() {
+            // Star rating
+            document.querySelectorAll('.star').forEach(star => {
+                star.addEventListener('click', function() {
+                    const rating = parseInt(this.getAttribute('data-rating'));
+                    setRating(rating);
+                });
+                
+                star.addEventListener('mouseover', function() {
+                    const rating = parseInt(this.getAttribute('data-rating'));
+                    highlightStars(rating);
+                });
+            });
+            
+            document.getElementById('ratingStars').addEventListener('mouseleave', function() {
+                const currentRating = parseInt(document.getElementById('ratingValue').value);
+                highlightStars(currentRating);
+            });
+            
+            // Form submission
+            document.getElementById('feedbackForm').addEventListener('submit', function(e) {
+                e.preventDefault();
+                submitReview();
+            });
+            
+            // Image upload preview
+            document.getElementById('reviewImages').addEventListener('change', function(e) {
+                previewImages(e.target.files);
+            });
+            
+            // Sort buttons
+            document.querySelectorAll('.sort-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    document.querySelectorAll('.sort-btn').forEach(b => b.classList.remove('active'));
+                    this.classList.add('active');
+                    currentSort = this.getAttribute('data-sort');
+                    currentPage = 1;
+                    loadReviews();
+                });
+            });
+            
+            // Load reviews from home page if any
+            loadHomePageFeedback();
+        }
+
+        // Set star rating
+        function setRating(rating) {
+            document.getElementById('ratingValue').value = rating;
+            highlightStars(rating);
+        }
+
+        // Highlight stars up to the given rating
+        function highlightStars(rating) {
+            document.querySelectorAll('.star').forEach((star, index) => {
+                if (index < rating) {
+                    star.classList.add('active');
+                } else {
+                    star.classList.remove('active');
+                }
+            });
+        }
+
+        // Preview uploaded images
+        function previewImages(files) {
+            const previewContainer = document.getElementById('imagePreview');
+            previewContainer.innerHTML = '';
+            
+            if (files.length > 0) {
+                for (let i = 0; i < files.length; i++) {
+                    const file = files[i];
+                    if (file.type.startsWith('image/')) {
+                        const reader = new FileReader();
+                        reader.onload = function(e) {
+                            const img = document.createElement('img');
+                            img.src = e.target.result;
+                            img.className = 'review-image';
+                            previewContainer.appendChild(img);
+                        };
+                        reader.readAsDataURL(file);
+                    }
+                }
+            }
+        }
+
+        // Submit review
+        function submitReview() {
+            const name = document.getElementById('reviewerName').value.trim();
+            const title = document.getElementById('reviewTitle').value.trim();
+            const rating = parseInt(document.getElementById('ratingValue').value);
+            const content = document.getElementById('reviewText').value.trim();
+            
+            if (!name || !content) {
+                showNotification('Please fill in all required fields', 'error');
+                return;
+            }
+            
+            if (rating === 0) {
+                showNotification('Please select a rating', 'error');
+                return;
+            }
+            
+            const newReview = {
+                id: Date.now(),
+                name: name,
+                rating: rating,
+                title: title || `${rating} Star${rating !== 1 ? 's' : ''} Review`,
+                content: content,
+                date: new Date().toISOString().split('T')[0],
+                likes: 0,
+                liked: false
+            };
+            
+            reviews.unshift(newReview);
+            localStorage.setItem('twinTalkReviews', JSON.stringify(reviews));
+            
+            showNotification('Thank you for your feedback!', 'success');
+            document.getElementById('feedbackForm').reset();
+            document.getElementById('imagePreview').innerHTML = '';
+            setRating(0);
+            
+            loadReviews();
+            updateReviewStats();
+        }
+
+        // Load and display reviews
+        function loadReviews() {
+            let sortedReviews = [...reviews];
+            
+            // Sort reviews
+            switch(currentSort) {
+                case 'newest':
+                    sortedReviews.sort((a, b) => new Date(b.date) - new Date(a.date));
+                    break;
+                case 'highest':
+                    sortedReviews.sort((a, b) => b.rating - a.rating);
+                    break;
+                case 'lowest':
+                    sortedReviews.sort((a, b) => a.rating - b.rating);
+                    break;
+            }
+            
+            // Paginate
+            const startIndex = (currentPage - 1) * reviewsPerPage;
+            const paginatedReviews = sortedReviews.slice(startIndex, startIndex + reviewsPerPage);
+            
+            const reviewsList = document.getElementById('reviewsList');
+            
+            if (paginatedReviews.length === 0) {
+                reviewsList.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-icon">
+                            <i class="fas fa-comment-slash"></i>
+                        </div>
+                        <h3>No Reviews Yet</h3>
+                        <p>Be the first to share your experience with TwinTalk!</p>
+                    </div>
+                `;
+            } else {
+                reviewsList.innerHTML = paginatedReviews.map(review => `
+                    <div class="review-card">
+                        <div class="review-header">
+                            <div class="reviewer-info">
+                                <div class="reviewer-avatar">${review.name.charAt(0)}</div>
+                                <div>
+                                    <div class="reviewer-name">${review.name}</div>
+                                    <div class="review-date">${formatDate(review.date)}</div>
+                                </div>
+                            </div>
+                            <div class="review-rating">
+                                ${generateStarRating(review.rating)}
+                            </div>
+                        </div>
+                        <div class="review-title">${review.title}</div>
+                        <div class="review-content">${review.content}</div>
+                        <div class="review-actions">
+                            <button class="review-action ${review.liked ? 'liked' : ''}" onclick="likeReview(${review.id})">
+                                <i class="fas fa-thumbs-up"></i>
+                                <span>${review.likes}</span>
+                            </button>
+                            <button class="review-action" onclick="reportReview(${review.id})">
+                                <i class="fas fa-flag"></i>
+                                Report
+                            </button>
+                        </div>
+                    </div>
+                `).join('');
+            }
+            
+            updatePagination(sortedReviews.length);
+        }
+
+        // Generate star rating HTML
+        function generateStarRating(rating) {
+            let stars = '';
+            for (let i = 1; i <= 5; i++) {
+                stars += `<span class="review-star">${i <= rating ? '★' : '☆'}</span>`;
+            }
+            return stars;
+        }
+
+        // Format date
+        function formatDate(dateString) {
+            const options = { year: 'numeric', month: 'long', day: 'numeric' };
+            return new Date(dateString).toLocaleDateString(undefined, options);
+        }
+
+        // Update pagination
+        function updatePagination(totalReviews) {
+            const totalPages = Math.ceil(totalReviews / reviewsPerPage);
+            const pagination = document.getElementById('pagination');
+            
+            if (totalPages <= 1) {
+                pagination.innerHTML = '';
+                return;
+            }
+            
+            let paginationHTML = '';
+            
+            // Previous button
+            if (currentPage > 1) {
+                paginationHTML += `<button class="page-btn" onclick="changePage(${currentPage - 1})"><i class="fas fa-chevron-left"></i></button>`;
+            }
+            
+            // Page numbers
+            for (let i = 1; i <= totalPages; i++) {
+                if (i === 1 || i === totalPages || (i >= currentPage - 1 && i <= currentPage + 1)) {
+                    paginationHTML += `<button class="page-btn ${i === currentPage ? 'active' : ''}" onclick="changePage(${i})">${i}</button>`;
+                } else if (i === currentPage - 2 || i === currentPage + 2) {
+                    paginationHTML += `<button class="page-btn" disabled>...</button>`;
+                }
+            }
+            
+            // Next button
+            if (currentPage < totalPages) {
+                paginationHTML += `<button class="page-btn" onclick="changePage(${currentPage + 1})"><i class="fas fa-chevron-right"></i></button>`;
+            }
+            
+            pagination.innerHTML = paginationHTML;
+        }
+
+        // Change page
+        function changePage(page) {
+            currentPage = page;
+            loadReviews();
+            // Scroll to reviews section
+            document.getElementById('reviewsList').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        // Like a review
+        function likeReview(reviewId) {
+            const review = reviews.find(r => r.id === reviewId);
+            if (review) {
+                if (review.liked) {
+                    review.likes--;
+                    review.liked = false;
+                } else {
+                    review.likes++;
+                    review.liked = true;
+                }
+                localStorage.setItem('twinTalkReviews', JSON.stringify(reviews));
+                loadReviews();
+            }
+        }
+
+        // Report a review
+        function reportReview(reviewId) {
+            if (confirm('Report this review as inappropriate?')) {
+                showNotification('Thank you for reporting. We will review this content.', 'success');
+            }
+        }
+
+        // Update review statistics
+        function updateReviewStats() {
+            if (reviews.length === 0) {
+                document.getElementById('averageRating').textContent = '0.0';
+                document.getElementById('totalReviews').textContent = 'No reviews yet';
+                return;
+            }
+            
+            const totalRating = reviews.reduce((sum, review) => sum + review.rating, 0);
+            const averageRating = (totalRating / reviews.length).toFixed(1);
+            
+            document.getElementById('averageRating').textContent = averageRating;
+            document.getElementById('totalReviews').textContent = `Based on ${reviews.length} review${reviews.length !== 1 ? 's' : ''}`;
+            
+            // Update rating distribution (in a real app, this would be calculated from actual data)
+            // For demo purposes, we're using static values
+        }
+
+        // Load feedback from home page
+        // Load feedback from home page
+function loadHomePageFeedback() {
+    const homePageFeedback = JSON.parse(localStorage.getItem('homePageFeedback')) || [];
+    
+    if (homePageFeedback.length > 0) {
+        homePageFeedback.forEach(feedback => {
+            // Check if this feedback already exists in reviews
+            const exists = reviews.some(review => 
+                review.name === feedback.name && 
+                review.content === feedback.message
+            );
+            
+            if (!exists) {
+                const newReview = {
+                    id: Date.now() + Math.random(),
+                    name: feedback.name,
+                    rating: feedback.rating,
+                    title: `${feedback.rating} Star${feedback.rating !== 1 ? 's' : ''} Review`,
+                    content: feedback.message,
+                    date: new Date().toISOString().split('T')[0],
+                    likes: 0,
+                    liked: false
+                };
+                
+                reviews.unshift(newReview);
+            }
+        });
+        
+        localStorage.setItem('twinTalkReviews', JSON.stringify(reviews));
+        localStorage.removeItem('homePageFeedback'); // Clear home page feedback after importing
+        
+        if (homePageFeedback.length > 0) {
+            loadReviews();
+            updateReviewStats();
+        }
+    }
+}
+
+        // Show notification
+        function showNotification(message, type) {
+            const notification = document.getElementById('notification');
+            notification.textContent = message;
+            notification.className = `notification ${type}`;
+            
+            // Show notification
+            setTimeout(() => {
+                notification.classList.remove('hidden');
+            }, 100);
+            
+            // Hide after 3 seconds
+            setTimeout(() => {
+                notification.classList.add('hidden');
+            }, 3000);
+        }
+
+        // Go back to home
+        function goBack() {
+            window.location.href = 'index.html';
+        }
+    </script>
+</body>
+</html>
