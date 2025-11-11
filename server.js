@@ -1,4 +1,4 @@
-// server.js - Updated WebRTC signaling logic with meeting validation
+// server.js - Updated WebRTC signaling logic with meeting validation and recording
 const express = require("express");
 const http = require("http");
 const { Server } = require("socket.io");
@@ -465,7 +465,7 @@ app.delete("/history/:index", (req, res) => {
 // ---------- RECORDING ROUTES ----------
 
 // Start recording
-app.post('/start-recording', async (req, res) => {
+app.post('/api/start-recording', async (req, res) => {
   try {
     const { roomId, userEmail, recordingId } = req.body;
     
@@ -519,7 +519,7 @@ app.post('/start-recording', async (req, res) => {
 });
 
 // Upload recording data
-app.post('/upload-recording', async (req, res) => {
+app.post('/api/upload-recording', async (req, res) => {
   try {
     const { recordingId, chunk, isLast } = req.body;
     
@@ -551,6 +551,8 @@ app.post('/upload-recording', async (req, res) => {
         if (recordingIndex !== -1) {
           recordings[recordingIndex].fileName = fileName;
           recordings[recordingIndex].fileSize = fileBuffer.length;
+          recordings[recordingIndex].status = 'completed';
+          recordings[recordingIndex].endTime = new Date().toISOString();
           saveRecordingsDB(recordings);
         }
 
@@ -577,7 +579,7 @@ app.post('/upload-recording', async (req, res) => {
 });
 
 // Stop recording
-app.post('/stop-recording', async (req, res) => {
+app.post('/api/stop-recording', async (req, res) => {
   try {
     const { recordingId, roomId } = req.body;
     
@@ -613,7 +615,7 @@ app.post('/stop-recording', async (req, res) => {
 });
 
 // Get user recordings
-app.get('/recordings', async (req, res) => {
+app.get('/api/recordings', async (req, res) => {
   try {
     const userEmail = (req.query.email || '').toLowerCase();
     if (!userEmail) {
@@ -634,7 +636,7 @@ app.get('/recordings', async (req, res) => {
 });
 
 // Delete recording
-app.delete('/recordings/:recordingId', async (req, res) => {
+app.delete('/api/recordings/:recordingId', async (req, res) => {
   try {
     const { recordingId } = req.params;
     const userEmail = (req.query.email || '').toLowerCase();
@@ -830,6 +832,17 @@ io.on("connection", (socket) => {
       peerId: socket.id, 
       name: name 
     });
+  });
+
+  // Recording events
+  socket.on("start-recording", ({ roomId, userEmail, recordingId }) => {
+    console.log(`🎥 Recording started in room ${roomId} by ${userEmail}`);
+    socket.to(roomId).emit("recording-started", { recordingId });
+  });
+
+  socket.on("stop-recording", ({ roomId, recordingId }) => {
+    console.log(`🛑 Recording stopped in room ${roomId}`);
+    socket.to(roomId).emit("recording-stopped", { recordingId });
   });
 
   // Leave meeting

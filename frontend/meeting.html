@@ -116,13 +116,14 @@
             color: var(--gray);
         }
 
-        /* Main Layout */
+        /* Main Layout - Updated for Zoom-like layout */
         .meeting-container {
             display: grid;
             grid-template-columns: 1fr 350px;
             gap: 1.5rem;
             padding: 1.5rem 0;
             flex: 1;
+            height: calc(100vh - 120px);
         }
 
         @media (max-width: 1024px) {
@@ -131,7 +132,7 @@
             }
         }
 
-        /* Video Grid */
+        /* Video Section - Updated for better layout */
         .video-section {
             background: rgba(255, 255, 255, 0.95);
             border-radius: var(--border-radius);
@@ -140,16 +141,29 @@
             backdrop-filter: blur(10px);
             display: flex;
             flex-direction: column;
-            height: calc(100vh - 200px);
+            height: 100%;
         }
 
         .video-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            grid-template-columns: 2fr 1fr;
             gap: 1rem;
             flex: 1;
+            overflow: hidden;
+        }
+
+        .main-video-area {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .participants-sidebar {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            max-height: 100%;
             overflow-y: auto;
-            padding: 1rem 0;
         }
 
         .video-container {
@@ -157,17 +171,15 @@
             background: var(--dark);
             border-radius: var(--border-radius);
             overflow: hidden;
-            aspect-ratio: 16/9;
             transition: all 0.3s ease;
         }
 
-        .video-container:hover {
-            transform: translateY(-5px);
-            box-shadow: var(--shadow-lg);
+        .video-container.main-video {
+            flex: 1;
+            min-height: 400px;
         }
 
-        .video-container.main-video {
-            grid-column: 1 / -1;
+        .video-container.side-video {
             aspect-ratio: 16/9;
         }
 
@@ -202,13 +214,14 @@
 
         .user-name {
             font-weight: 600;
+            font-size: 0.9rem;
         }
 
         .user-status {
             display: flex;
             align-items: center;
             gap: 0.5rem;
-            font-size: 0.8rem;
+            font-size: 0.7rem;
         }
 
         .status-indicator {
@@ -222,13 +235,13 @@
             background: var(--error);
         }
 
-        /* Controls */
+        /* Controls - Moved to bottom */
         .controls {
             display: flex;
             justify-content: center;
             gap: 1rem;
-            padding: 1rem 0;
-            background: rgba(255, 255, 255, 0.8);
+            padding: 1rem;
+            background: rgba(255, 255, 255, 0.9);
             border-radius: var(--border-radius);
             margin-top: 1rem;
         }
@@ -247,6 +260,7 @@
             font-weight: 600;
             color: var(--dark);
             box-shadow: var(--shadow-sm);
+            min-width: 80px;
         }
 
         .control-btn:hover {
@@ -273,6 +287,8 @@
             display: flex;
             flex-direction: column;
             gap: 1.5rem;
+            height: 100%;
+            overflow-y: auto;
         }
 
         .sidebar-card {
@@ -297,7 +313,7 @@
             color: var(--accent);
         }
 
-        /* Avatar Selection */
+        /* Avatar Selection - Fixed */
         .avatar-grid {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
@@ -396,18 +412,18 @@
 
         /* Chat Section */
         .chat-messages {
-            height: 300px;
+            height: 200px;
             overflow-y: auto;
             display: flex;
             flex-direction: column;
-            gap: 1rem;
+            gap: 0.8rem;
             margin-bottom: 1rem;
         }
 
         .message {
-            padding: 0.8rem;
+            padding: 0.6rem;
             border-radius: var(--border-radius);
-            max-width: 80%;
+            max-width: 90%;
         }
 
         .message.own {
@@ -423,15 +439,15 @@
 
         .message-sender {
             font-weight: 600;
-            font-size: 0.8rem;
-            margin-bottom: 0.3rem;
+            font-size: 0.7rem;
+            margin-bottom: 0.2rem;
         }
 
         .message-time {
-            font-size: 0.7rem;
+            font-size: 0.6rem;
             opacity: 0.7;
             text-align: right;
-            margin-top: 0.3rem;
+            margin-top: 0.2rem;
         }
 
         .chat-input {
@@ -441,17 +457,17 @@
 
         .chat-input input {
             flex: 1;
-            padding: 0.8rem;
+            padding: 0.6rem;
             border: 1px solid #e2e8f0;
             border-radius: var(--border-radius);
-            font-size: 0.9rem;
+            font-size: 0.8rem;
         }
 
         .chat-input button {
             background: var(--accent);
             color: white;
             border: none;
-            padding: 0.8rem 1.2rem;
+            padding: 0.6rem 1rem;
             border-radius: var(--border-radius);
             cursor: pointer;
             transition: all 0.3s ease;
@@ -461,53 +477,13 @@
             background: var(--primary);
         }
 
-        /* Memo Section */
-        .memo-content {
-            height: 300px;
-            overflow-y: auto;
-            background: var(--light);
-            border-radius: var(--border-radius);
-            padding: 1rem;
-            margin-bottom: 1rem;
-            font-size: 0.9rem;
-            line-height: 1.5;
-        }
-
-        .memo-actions {
-            display: flex;
-            gap: 0.5rem;
-        }
-
-        .memo-actions button {
-            flex: 1;
-            padding: 0.8rem;
-            border: none;
-            border-radius: var(--border-radius);
-            cursor: pointer;
-            transition: all 0.3s ease;
-            font-weight: 600;
-        }
-
-        .memo-actions .save-btn {
-            background: var(--success);
-            color: white;
-        }
-
-        .memo-actions .clear-btn {
-            background: var(--light);
-            color: var(--dark);
-        }
-
-        .memo-actions button:hover {
-            transform: translateY(-2px);
-            box-shadow: var(--shadow-sm);
-        }
-
         /* Participants */
         .participants-list {
             display: flex;
             flex-direction: column;
             gap: 0.8rem;
+            max-height: 200px;
+            overflow-y: auto;
         }
 
         .participant {
@@ -520,8 +496,8 @@
         }
 
         .participant-avatar {
-            width: 40px;
-            height: 40px;
+            width: 35px;
+            height: 35px;
             border-radius: 50%;
             background: var(--gradient-primary);
             display: flex;
@@ -529,6 +505,7 @@
             justify-content: center;
             color: white;
             font-weight: 600;
+            font-size: 0.8rem;
         }
 
         .participant-info {
@@ -537,23 +514,24 @@
 
         .participant-name {
             font-weight: 600;
+            font-size: 0.9rem;
         }
 
         .participant-status {
-            font-size: 0.8rem;
+            font-size: 0.7rem;
             color: var(--gray);
         }
 
         /* Empty State */
         .empty-state {
             text-align: center;
-            padding: 3rem 2rem;
+            padding: 2rem 1rem;
             color: var(--gray);
         }
 
         .empty-icon {
-            font-size: 3rem;
-            margin-bottom: 1rem;
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
             color: #ddd;
         }
 
@@ -616,6 +594,129 @@
             color: var(--dark);
         }
 
+        /* Recording Controls */
+        .recording-controls {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .control-btn.recording {
+            background: var(--error);
+            color: white;
+        }
+
+        .control-btn.stop-recording {
+            background: var(--success);
+            color: white;
+        }
+
+        .control-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+
+        .control-btn:disabled:hover {
+            transform: none !important;
+            box-shadow: var(--shadow-sm) !important;
+        }
+
+        .recording-status {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.8rem;
+            background: var(--light);
+            border-radius: var(--border-radius);
+            font-size: 0.9rem;
+            font-weight: 600;
+        }
+
+        .recording-status.recording {
+            background: rgba(239, 68, 68, 0.1);
+            color: var(--error);
+        }
+
+        .recording-status i {
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+
+        .recording-timer {
+            text-align: center;
+            font-family: monospace;
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: var(--dark);
+            padding: 0.5rem;
+            background: var(--light);
+            border-radius: var(--border-radius);
+        }
+
+        .recordings-list {
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .recording-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.8rem;
+            background: var(--light);
+            border-radius: var(--border-radius);
+            margin-bottom: 0.5rem;
+        }
+
+        .recording-info {
+            flex: 1;
+        }
+
+        .recording-name {
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+
+        .recording-details {
+            font-size: 0.7rem;
+            color: var(--gray);
+            display: flex;
+            gap: 1rem;
+        }
+
+        .recording-actions {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .recording-action-btn {
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 0.3rem;
+            border-radius: 4px;
+            transition: all 0.3s ease;
+            color: var(--primary);
+        }
+
+        .recording-action-btn:hover {
+            background: rgba(0, 0, 0, 0.1);
+        }
+
+        .no-recordings {
+            text-align: center;
+            padding: 1rem;
+            color: var(--gray);
+            font-style: italic;
+        }
+
         .form-control {
             width: 100%;
             padding: 0.8rem 1rem;
@@ -660,13 +761,18 @@
                 grid-template-columns: 1fr;
             }
             
+            .participants-sidebar {
+                max-height: 300px;
+            }
+            
             .controls {
                 flex-wrap: wrap;
             }
             
             .control-btn {
                 flex: 1;
-                min-width: 120px;
+                min-width: 70px;
+                padding: 0.6rem 1rem;
             }
             
             .avatar-grid {
@@ -729,25 +835,31 @@
                 <!-- Video Section -->
                 <div class="video-section">
                     <div class="video-grid" id="videoGrid">
-                        <!-- Main Video (You) -->
-                        <div class="video-container main-video" id="localVideoContainer">
-                            <video id="localVideo" autoplay muted></video>
-                            <div class="user-info">
-                                <div class="user-name" id="localUserName">You</div>
-                                <div class="user-status">
-                                    <div class="status-indicator" id="audioStatus"></div>
-                                    <span>Audio</span>
+                        <!-- Main Video Area -->
+                        <div class="main-video-area">
+                            <!-- Main Video (You) -->
+                            <div class="video-container main-video" id="localVideoContainer">
+                                <video id="localVideo" autoplay muted></video>
+                                <div class="user-info">
+                                    <div class="user-name" id="localUserName">You</div>
+                                    <div class="user-status">
+                                        <div class="status-indicator" id="audioStatus"></div>
+                                        <span>Audio</span>
+                                    </div>
                                 </div>
                             </div>
                         </div>
 
-                        <!-- Empty state for other participants -->
-                        <div class="empty-state" id="emptyParticipants">
-                            <div class="empty-icon">
-                                <i class="fas fa-users"></i>
+                        <!-- Participants Sidebar -->
+                        <div class="participants-sidebar" id="participantsSidebar">
+                            <!-- Empty state for other participants -->
+                            <div class="empty-state" id="emptyParticipants">
+                                <div class="empty-icon">
+                                    <i class="fas fa-users"></i>
+                                </div>
+                                <h3>Waiting for participants</h3>
+                                <p>Share the meeting code with others</p>
                             </div>
-                            <h3>Waiting for participants to join</h3>
-                            <p>Share the meeting code with others to start the video conference</p>
                         </div>
                     </div>
 
@@ -759,15 +871,15 @@
                         </button>
                         <button class="control-btn" id="cameraToggle">
                             <i class="fas fa-video"></i>
-                            <span>Stop Video</span>
+                            <span>Video</span>
                         </button>
                         <button class="control-btn" id="screenShare">
                             <i class="fas fa-desktop"></i>
-                            <span>Share Screen</span>
+                            <span>Share</span>
                         </button>
                         <button class="control-btn" id="avatarToggle">
                             <i class="fas fa-robot"></i>
-                            <span>Avatar Mode</span>
+                            <span>Avatar</span>
                         </button>
                         <button class="control-btn leave" id="leaveMeeting">
                             <i class="fas fa-phone-slash"></i>
@@ -778,6 +890,32 @@
 
                 <!-- Sidebar -->
                 <div class="sidebar">
+                    <!-- Recording Section - FIXED: Separate card -->
+                    <div class="sidebar-card">
+                        <h3 class="card-title">
+                            <i class="fas fa-record-vinyl"></i>
+                            Meeting Recording
+                        </h3>
+                        <div class="recording-controls">
+                            <button class="control-btn recording" id="startRecording">
+                                <i class="fas fa-circle"></i>
+                                <span>Start Recording</span>
+                            </button>
+                            <button class="control-btn stop-recording" id="stopRecording" disabled>
+                                <i class="fas fa-square"></i>
+                                <span>Stop Recording</span>
+                            </button>
+                            <div class="recording-status" id="recordingStatus">
+                                <i class="fas fa-circle"></i>
+                                <span>Ready to record</span>
+                            </div>
+                            <div class="recording-timer" id="recordingTimer">00:00:00</div>
+                        </div>
+                        <div class="recordings-list" id="recordingsList">
+                            <!-- Previous recordings will appear here -->
+                        </div>
+                    </div>
+
                     <!-- Avatar Selection -->
                     <div class="sidebar-card">
                         <h3 class="card-title">
@@ -884,6 +1022,7 @@
         const joinForm = document.getElementById('joinForm');
         const localVideo = document.getElementById('localVideo');
         const videoGrid = document.getElementById('videoGrid');
+        const participantsSidebar = document.getElementById('participantsSidebar');
         const emptyParticipants = document.getElementById('emptyParticipants');
         const micToggle = document.getElementById('micToggle');
         const cameraToggle = document.getElementById('cameraToggle');
@@ -904,6 +1043,13 @@
         const localUserName = document.getElementById('localUserName');
         const localParticipantName = document.getElementById('localParticipantName');
 
+        // Recording DOM Elements
+        const startRecording = document.getElementById('startRecording');
+        const stopRecording = document.getElementById('stopRecording');
+        const recordingStatus = document.getElementById('recordingStatus');
+        const recordingTimer = document.getElementById('recordingTimer');
+        const recordingsList = document.getElementById('recordingsList');
+
         // State Management
         let isAudioMuted = false;
         let isVideoOff = false;
@@ -917,6 +1063,15 @@
         let userName = 'User';
         let userEmail = '';
         let isHost = false;
+
+        // Recording State Management
+        let isRecording = false;
+        let mediaRecorder = null;
+        let audioChunks = [];
+        let recordingStartTime = null;
+        let recordingTimerInterval = null;
+        let audioContext = null;
+        let audioDestination = null;
 
         // WebRTC Configuration
         const configuration = {
@@ -1013,6 +1168,9 @@
             if (isHost) {
                 copyMeetingId.style.display = 'flex';
             }
+
+            // Load recordings list
+            loadRecordingsList();
         }
 
         // Copy meeting ID
@@ -1107,6 +1265,24 @@
                 updateParticipantsList(data.participants);
             });
 
+            // Avatar events
+            socket.on('peer-avatar', (data) => {
+                updatePeerAvatar(data.peerId, data.avatar, data.name);
+            });
+
+            socket.on('avatar-off', (data) => {
+                removePeerAvatar(data.peerId, data.name);
+            });
+
+            // Recording events
+            socket.on('recording-started', (data) => {
+                showNotification('Recording started in this meeting', 'success');
+            });
+
+            socket.on('recording-stopped', (data) => {
+                showNotification('Recording stopped', 'success');
+            });
+
             socket.on('join-error', (data) => {
                 showNotification(data.message, 'error');
                 setTimeout(() => {
@@ -1133,7 +1309,6 @@
             }
         }
 
-        // [Rest of the WebRTC functions remain the same as previous implementation]
         // Create a new peer connection
         function createPeerConnection(peerId, isInitiator) {
             if (peers[peerId]) {
@@ -1254,7 +1429,7 @@
             removeRemoteVideo(peerId);
 
             const videoContainer = document.createElement('div');
-            videoContainer.className = 'video-container';
+            videoContainer.className = 'video-container side-video';
             videoContainer.id = `video-${peerId}`;
             
             const video = document.createElement('video');
@@ -1276,8 +1451,8 @@
             videoContainer.appendChild(video);
             videoContainer.appendChild(userInfo);
             
-            // Insert before empty state
-            videoGrid.insertBefore(videoContainer, emptyParticipants);
+            // Insert into participants sidebar
+            participantsSidebar.insertBefore(videoContainer, emptyParticipants);
             
             // Hide empty state
             emptyParticipants.style.display = 'none';
@@ -1293,9 +1468,51 @@
             }
             
             // Show empty state if no remote videos
-            const remoteVideos = videoGrid.querySelectorAll('.video-container:not(.main-video)');
+            const remoteVideos = participantsSidebar.querySelectorAll('.video-container');
             if (remoteVideos.length === 0) {
                 emptyParticipants.style.display = 'block';
+            }
+        }
+
+        // Update peer avatar
+        function updatePeerAvatar(peerId, avatar, name) {
+            const videoContainer = document.getElementById(`video-${peerId}`);
+            if (videoContainer) {
+                const video = videoContainer.querySelector('video');
+                const avatarDisplay = videoContainer.querySelector('.avatar-display');
+                
+                if (video) video.style.display = 'none';
+                
+                if (!avatarDisplay) {
+                    const newAvatarDisplay = document.createElement('div');
+                    newAvatarDisplay.className = 'avatar-display';
+                    newAvatarDisplay.innerHTML = `<i class="fas fa-${getAvatarIcon(avatar)}"></i>`;
+                    videoContainer.appendChild(newAvatarDisplay);
+                } else {
+                    avatarDisplay.innerHTML = `<i class="fas fa-${getAvatarIcon(avatar)}"></i>`;
+                }
+                
+                const userInfo = videoContainer.querySelector('.user-info');
+                if (userInfo) {
+                    userInfo.querySelector('.user-name').textContent = `${name} (Avatar)`;
+                }
+            }
+        }
+
+        // Remove peer avatar
+        function removePeerAvatar(peerId, name) {
+            const videoContainer = document.getElementById(`video-${peerId}`);
+            if (videoContainer) {
+                const video = videoContainer.querySelector('video');
+                const avatarDisplay = videoContainer.querySelector('.avatar-display');
+                
+                if (video) video.style.display = 'block';
+                if (avatarDisplay) avatarDisplay.remove();
+                
+                const userInfo = videoContainer.querySelector('.user-info');
+                if (userInfo) {
+                    userInfo.querySelector('.user-name').textContent = name;
+                }
             }
         }
 
@@ -1389,6 +1606,10 @@
             avatarToggle.addEventListener('click', toggleAvatarMode);
             leaveMeeting.addEventListener('click', leaveMeetingHandler);
 
+            // Recording controls
+            startRecording.addEventListener('click', startAudioRecording);
+            stopRecording.addEventListener('click', stopAudioRecording);
+
             // Avatar selection
             document.querySelectorAll('.avatar-option').forEach(option => {
                 option.addEventListener('click', function() {
@@ -1397,13 +1618,23 @@
                     });
                     this.classList.add('selected');
                     selectedAvatar = this.dataset.avatar;
+                    
+                    // If avatar mode is on, update display immediately
                     if (isAvatarMode) {
                         updateAvatarDisplay();
+                        // Broadcast avatar change to other participants
+                        socket.emit('set-avatar', {
+                            roomId: currentRoom,
+                            avatar: selectedAvatar,
+                            name: userName
+                        });
                     }
+                    
+                    showNotification(`Selected ${this.querySelector('.avatar-name').textContent} avatar`, 'success');
                 });
             });
 
-            // Avatar mode toggle
+            // Avatar mode toggle switch
             avatarModeSwitch.addEventListener('change', function() {
                 isAvatarMode = this.checked;
                 avatarToggle.classList.toggle('active', isAvatarMode);
@@ -1411,8 +1642,19 @@
                 
                 if (isAvatarMode) {
                     showNotification('Avatar mode activated', 'success');
+                    // Broadcast avatar to other participants
+                    socket.emit('set-avatar', {
+                        roomId: currentRoom,
+                        avatar: selectedAvatar,
+                        name: userName
+                    });
                 } else {
                     showNotification('Avatar mode deactivated', 'success');
+                    // Notify others that avatar is off
+                    socket.emit('avatar-off', {
+                        roomId: currentRoom,
+                        name: userName
+                    });
                 }
             });
 
@@ -1449,15 +1691,19 @@
                 });
             }
             cameraToggle.innerHTML = isVideoOff ? 
-                '<i class="fas fa-video-slash"></i><span>Start Video</span>' : 
-                '<i class="fas fa-video"></i><span>Stop Video</span>';
+                '<i class="fas fa-video-slash"></i><span>Video</span>' : 
+                '<i class="fas fa-video"></i><span>Video</span>';
             cameraToggle.classList.toggle('active', isVideoOff);
                 
             const status = isVideoOff ? 'turned off' : 'turned on';
             showNotification(`Video ${status}`, 'success');
             
-            if (isAvatarMode) {
-                updateAvatarDisplay();
+            // If avatar mode is on and we're turning video back on, ask if they want to disable avatar mode
+            if (isAvatarMode && !isVideoOff) {
+                const disableAvatar = confirm('You are turning video back on. Would you like to disable avatar mode?');
+                if (disableAvatar) {
+                    toggleAvatarMode();
+                }
             }
         }
 
@@ -1541,18 +1787,28 @@
             updateAvatarDisplay();
             
             if (isAvatarMode) {
-                showNotification('Avatar mode activated', 'success');
+                showNotification('Avatar mode activated - Your video is replaced with avatar', 'success');
+                // Broadcast avatar to other participants
+                socket.emit('set-avatar', {
+                    roomId: currentRoom,
+                    avatar: selectedAvatar,
+                    name: userName
+                });
             } else {
-                showNotification('Avatar mode deactivated', 'success');
+                showNotification('Avatar mode deactivated - Your video is restored', 'success');
+                // Notify others that avatar is off
+                socket.emit('avatar-off', {
+                    roomId: currentRoom,
+                    name: userName
+                });
             }
         }
 
-        // Update avatar display based on mode
         function updateAvatarDisplay() {
             const mainVideoContainer = document.getElementById('localVideoContainer');
             
-            if (isAvatarMode && isVideoOff) {
-                // Show avatar when video is off
+            if (isAvatarMode) {
+                // Show avatar immediately when avatar mode is on (regardless of video state)
                 localVideo.style.display = 'none';
                 let avatarDisplay = mainVideoContainer.querySelector('.avatar-display');
                 if (!avatarDisplay) {
@@ -1562,14 +1818,28 @@
                 }
                 avatarDisplay.innerHTML = `<i class="fas fa-${getAvatarIcon(selectedAvatar)}"></i>`;
                 localUserName.textContent = `${userName} (Avatar)`;
+                
+                // Also disable the video track so others don't see your video
+                if (localStream) {
+                    localStream.getVideoTracks().forEach(track => {
+                        track.enabled = false;
+                    });
+                }
             } else {
-                // Show video
+                // Show video when avatar mode is off
                 localVideo.style.display = 'block';
                 const avatarDisplay = mainVideoContainer.querySelector('.avatar-display');
                 if (avatarDisplay) {
                     avatarDisplay.remove();
                 }
                 localUserName.textContent = userName + (isHost ? ' (Host)' : '');
+                
+                // Re-enable video track if it was disabled
+                if (localStream) {
+                    localStream.getVideoTracks().forEach(track => {
+                        track.enabled = true;
+                    });
+                }
             }
         }
 
@@ -1619,8 +1889,264 @@
             chatMessages.scrollTop = chatMessages.scrollHeight;
         }
 
+        // ========== RECORDING FUNCTIONS ==========
+
+        // Start audio recording
+        async function startAudioRecording() {
+            try {
+                // Create audio context for mixing
+                audioContext = new AudioContext();
+                audioDestination = audioContext.createMediaStreamDestination();
+                
+                // Mix local audio
+                if (localStream && localStream.getAudioTracks().length > 0) {
+                    const localSource = audioContext.createMediaStreamSource(localStream);
+                    localSource.connect(audioDestination);
+                }
+                
+                // Mix remote audio streams
+                Object.values(peers).forEach(peer => {
+                    const remoteStream = peer.getRemoteStreams()[0];
+                    if (remoteStream && remoteStream.getAudioTracks().length > 0) {
+                        const remoteSource = audioContext.createMediaStreamSource(remoteStream);
+                        remoteSource.connect(audioDestination);
+                    }
+                });
+                
+                // Create media recorder
+                mediaRecorder = new MediaRecorder(audioDestination.stream);
+                audioChunks = [];
+                
+                mediaRecorder.ondataavailable = (event) => {
+                    if (event.data.size > 0) {
+                        audioChunks.push(event.data);
+                    }
+                };
+                
+                mediaRecorder.onstop = saveRecording;
+                
+                // Start recording
+                mediaRecorder.start(1000); // Collect data every second
+                isRecording = true;
+                
+                // Update UI
+                startRecording.disabled = true;
+                stopRecording.disabled = false;
+                recordingStatus.innerHTML = '<i class="fas fa-circle"></i><span>Recording in progress...</span>';
+                recordingStatus.classList.add('recording');
+                
+                // Start timer
+                recordingStartTime = new Date();
+                startRecordingTimer();
+                
+                // Notify server and other participants
+                socket.emit('start-recording', {
+                    roomId: currentRoom,
+                    userEmail: userEmail,
+                    recordingId: `rec_${Date.now()}`
+                });
+                
+                showNotification('Recording started', 'success');
+                
+            } catch (error) {
+                console.error('Error starting recording:', error);
+                showNotification('Failed to start recording', 'error');
+            }
+        }
+
+        // Stop audio recording
+        function stopAudioRecording() {
+            if (mediaRecorder && isRecording) {
+                mediaRecorder.stop();
+                isRecording = false;
+                
+                // Update UI
+                startRecording.disabled = false;
+                stopRecording.disabled = true;
+                recordingStatus.innerHTML = '<i class="fas fa-check-circle"></i><span>Recording saved</span>';
+                recordingStatus.classList.remove('recording');
+                
+                // Stop timer
+                stopRecordingTimer();
+                
+                // Clean up audio context
+                if (audioContext) {
+                    audioContext.close();
+                    audioContext = null;
+                }
+                
+                // Notify server and other participants
+                socket.emit('stop-recording', {
+                    roomId: currentRoom,
+                    recordingId: `rec_${Date.now()}`
+                });
+                
+                showNotification('Recording stopped and saved', 'success');
+            }
+        }
+
+        // Save recording
+        function saveRecording() {
+            const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+            const recordingId = 'recording_' + Date.now();
+            const duration = Math.floor((new Date() - recordingStartTime) / 1000);
+            
+            // Create recording object
+            const recording = {
+                id: recordingId,
+                timestamp: new Date().toISOString(),
+                duration: duration,
+                size: audioBlob.size,
+                blob: audioBlob
+            };
+            
+            // Convert blob to base64 for storage
+            const reader = new FileReader();
+            reader.onload = function() {
+                const base64data = reader.result;
+                recording.blob = base64data;
+                
+                // Save to localStorage
+                saveRecordingToStorage(recording);
+                
+                // Update recordings list
+                loadRecordingsList();
+            };
+            reader.readAsDataURL(audioBlob);
+        }
+
+        // Save recording to storage
+        function saveRecordingToStorage(recording) {
+            let recordings = JSON.parse(localStorage.getItem('meetingRecordings') || '[]');
+            recordings.unshift(recording); // Add to beginning
+            localStorage.setItem('meetingRecordings', JSON.stringify(recordings));
+        }
+
+        // Load recordings list
+        function loadRecordingsList() {
+            const recordings = JSON.parse(localStorage.getItem('meetingRecordings') || '[]');
+            
+            if (recordings.length === 0) {
+                recordingsList.innerHTML = '<div class="no-recordings">No recordings yet</div>';
+                return;
+            }
+            
+            recordingsList.innerHTML = recordings.map(recording => `
+                <div class="recording-item">
+                    <div class="recording-info">
+                        <div class="recording-name">Meeting Recording</div>
+                        <div class="recording-details">
+                            <span>${new Date(recording.timestamp).toLocaleDateString()}</span>
+                            <span>${formatTime(recording.duration)}</span>
+                            <span>${formatFileSize(recording.size)}</span>
+                        </div>
+                    </div>
+                    <div class="recording-actions">
+                        <button class="recording-action-btn" onclick="playRecording('${recording.id}')" title="Play">
+                            <i class="fas fa-play"></i>
+                        </button>
+                        <button class="recording-action-btn" onclick="downloadRecording('${recording.id}')" title="Download">
+                            <i class="fas fa-download"></i>
+                        </button>
+                        <button class="recording-action-btn" onclick="deleteRecording('${recording.id}')" title="Delete">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Play recording
+        function playRecording(recordingId) {
+            const recordings = JSON.parse(localStorage.getItem('meetingRecordings') || '[]');
+            const recording = recordings.find(r => r.id === recordingId);
+            
+            if (recording) {
+                const audio = new Audio(recording.blob);
+                audio.play().catch(error => {
+                    console.error('Error playing recording:', error);
+                    showNotification('Error playing recording', 'error');
+                });
+            }
+        }
+
+        // Download recording
+        function downloadRecording(recordingId) {
+            const recordings = JSON.parse(localStorage.getItem('meetingRecordings') || '[]');
+            const recording = recordings.find(r => r.id === recordingId);
+            
+            if (recording) {
+                // Convert base64 back to blob
+                const binaryString = atob(recording.blob.split(',')[1]);
+                const bytes = new Uint8Array(binaryString.length);
+                for (let i = 0; i < binaryString.length; i++) {
+                    bytes[i] = binaryString.charCodeAt(i);
+                }
+                const blob = new Blob([bytes], { type: 'audio/webm' });
+                
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `meeting-recording-${new Date(recording.timestamp).toISOString().split('T')[0]}.webm`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                
+                showNotification('Recording download started', 'success');
+            }
+        }
+
+        // Delete recording
+        function deleteRecording(recordingId) {
+            if (confirm('Are you sure you want to delete this recording?')) {
+                let recordings = JSON.parse(localStorage.getItem('meetingRecordings') || '[]');
+                recordings = recordings.filter(r => r.id !== recordingId);
+                localStorage.setItem('meetingRecordings', JSON.stringify(recordings));
+                loadRecordingsList();
+                showNotification('Recording deleted', 'success');
+            }
+        }
+
+        // Timer functions
+        function startRecordingTimer() {
+            recordingTimerInterval = setInterval(() => {
+                const elapsed = Math.floor((new Date() - recordingStartTime) / 1000);
+                recordingTimer.textContent = formatTime(elapsed);
+            }, 1000);
+        }
+
+        function stopRecordingTimer() {
+            if (recordingTimerInterval) {
+                clearInterval(recordingTimerInterval);
+                recordingTimerInterval = null;
+            }
+            recordingTimer.textContent = '00:00:00';
+        }
+
+        // Utility functions
+        function formatTime(seconds) {
+            const hrs = Math.floor(seconds / 3600);
+            const mins = Math.floor((seconds % 3600) / 60);
+            const secs = seconds % 60;
+            return `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+        }
+
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
         // Leave meeting handler
         function leaveMeetingHandler() {
+            // Stop recording if active
+            if (isRecording) {
+                stopAudioRecording();
+            }
+            
             if (confirm('Are you sure you want to leave the meeting?')) {
                 // Stop all media tracks
                 if (localStream) {
