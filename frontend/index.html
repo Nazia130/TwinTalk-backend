@@ -720,6 +720,26 @@
                 display: flex;
             }
         }
+        /* Add to your existing CSS */
+.validate-message {
+    font-size: 0.8rem;
+    margin-top: 0.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.validate-message.valid {
+    color: var(--success);
+}
+
+.validate-message.invalid {
+    color: var(--error);
+}
+
+.validate-message.loading {
+    color: var(--warning);
+}
 
         @media (max-width: 768px) {
             .hero h1 {
@@ -1227,38 +1247,203 @@
         });
 
         // Confirm create meeting
-        confirmCreateMeeting.addEventListener('click', () => {
-            const userName = document.getElementById('userName').value;
-            const meetingTitle = document.getElementById('meetingTitle').value;
-            if (userName && meetingTitle) {
-                alert(`Meeting "${meetingTitle}" created successfully! Redirecting to meeting...`);
+        // In index.html, replace the confirm create meeting handler:
+confirmCreateMeeting.addEventListener('click', async () => {
+    const userName = document.getElementById('userName').value;
+    const meetingTitle = document.getElementById('meetingTitle').value;
+    
+    if (userName && meetingTitle) {
+        try {
+            // Show loading state
+            confirmCreateMeeting.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Creating...';
+            confirmCreateMeeting.disabled = true;
+            
+            // Create meeting on server
+            const response = await fetch('/api/create-meeting', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    userName: userName,
+                    meetingTitle: meetingTitle
+                })
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                // Store meeting data in localStorage
+                const meetingData = {
+                    roomId: result.meetingCode,
+                    userName: userName,
+                    isHost: true,
+                    meetingTitle: meetingTitle
+                };
+                localStorage.setItem('currentMeeting', JSON.stringify(meetingData));
+                
+                alert(`Meeting "${meetingTitle}" created!\n\nYour meeting code is: ${result.meetingCode}\n\nShare this code with others to join.`);
                 closeModals();
                 document.getElementById('createMeetingForm').reset();
+                
                 // Redirect to meeting page
                 setTimeout(() => {
                     window.location.href = 'meeting.html';
                 }, 1000);
             } else {
-                alert('Please enter both your name and meeting title');
+                alert('Failed to create meeting: ' + result.message);
             }
-        });
+            
+        } catch (error) {
+            console.error('Error creating meeting:', error);
+            alert('Failed to create meeting. Please try again.');
+        } finally {
+            // Reset button state
+            confirmCreateMeeting.innerHTML = 'Create Meeting';
+            confirmCreateMeeting.disabled = false;
+        }
+    } else {
+        alert('Please enter both your name and meeting title');
+    }
+});
 
-        // Confirm join meeting
-        confirmJoinMeeting.addEventListener('click', () => {
-            const joinUserName = document.getElementById('joinUserName').value;
-            const meetingLink = document.getElementById('meetingLink').value;
-            if (joinUserName && meetingLink) {
+// Replace the confirm join meeting handler:
+confirmJoinMeeting.addEventListener('click', async () => {
+    const joinUserName = document.getElementById('joinUserName').value;
+    const meetingLink = document.getElementById('meetingLink').value;
+    
+    if (joinUserName && meetingLink) {
+        try {
+            // Show loading state
+            confirmJoinMeeting.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Validating...';
+            confirmJoinMeeting.disabled = true;
+            
+            // Extract meeting code
+            const meetingCode = extractMeetingCode(meetingLink);
+            
+            if (!meetingCode) {
+                alert('Please enter a valid meeting code');
+                return;
+            }
+            
+            // Validate meeting code with server
+            const response = await fetch(`/api/validate-meeting/${meetingCode}`);
+            const result = await response.json();
+            
+            if (result.success && result.valid) {
+                // Store meeting data in localStorage
+                const meetingData = {
+                    roomId: meetingCode,
+                    userName: joinUserName,
+                    isHost: false,
+                    meetingTitle: result.meetingTitle || 'Meeting'
+                };
+                localStorage.setItem('currentMeeting', JSON.stringify(meetingData));
+                
                 alert(`Joining meeting as ${joinUserName}...`);
                 closeModals();
                 document.getElementById('joinMeetingForm').reset();
-                // Redirect to join page
+                
+                // Redirect to meeting page
                 setTimeout(() => {
-                    window.location.href = 'join.html';
+                    window.location.href = 'meeting.html';
                 }, 1000);
             } else {
-                alert('Please enter both your name and meeting link');
+                alert(result.message || 'Invalid meeting code. Please check and try again.');
             }
-        });
+            
+        } catch (error) {
+            console.error('Error joining meeting:', error);
+            alert('Failed to join meeting. Please try again.');
+        } finally {
+            // Reset button state
+            confirmJoinMeeting.innerHTML = 'Join Meeting';
+            confirmJoinMeeting.disabled = false;
+        }
+    } else {
+        alert('Please enter both your name and meeting code');
+    }
+});
+
+// Add real-time validation for meeting code input
+document.getElementById('meetingLink').addEventListener('input', async function() {
+    const meetingCode = extractMeetingCode(this.value);
+    const validateMessage = document.getElementById('validateMessage') || createValidateMessage();
+    
+    if (meetingCode && meetingCode.length >= 6) {
+        try {
+            validateMessage.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Checking code...';
+            validateMessage.style.color = 'var(--warning)';
+            
+            const response = await fetch(`/api/validate-meeting/${meetingCode}`);
+            const result = await response.json();
+            
+            if (result.success && result.valid) {
+                validateMessage.innerHTML = `<i class="fas fa-check-circle"></i> Valid meeting found! (${result.participantCount} participants)`;
+                validateMessage.style.color = 'var(--success)';
+                confirmJoinMeeting.disabled = false;
+            } else {
+                validateMessage.innerHTML = '<i class="fas fa-times-circle"></i> ' + (result.message || 'Meeting not found');
+                validateMessage.style.color = 'var(--error)';
+                confirmJoinMeeting.disabled = true;
+            }
+        } catch (error) {
+            validateMessage.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Could not validate code';
+            validateMessage.style.color = 'var(--warning)';
+        }
+    } else {
+        validateMessage.innerHTML = 'Enter a meeting code to validate';
+        validateMessage.style.color = 'var(--gray)';
+        confirmJoinMeeting.disabled = false;
+    }
+});
+
+// Helper function to create validation message element
+function createValidateMessage() {
+    const inputGroup = document.getElementById('meetingLink').parentElement;
+    const validateMessage = document.createElement('div');
+    validateMessage.id = 'validateMessage';
+    validateMessage.style.fontSize = '0.8rem';
+    validateMessage.style.marginTop = '0.5rem';
+    validateMessage.style.display = 'flex';
+    validateMessage.style.alignItems = 'center';
+    validateMessage.style.gap = '0.5rem';
+    validateMessage.innerHTML = 'Enter a meeting code to validate';
+    validateMessage.style.color = 'var(--gray)';
+    inputGroup.appendChild(validateMessage);
+    return validateMessage;
+}
+
+// Helper functions
+function generateMeetingCode() {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    let result = '';
+    for (let i = 0; i < 8; i++) {
+        result += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return result;
+}
+
+function extractMeetingCode(link) {
+    // Remove any whitespace and convert to uppercase
+    const cleanLink = link.trim().toUpperCase();
+    
+    // If it's already a code (no spaces, 6-10 alphanumeric chars), use as-is
+    if (/^[A-Z0-9]{6,10}$/.test(cleanLink)) {
+        return cleanLink;
+    }
+    
+    // Try to extract code from URL parameters
+    const urlParams = new URLSearchParams(cleanLink);
+    const codeParam = urlParams.get('MEETING') || urlParams.get('CODE') || urlParams.get('ID');
+    if (codeParam && /^[A-Z0-9]{6,10}$/.test(codeParam)) {
+        return codeParam;
+    }
+    
+    // Try to find a code-like pattern in the string
+    const codeMatch = cleanLink.match(/[A-Z0-9]{6,10}/);
+    return codeMatch ? codeMatch[0] : null;
+}
 
         // Form submission handlers
         document.getElementById('contactForm').addEventListener('submit', function(e) {

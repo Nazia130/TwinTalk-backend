@@ -1,12 +1,10 @@
-// server.js – TwinTalk full server (auth + signalling + history + recording)
+// server.js - Updated WebRTC signaling logic with meeting validation
 const express = require("express");
 const http = require("http");
 const { Server } = require("socket.io");
 const path = require("path");
 const fs = require("fs");
 const bodyParser = require("body-parser");
-const nodemailer = require("nodemailer");
-const admin = require("firebase-admin");
 
 const app = express();
 const server = http.createServer(app);
@@ -49,6 +47,10 @@ const recordingsDB = path.join(__dirname, 'recordings.json');
 
 // Store active recording sessions
 const activeRecordings = new Map();
+
+// Store active meetings and peers
+const activeMeetings = new Map(); // meetingId -> { participants: Map(socketId -> userData), createdAt, host, meetingTitle, createdBy }
+const roomPeers = {}; // store { roomId: { [socketId]: { name, avatar } } }
 
 // Ensure recordings directory exists
 function ensureRecordingsDir() {
@@ -110,6 +112,118 @@ function appendUser({ name, email, password }) {
   )}\n`;
   fs.appendFileSync(signupFile, line, "utf8");
 }
+
+// ---------- MEETING MANAGEMENT APIs ----------
+
+// Function to generate meeting code
+function generateMeetingCode() {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    let result = '';
+    for (let i = 0; i < 8; i++) {
+        result += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return result;
+}
+
+// API endpoint to create a meeting
+app.post("/api/create-meeting", (req, res) => {
+    try {
+        const { userName, meetingTitle } = req.body;
+        
+        if (!userName) {
+            return res.status(400).json({ success: false, message: "User name is required" });
+        }
+        
+        let meetingCode;
+        let attempts = 0;
+        
+        // Generate unique meeting code
+        do {
+            meetingCode = generateMeetingCode();
+            attempts++;
+        } while (activeMeetings.has(meetingCode) && attempts < 10);
+        
+        if (attempts >= 10) {
+            return res.status(500).json({ success: false, message: "Could not generate unique meeting code" });
+        }
+        
+        // Create meeting
+        activeMeetings.set(meetingCode, {
+            participants: new Map(),
+            createdAt: new Date(),
+            host: null, // will be set when host joins
+            meetingTitle: meetingTitle || "Untitled Meeting",
+            createdBy: userName
+        });
+        
+        console.log(`✅ Meeting created: ${meetingCode} by ${userName}`);
+        
+        res.json({
+            success: true,
+            meetingCode: meetingCode,
+            message: "Meeting created successfully"
+        });
+        
+    } catch (error) {
+        console.error("Create meeting error:", error);
+        res.status(500).json({ success: false, message: "Failed to create meeting" });
+    }
+});
+
+// API endpoint to validate meeting code
+app.get("/api/validate-meeting/:meetingCode", (req, res) => {
+    try {
+        const meetingCode = req.params.meetingCode;
+        
+        if (!meetingCode) {
+            return res.status(400).json({ success: false, message: "Meeting code is required" });
+        }
+        
+        const meeting = activeMeetings.get(meetingCode);
+        
+        if (!meeting) {
+            return res.json({ 
+                success: false, 
+                valid: false,
+                message: "Meeting not found. Please check the code and try again." 
+            });
+        }
+        
+        res.json({
+            success: true,
+            valid: true,
+            meetingCode: meetingCode,
+            meetingTitle: meeting.meetingTitle,
+            createdAt: meeting.createdAt,
+            participantCount: meeting.participants.size
+        });
+        
+    } catch (error) {
+        console.error("Validate meeting error:", error);
+        res.status(500).json({ success: false, message: "Failed to validate meeting" });
+    }
+});
+
+// Clean up old meetings periodically (every hour)
+setInterval(() => {
+    const now = new Date();
+    const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
+    
+    let cleanedCount = 0;
+    activeMeetings.forEach((meeting, meetingCode) => {
+        if (meeting.createdAt < oneHourAgo && meeting.participants.size === 0) {
+            activeMeetings.delete(meetingCode);
+            if (roomPeers[meetingCode]) {
+                delete roomPeers[meetingCode];
+            }
+            cleanedCount++;
+        }
+    });
+    
+    if (cleanedCount > 0) {
+        console.log(`🧹 Cleaned up ${cleanedCount} inactive meetings`);
+    }
+}, 60 * 60 * 1000); // Run every hour
 
 // ---------- ROUTES ----------
 
@@ -562,27 +676,53 @@ app.delete('/recordings/:recordingId', async (req, res) => {
 // Serve recording files
 app.use('/recordings', express.static(recordingsDir));
 
-// ---------- SOCKET.IO (signalling) ----------
-const roomPeers = {}; // store { roomId: { [socketId]: { name, avatar } } }
-
+// ---------- SOCKET.IO (signalling) - UPDATED WITH MEETING VALIDATION ----------
 io.on("connection", (socket) => {
   console.log("🔗 Socket connected:", socket.id);
 
   socket.on("join-room", (data) => {
-    const { roomId, name } = data || {};
-    if (!roomId) return;
+    const { roomId, name, userId } = data || {};
+    if (!roomId || !name) {
+      socket.emit("join-error", { message: "Room ID and name are required" });
+      return;
+    }
+    
+    // Check if meeting exists
+    if (!activeMeetings.has(roomId)) {
+      socket.emit("join-error", { 
+        message: "Meeting not found. Please check the code and try again." 
+      });
+      return;
+    }
+    
+    const meeting = activeMeetings.get(roomId);
+    
+    // Set host if this is the first participant
+    if (meeting.participants.size === 0) {
+      meeting.host = socket.id;
+    }
+    
+    // Store participant info
+    meeting.participants.set(socket.id, {
+      id: userId || socket.id,
+      name: name,
+      socketId: socket.id,
+      joinedAt: new Date(),
+      isHost: meeting.host === socket.id
+    });
     
     socket.join(roomId);
     
-    // Initialize room if not exists
+    // Initialize room peers if not exists
     if (!roomPeers[roomId]) {
       roomPeers[roomId] = {};
     }
     
-    // Store peer info
+    // Store peer info for WebRTC
     roomPeers[roomId][socket.id] = { 
-      name: name || "Guest", 
-      avatar: null 
+      name: name, 
+      avatar: null,
+      isHost: meeting.host === socket.id
     };
 
     // Get all peers in the room except current user
@@ -591,28 +731,41 @@ io.on("connection", (socket) => {
     // Create peers array with proper structure
     const peers = peersInRoom.map(peerId => ({
       peerId: peerId,
-      name: roomPeers[roomId][peerId].name
+      name: roomPeers[roomId][peerId].name,
+      userId: peerId,
+      isHost: roomPeers[roomId][peerId].isHost
     }));
 
-    console.log(`📨 Sending ${peers.length} existing peers to ${socket.id}:`, peers);
+    console.log(`👥 ${name} joined ${roomId} - Sending ${peers.length} existing peers`);
 
     // Send existing peers to the new joiner
-    socket.emit("existing-peers", { peers });
+    socket.emit("existing-peers", { 
+      peers,
+      isHost: meeting.host === socket.id
+    });
 
     // Tell others about this new joiner
     socket.to(roomId).emit("peer-joined", {
       peerId: socket.id,
-      name: roomPeers[roomId][socket.id].name
+      name: name,
+      userId: socket.id,
+      isHost: meeting.host === socket.id
     });
 
-    console.log(`👥 ${name} joined ${roomId} (${peers.length + 1} total peers)`);
+    // Update all clients with new participant list
+    updateParticipantList(roomId);
+    
+    console.log(`✅ ${name} successfully joined ${roomId} (${meeting.participants.size} total participants)`);
   });
 
-  // WebRTC signaling - FIXED: Better error handling and peer tracking
+  // WebRTC signaling - IMPROVED
   socket.on("webrtc-offer", ({ to, sdp }) => {
     console.log(`📨 Offer from ${socket.id} to ${to}`);
     if (io.sockets.sockets.has(to)) {
-      io.to(to).emit("webrtc-offer", { from: socket.id, sdp });
+      io.to(to).emit("webrtc-offer", { 
+        from: socket.id, 
+        sdp: sdp 
+      });
     } else {
       console.log(`❌ Target peer ${to} not found`);
       socket.emit("peer-disconnected", { peerId: to });
@@ -622,7 +775,10 @@ io.on("connection", (socket) => {
   socket.on("webrtc-answer", ({ to, sdp }) => {
     console.log(`📨 Answer from ${socket.id} to ${to}`);
     if (io.sockets.sockets.has(to)) {
-      io.to(to).emit("webrtc-answer", { from: socket.id, sdp });
+      io.to(to).emit("webrtc-answer", { 
+        from: socket.id, 
+        sdp: sdp 
+      });
     } else {
       console.log(`❌ Target peer ${to} not found`);
       socket.emit("peer-disconnected", { peerId: to });
@@ -630,14 +786,18 @@ io.on("connection", (socket) => {
   });
   
   socket.on("webrtc-ice-candidate", ({ to, candidate }) => {
+    console.log(`🧊 ICE candidate from ${socket.id} to ${to}`);
     if (io.sockets.sockets.has(to)) {
-      io.to(to).emit("webrtc-ice-candidate", { from: socket.id, candidate });
+      io.to(to).emit("webrtc-ice-candidate", { 
+        from: socket.id, 
+        candidate: candidate 
+      });
     } else {
       console.log(`❌ Target peer ${to} not found for ICE candidate`);
     }
   });
 
-  // Chat messages with timestamp
+  // Chat messages
   socket.on("chat-message", ({ roomId, name, message }) => {
     const timestamp = new Date().toISOString();
     io.to(roomId).emit("chat-message", { 
@@ -648,120 +808,95 @@ io.on("connection", (socket) => {
     console.log(`💬 ${name} in ${roomId}: ${message}`);
   });
 
-  // Recording data from client via socket (alternative method)
-  socket.on('recording-chunk', ({ recordingId, chunk, isLast }) => {
-    console.log(`📹 Received recording chunk for ${recordingId}, size: ${chunk.length}`);
-    
-    const recordingSession = activeRecordings.get(recordingId);
-    if (recordingSession) {
-      recordingSession.chunks.push(chunk);
-      
-      if (isLast) {
-        // Save the complete recording
-        try {
-          const fileBuffer = Buffer.from(recordingSession.chunks.join(''), 'base64');
-          const fileName = `${recordingSession.roomId}_${Date.now()}.webm`;
-          const filePath = path.join(recordingsDir, fileName);
-          
-          fs.writeFileSync(filePath, fileBuffer);
-          
-          // Update recording in database
-          const recordings = loadRecordingsDB();
-          const recordingIndex = recordings.findIndex(r => r.id === recordingId);
-          if (recordingIndex !== -1) {
-            recordings[recordingIndex].fileName = fileName;
-            recordings[recordingIndex].fileSize = fileBuffer.length;
-            saveRecordingsDB(recordings);
-          }
-
-          activeRecordings.delete(recordingId);
-          console.log(`💾 Recording saved via socket: ${fileName}`);
-          
-        } catch (error) {
-          console.error('Error saving recording via socket:', error);
-        }
-      }
-    }
-  });
-
   // Avatar handling
   socket.on("set-avatar", ({ roomId, avatar, name }) => {
-    // Update peer avatar in room data
     if (roomPeers[roomId] && roomPeers[roomId][socket.id]) {
       roomPeers[roomId][socket.id].avatar = avatar;
     }
     
-    // Broadcast to ALL peers in room
     socket.to(roomId).emit("peer-avatar", { 
       peerId: socket.id, 
       avatar, 
-      name: name || roomPeers[roomId]?.[socket.id]?.name 
+      name: name 
     });
-    console.log(`🖼️ ${name} set avatar in ${roomId}`);
   });
 
   socket.on("avatar-off", ({ roomId, name }) => {
-    // Remove avatar from room data
     if (roomPeers[roomId] && roomPeers[roomId][socket.id]) {
       roomPeers[roomId][socket.id].avatar = null;
     }
     
-    // Broadcast to ALL peers in room
     socket.to(roomId).emit("avatar-off", { 
       peerId: socket.id, 
-      name: name || roomPeers[roomId]?.[socket.id]?.name 
+      name: name 
     });
-    console.log(`🖼️ ${name} removed avatar in ${roomId}`);
   });
 
-  // Leave meeting (end meeting button)
+  // Leave meeting
   socket.on("leave-meeting", ({ roomId, name }) => {
-    // Notify others that this peer ended call
-    socket.to(roomId).emit("peer-left", { 
-      peerId: socket.id, 
-      name: name || roomPeers[roomId]?.[socket.id]?.name 
-    });
-    
-    // Clean up room data
-    if (roomPeers[roomId]) {
-      delete roomPeers[roomId][socket.id];
-      
-      // Clean up empty rooms
-      if (Object.keys(roomPeers[roomId]).length === 0) {
-        delete roomPeers[roomId];
-      }
-    }
-    
-    socket.leave(roomId);
-    console.log(`🚪 ${name} left meeting ${roomId}`);
+    handleLeaveMeeting(socket, roomId, name);
   });
 
   socket.on("disconnect", () => {
     console.log(`❌ Socket disconnected: ${socket.id}`);
     
     // Find which rooms this socket was in and clean up
-    Object.entries(roomPeers).forEach(([roomId, peers]) => {
-      if (peers[socket.id]) {
-        const peerName = peers[socket.id].name;
-        
-        // Notify others about disconnection
-        socket.to(roomId).emit("peer-left", { 
-          peerId: socket.id, 
-          name: peerName 
-        });
-        
-        // Clean up room data
-        delete roomPeers[roomId][socket.id];
-        
-        // Clean up empty rooms
-        if (Object.keys(roomPeers[roomId]).length === 0) {
-          delete roomPeers[roomId];
-        }
-        
-        console.log(`❌ ${peerName} disconnected from ${roomId}`);
+    activeMeetings.forEach((meeting, roomId) => {
+      if (meeting.participants.has(socket.id)) {
+        const participant = meeting.participants.get(socket.id);
+        handleLeaveMeeting(socket, roomId, participant.name);
       }
     });
   });
+
+  function handleLeaveMeeting(socket, roomId, name) {
+    // Notify others that this peer left
+    socket.to(roomId).emit("peer-left", { 
+      peerId: socket.id, 
+      name: name 
+    });
+    
+    // Clean up meeting data
+    if (activeMeetings.has(roomId)) {
+      const meeting = activeMeetings.get(roomId);
+      meeting.participants.delete(socket.id);
+      
+      if (meeting.participants.size === 0) {
+        activeMeetings.delete(roomId);
+        console.log(`🗑️ Meeting ${roomId} ended (no participants)`);
+      }
+    }
+    
+    // Clean up room peers data
+    if (roomPeers[roomId]) {
+      delete roomPeers[roomId][socket.id];
+      
+      if (Object.keys(roomPeers[roomId]).length === 0) {
+        delete roomPeers[roomId];
+      }
+    }
+    
+    socket.leave(roomId);
+    
+    // Update participant list for remaining users
+    updateParticipantList(roomId);
+    
+    console.log(`🚪 ${name} left meeting ${roomId}`);
+  }
+
+  function updateParticipantList(roomId) {
+    if (activeMeetings.has(roomId)) {
+      const meeting = activeMeetings.get(roomId);
+      const participants = Array.from(meeting.participants.values()).map(p => ({
+        id: p.id,
+        name: p.name,
+        socketId: p.socketId,
+        isHost: p.isHost
+      }));
+      
+      io.to(roomId).emit("participants-updated", { participants });
+    }
+  }
 });
 
 // ---------- START ----------
@@ -770,4 +905,5 @@ server.listen(PORT, () => {
   console.log(`🚀 Server running at http://localhost:${PORT}`);
   console.log(`🎥 Recording system ready - files will be saved in /recordings folder`);
   console.log(`🔐 Firebase authentication integrated`);
+  console.log(`📋 Meeting validation system active`);
 });
