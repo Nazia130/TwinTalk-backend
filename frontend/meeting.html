@@ -132,7 +132,7 @@
             }
         }
 
-        /* Video Section - Updated for better layout */
+        /* Video Section - Updated for better layout with BIG main video */
         .video-section {
             background: rgba(255, 255, 255, 0.95);
             border-radius: var(--border-radius);
@@ -146,7 +146,7 @@
 
         .video-grid {
             display: grid;
-            grid-template-columns: 2fr 1fr;
+            grid-template-columns: 3fr 1fr; /* Bigger main video area */
             gap: 1rem;
             flex: 1;
             overflow: hidden;
@@ -176,11 +176,13 @@
 
         .video-container.main-video {
             flex: 1;
-            min-height: 400px;
+            min-height: 500px; /* Bigger main video */
+            height: 100%;
         }
 
         .video-container.side-video {
             aspect-ratio: 16/9;
+            max-height: 200px;
         }
 
         video, .avatar-display {
@@ -689,6 +691,7 @@
             color: var(--gray);
             display: flex;
             gap: 1rem;
+            flex-wrap: wrap;
         }
 
         .recording-actions {
@@ -715,6 +718,42 @@
             padding: 1rem;
             color: var(--gray);
             font-style: italic;
+        }
+
+        /* Processing States */
+        .processing-status {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem;
+            background: var(--light);
+            border-radius: var(--border-radius);
+            font-size: 0.8rem;
+            margin-top: 0.5rem;
+        }
+
+        .processing-status.processing {
+            background: rgba(59, 130, 246, 0.1);
+            color: var(--primary);
+        }
+
+        .processing-status.completed {
+            background: rgba(16, 185, 129, 0.1);
+            color: var(--success);
+        }
+
+        .loading-spinner {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border: 2px solid #ffffff;
+            border-radius: 50%;
+            border-top-color: transparent;
+            animation: spin 1s ease-in-out infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
         }
 
         .form-control {
@@ -777,6 +816,10 @@
             
             .avatar-grid {
                 grid-template-columns: repeat(2, 1fr);
+            }
+            
+            .video-container.main-video {
+                min-height: 300px;
             }
         }
     </style>
@@ -890,7 +933,7 @@
 
                 <!-- Sidebar -->
                 <div class="sidebar">
-                    <!-- Recording Section - FIXED: Separate card -->
+                    <!-- Recording Section -->
                     <div class="sidebar-card">
                         <h3 class="card-title">
                             <i class="fas fa-record-vinyl"></i>
@@ -1889,7 +1932,7 @@
             chatMessages.scrollTop = chatMessages.scrollHeight;
         }
 
-        // ========== RECORDING FUNCTIONS ==========
+        // ========== ENHANCED RECORDING FUNCTIONS ==========
 
         // Start audio recording
         async function startAudioRecording() {
@@ -1903,15 +1946,6 @@
                     const localSource = audioContext.createMediaStreamSource(localStream);
                     localSource.connect(audioDestination);
                 }
-                
-                // Mix remote audio streams
-                Object.values(peers).forEach(peer => {
-                    const remoteStream = peer.getRemoteStreams()[0];
-                    if (remoteStream && remoteStream.getAudioTracks().length > 0) {
-                        const remoteSource = audioContext.createMediaStreamSource(remoteStream);
-                        remoteSource.connect(audioDestination);
-                    }
-                });
                 
                 // Create media recorder
                 mediaRecorder = new MediaRecorder(audioDestination.stream);
@@ -1939,18 +1973,177 @@
                 recordingStartTime = new Date();
                 startRecordingTimer();
                 
-                // Notify server and other participants
-                socket.emit('start-recording', {
-                    roomId: currentRoom,
-                    userEmail: userEmail,
-                    recordingId: `rec_${Date.now()}`
-                });
-                
                 showNotification('Recording started', 'success');
                 
             } catch (error) {
                 console.error('Error starting recording:', error);
                 showNotification('Failed to start recording', 'error');
+            }
+        }
+
+        // Enhanced save recording function
+        function saveRecording() {
+            const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+            const recordingId = 'recording_' + Date.now();
+            const duration = Math.floor((new Date() - recordingStartTime) / 1000);
+            
+            // Create recording object
+            const recording = {
+                id: recordingId,
+                fileName: `meeting-${currentRoom}-${new Date().toISOString().split('T')[0]}`,
+                timestamp: new Date().toISOString(),
+                duration: duration,
+                size: audioBlob.size,
+                roomId: currentRoom,
+                userName: userName,
+                status: 'recorded'
+            };
+            
+            // Convert blob to base64 for storage
+            const reader = new FileReader();
+            reader.onload = function() {
+                const base64data = reader.result;
+                recording.audioData = base64data;
+                
+                // Save to localStorage
+                saveRecordingToStorage(recording);
+                
+                // Update recordings list
+                loadRecordingsList();
+                
+                showNotification('Recording saved successfully!', 'success');
+            };
+            reader.readAsDataURL(audioBlob);
+        }
+
+        // Enhanced save to storage function
+        function saveRecordingToStorage(recording) {
+            let recordings = JSON.parse(localStorage.getItem('meetingRecordings') || '[]');
+            
+            // Remove audioData from storage to save space, keep only metadata
+            const recordingForStorage = {
+                id: recording.id,
+                fileName: recording.fileName,
+                timestamp: recording.timestamp,
+                duration: recording.duration,
+                size: recording.size,
+                roomId: recording.roomId,
+                userName: recording.userName,
+                status: recording.status
+            };
+            
+            recordings.unshift(recordingForStorage);
+            localStorage.setItem('meetingRecordings', JSON.stringify(recordings));
+            
+            // Store actual audio data separately to avoid localStorage size limits
+            const audioData = {
+                id: recording.id,
+                audioData: recording.audioData
+            };
+            localStorage.setItem(`audio_${recording.id}`, JSON.stringify(audioData));
+        }
+
+        // Enhanced load recordings list
+        function loadRecordingsList() {
+            const recordings = JSON.parse(localStorage.getItem('meetingRecordings') || '[]');
+            
+            if (recordings.length === 0) {
+                recordingsList.innerHTML = '<div class="no-recordings">No recordings yet</div>';
+                return;
+            }
+            
+            recordingsList.innerHTML = recordings.map(recording => `
+                <div class="recording-item">
+                    <div class="recording-info">
+                        <div class="recording-name">${recording.fileName}</div>
+                        <div class="recording-details">
+                            <span>${new Date(recording.timestamp).toLocaleDateString()}</span>
+                            <span>${formatTime(recording.duration)}</span>
+                            <span>${formatFileSize(recording.size)}</span>
+                            <span>Room: ${recording.roomId}</span>
+                        </div>
+                    </div>
+                    <div class="recording-actions">
+                        <button class="recording-action-btn" onclick="playRecording('${recording.id}')" title="Play">
+                            <i class="fas fa-play"></i>
+                        </button>
+                        <button class="recording-action-btn" onclick="downloadRecording('${recording.id}')" title="Download">
+                            <i class="fas fa-download"></i>
+                        </button>
+                        <button class="recording-action-btn" onclick="viewInHistory('${recording.id}')" title="View in History">
+                            <i class="fas fa-history"></i>
+                        </button>
+                        <button class="recording-action-btn" onclick="deleteRecording('${recording.id}')" title="Delete">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Play recording from localStorage
+        function playRecording(recordingId) {
+            const audioData = JSON.parse(localStorage.getItem(`audio_${recordingId}`) || '{}');
+            
+            if (audioData.audioData) {
+                const audio = new Audio(audioData.audioData);
+                audio.play().catch(error => {
+                    console.error('Error playing recording:', error);
+                    showNotification('Error playing recording', 'error');
+                });
+            } else {
+                showNotification('Recording data not found', 'error');
+            }
+        }
+
+        // Download recording
+        function downloadRecording(recordingId) {
+            const recordings = JSON.parse(localStorage.getItem('meetingRecordings') || '[]');
+            const recording = recordings.find(r => r.id === recordingId);
+            const audioData = JSON.parse(localStorage.getItem(`audio_${recordingId}`) || '{}');
+            
+            if (audioData.audioData) {
+                // Convert base64 back to blob
+                const binaryString = atob(audioData.audioData.split(',')[1]);
+                const bytes = new Uint8Array(binaryString.length);
+                for (let i = 0; i < binaryString.length; i++) {
+                    bytes[i] = binaryString.charCodeAt(i);
+                }
+                const blob = new Blob([bytes], { type: 'audio/webm' });
+                
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `${recording.fileName}.webm`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                
+                showNotification('Recording download started', 'success');
+            }
+        }
+
+        // View in History
+        function viewInHistory(recordingId) {
+            // Store the recording ID to highlight in history
+            localStorage.setItem('selectedRecording', recordingId);
+            window.location.href = 'history.html';
+        }
+
+        // Enhanced delete recording
+        function deleteRecording(recordingId) {
+            if (confirm('Are you sure you want to delete this recording?')) {
+                // Remove from recordings list
+                let recordings = JSON.parse(localStorage.getItem('meetingRecordings') || '[]');
+                recordings = recordings.filter(r => r.id !== recordingId);
+                localStorage.setItem('meetingRecordings', JSON.stringify(recordings));
+                
+                // Remove audio data
+                localStorage.removeItem(`audio_${recordingId}`);
+                
+                loadRecordingsList();
+                showNotification('Recording deleted', 'success');
             }
         }
 
@@ -1975,136 +2168,7 @@
                     audioContext = null;
                 }
                 
-                // Notify server and other participants
-                socket.emit('stop-recording', {
-                    roomId: currentRoom,
-                    recordingId: `rec_${Date.now()}`
-                });
-                
                 showNotification('Recording stopped and saved', 'success');
-            }
-        }
-
-        // Save recording
-        function saveRecording() {
-            const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
-            const recordingId = 'recording_' + Date.now();
-            const duration = Math.floor((new Date() - recordingStartTime) / 1000);
-            
-            // Create recording object
-            const recording = {
-                id: recordingId,
-                timestamp: new Date().toISOString(),
-                duration: duration,
-                size: audioBlob.size,
-                blob: audioBlob
-            };
-            
-            // Convert blob to base64 for storage
-            const reader = new FileReader();
-            reader.onload = function() {
-                const base64data = reader.result;
-                recording.blob = base64data;
-                
-                // Save to localStorage
-                saveRecordingToStorage(recording);
-                
-                // Update recordings list
-                loadRecordingsList();
-            };
-            reader.readAsDataURL(audioBlob);
-        }
-
-        // Save recording to storage
-        function saveRecordingToStorage(recording) {
-            let recordings = JSON.parse(localStorage.getItem('meetingRecordings') || '[]');
-            recordings.unshift(recording); // Add to beginning
-            localStorage.setItem('meetingRecordings', JSON.stringify(recordings));
-        }
-
-        // Load recordings list
-        function loadRecordingsList() {
-            const recordings = JSON.parse(localStorage.getItem('meetingRecordings') || '[]');
-            
-            if (recordings.length === 0) {
-                recordingsList.innerHTML = '<div class="no-recordings">No recordings yet</div>';
-                return;
-            }
-            
-            recordingsList.innerHTML = recordings.map(recording => `
-                <div class="recording-item">
-                    <div class="recording-info">
-                        <div class="recording-name">Meeting Recording</div>
-                        <div class="recording-details">
-                            <span>${new Date(recording.timestamp).toLocaleDateString()}</span>
-                            <span>${formatTime(recording.duration)}</span>
-                            <span>${formatFileSize(recording.size)}</span>
-                        </div>
-                    </div>
-                    <div class="recording-actions">
-                        <button class="recording-action-btn" onclick="playRecording('${recording.id}')" title="Play">
-                            <i class="fas fa-play"></i>
-                        </button>
-                        <button class="recording-action-btn" onclick="downloadRecording('${recording.id}')" title="Download">
-                            <i class="fas fa-download"></i>
-                        </button>
-                        <button class="recording-action-btn" onclick="deleteRecording('${recording.id}')" title="Delete">
-                            <i class="fas fa-trash"></i>
-                        </button>
-                    </div>
-                </div>
-            `).join('');
-        }
-
-        // Play recording
-        function playRecording(recordingId) {
-            const recordings = JSON.parse(localStorage.getItem('meetingRecordings') || '[]');
-            const recording = recordings.find(r => r.id === recordingId);
-            
-            if (recording) {
-                const audio = new Audio(recording.blob);
-                audio.play().catch(error => {
-                    console.error('Error playing recording:', error);
-                    showNotification('Error playing recording', 'error');
-                });
-            }
-        }
-
-        // Download recording
-        function downloadRecording(recordingId) {
-            const recordings = JSON.parse(localStorage.getItem('meetingRecordings') || '[]');
-            const recording = recordings.find(r => r.id === recordingId);
-            
-            if (recording) {
-                // Convert base64 back to blob
-                const binaryString = atob(recording.blob.split(',')[1]);
-                const bytes = new Uint8Array(binaryString.length);
-                for (let i = 0; i < binaryString.length; i++) {
-                    bytes[i] = binaryString.charCodeAt(i);
-                }
-                const blob = new Blob([bytes], { type: 'audio/webm' });
-                
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `meeting-recording-${new Date(recording.timestamp).toISOString().split('T')[0]}.webm`;
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-                URL.revokeObjectURL(url);
-                
-                showNotification('Recording download started', 'success');
-            }
-        }
-
-        // Delete recording
-        function deleteRecording(recordingId) {
-            if (confirm('Are you sure you want to delete this recording?')) {
-                let recordings = JSON.parse(localStorage.getItem('meetingRecordings') || '[]');
-                recordings = recordings.filter(r => r.id !== recordingId);
-                localStorage.setItem('meetingRecordings', JSON.stringify(recordings));
-                loadRecordingsList();
-                showNotification('Recording deleted', 'success');
             }
         }
 

@@ -1,3 +1,28 @@
 
 node_modules/
 .env
+# .gitignore
+# Virtual environment
+whisper_env/
+venv/
+env/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# IDE files
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# FFmpeg (if you have the folder)
+ffmpeg/
