@@ -1,142 +1,873 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Schedule Meeting - MeetTwin</title>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
-<style>
-body { font-family:'Inter',sans-serif; margin:0; padding:2rem; background:#f9f9f9; }
-h1 { text-align:center; color:#4b2aad; margin-bottom:2rem; }
-form { max-width:500px; margin:0 auto; background:#fff; padding:2rem; border-radius:10px; box-shadow:0 0 10px rgba(0,0,0,0.1); }
-label { display:block; margin-bottom:0.5rem; font-weight:600; }
-input, textarea { width:100%; padding:0.5rem; margin-bottom:1rem; border:1px solid #ccc; border-radius:5px; font-size:1rem; }
-textarea { resize:vertical; }
-button { padding:0.7rem 1.2rem; background:#4b2aad; color:#fff; border:none; border-radius:5px; font-weight:600; cursor:pointer; }
-button:hover { background:#3a1f8f; }
-.success { text-align:center; color:green; margin-top:1rem; }
-table { width:100%; max-width:800px; margin:2rem auto 0 auto; border-collapse:collapse; }
-th, td { padding:12px; border:1px solid #ddd; text-align:center; }
-th { background:#4b2aad; color:#fff; }
-tr:nth-child(even) { background:#f2f2f2; }
-a { color:#4b2aad; font-weight:600; text-decoration:none; }
-a:hover { text-decoration:underline; }
-.delete-btn { padding:0.3rem 0.6rem; background:#f44336; color:#fff; border:none; border-radius:5px; cursor:pointer; }
-.delete-btn:hover { background:#d32f2f; }
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Schedule Meeting - TwinTalk</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #1a2a6c;
+            --secondary: #4a569d;
+            --accent: #00b4db;
+            --accent-light: #00c6ff;
+            --light: #f8f9fa;
+            --dark: #2d3748;
+            --gray: #718096;
+            --success: #10b981;
+            --error: #ef4444;
+            --warning: #f59e0b;
+            --gradient-primary: linear-gradient(135deg, var(--primary), var(--secondary));
+            --gradient-accent: linear-gradient(135deg, var(--accent), var(--accent-light));
+            --shadow-sm: 0 4px 6px rgba(0, 0, 0, 0.05);
+            --shadow-md: 0 10px 15px rgba(0, 0, 0, 0.1);
+            --shadow-lg: 0 20px 25px rgba(0, 0, 0, 0.15);
+            --border-radius: 12px;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Inter', sans-serif;
+        }
+
+        body {
+            background: linear-gradient(135deg, #1a2a6c 0%, #4a569d 50%, #00b4db 100%);
+            color: var(--dark);
+            line-height: 1.6;
+            min-height: 100vh;
+            padding: 0;
+        }
+
+        .container {
+            width: 90%;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem 15px;
+        }
+
+        /* Header */
+        header {
+            background: rgba(255, 255, 255, 0.95);
+            color: var(--dark);
+            padding: 1rem 0;
+            box-shadow: var(--shadow-md);
+            backdrop-filter: blur(10px);
+        }
+
+        .navbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            font-size: 1.5rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            color: var(--primary);
+            text-decoration: none;
+        }
+
+        .logo i {
+            margin-right: 10px;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 2rem;
+            align-items: center;
+        }
+
+        .nav-links a {
+            text-decoration: none;
+            color: var(--dark);
+            font-weight: 500;
+            transition: color 0.3s ease;
+        }
+
+        .nav-links a:hover {
+            color: var(--accent);
+        }
+
+        .nav-links a.active {
+            color: var(--accent);
+            font-weight: 600;
+        }
+
+        /* Main Layout */
+        .main-layout {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+            margin-top: 2rem;
+        }
+
+        @media (max-width: 968px) {
+            .main-layout {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Form Section */
+        .form-section {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: var(--border-radius);
+            padding: 2rem;
+            box-shadow: var(--shadow-lg);
+            backdrop-filter: blur(10px);
+        }
+
+        .section-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--primary);
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .section-title i {
+            color: var(--accent);
+        }
+
+        /* Form Styles */
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+            color: var(--dark);
+        }
+
+        .required::after {
+            content: " *";
+            color: var(--error);
+        }
+
+        input, textarea, select {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            border: 2px solid #e2e8f0;
+            border-radius: var(--border-radius);
+            font-size: 1rem;
+            transition: all 0.3s ease;
+            background: white;
+        }
+
+        input:focus, textarea:focus, select:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(0, 180, 219, 0.1);
+        }
+
+        textarea {
+            resize: vertical;
+            min-height: 100px;
+        }
+
+        .form-actions {
+            display: flex;
+            gap: 1rem;
+            margin-top: 2rem;
+        }
+
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: var(--border-radius);
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .btn-primary {
+            background: var(--accent);
+            color: white;
+            flex: 1;
+        }
+
+        .btn-primary:hover {
+            background: var(--primary);
+            transform: translateY(-2px);
+        }
+
+        .btn-secondary {
+            background: var(--light);
+            color: var(--dark);
+            border: 2px solid #e2e8f0;
+        }
+
+        .btn-secondary:hover {
+            background: #e2e8f0;
+        }
+
+        .btn-danger {
+            background: var(--error);
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #dc2626;
+        }
+
+        /* Meetings Section */
+        .meetings-section {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: var(--border-radius);
+            padding: 2rem;
+            box-shadow: var(--shadow-lg);
+            backdrop-filter: blur(10px);
+            max-height: 600px;
+            overflow-y: auto;
+        }
+
+        .meetings-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .meeting-count {
+            background: var(--accent);
+            color: white;
+            padding: 0.3rem 0.8rem;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+
+        /* Meeting Cards */
+        .meeting-card {
+            background: white;
+            border-radius: var(--border-radius);
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+            border-left: 4px solid var(--accent);
+            transition: all 0.3s ease;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .meeting-card:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-md);
+        }
+
+        .meeting-card.upcoming {
+            border-left-color: var(--success);
+        }
+
+        .meeting-card.ongoing {
+            border-left-color: var(--accent);
+        }
+
+        .meeting-card.past {
+            border-left-color: var(--gray);
+            opacity: 0.7;
+        }
+
+        .meeting-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 1rem;
+        }
+
+        .meeting-id {
+            font-weight: 700;
+            color: var(--primary);
+            font-size: 1.1rem;
+        }
+
+        .meeting-time {
+            font-size: 0.9rem;
+            color: var(--gray);
+        }
+
+        .meeting-details {
+            margin-bottom: 1rem;
+            line-height: 1.5;
+        }
+
+        .meeting-actions {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+
+        .btn-sm {
+            padding: 0.4rem 0.8rem;
+            font-size: 0.8rem;
+        }
+
+        .btn-join {
+            background: var(--success);
+            color: white;
+        }
+
+        .btn-join:hover {
+            background: #059669;
+        }
+
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.3rem;
+            padding: 0.3rem 0.6rem;
+            border-radius: 20px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            margin-left: 0.5rem;
+        }
+
+        .status-badge.upcoming {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        .status-badge.ongoing {
+            background: #dbeafe;
+            color: #1e40af;
+        }
+
+        .status-badge.past {
+            background: #f3f4f6;
+            color: #6b7280;
+        }
+
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 3rem 2rem;
+            color: var(--gray);
+        }
+
+        .empty-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            color: #ddd;
+        }
+
+        /* Notification */
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 15px 20px;
+            border-radius: 8px;
+            color: white;
+            font-weight: 500;
+            z-index: 1000;
+            box-shadow: var(--shadow-md);
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            max-width: 350px;
+        }
+
+        .notification.success {
+            background: var(--success);
+        }
+
+        .notification.error {
+            background: var(--error);
+        }
+
+        .notification.hidden {
+            opacity: 0;
+            transform: translateX(100%);
+        }
+
+        /* Quick Actions */
+        .quick-actions {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .quick-action-card {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: var(--border-radius);
+            padding: 1.5rem;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(10px);
+        }
+
+        .quick-action-card:hover {
+            transform: translateY(-3px);
+            box-shadow: var(--shadow-lg);
+        }
+
+        .quick-action-icon {
+            font-size: 2rem;
+            color: var(--accent);
+            margin-bottom: 1rem;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .form-row {
+                grid-template-columns: 1fr;
+            }
+            
+            .form-actions {
+                flex-direction: column;
+            }
+            
+            .meeting-header {
+                flex-direction: column;
+                gap: 0.5rem;
+            }
+            
+            .meeting-actions {
+                width: 100%;
+            }
+        }
+    </style>
 </head>
 <body>
-  <button class="back-btn" onclick="window.location.href='index.html'">← Back</button>
+    <!-- Header -->
+    <header>
+        <div class="container">
+            <nav class="navbar">
+                <a href="index.html" class="logo">
+                    <i class="fas fa-comments"></i>
+                    TwinTalk
+                </a>
+                <div class="nav-links">
+                    <a href="index.html">Home</a>
+                    <a href="meeting.html">Meeting</a>
+                    <a href="history.html">History</a>
+                    <a href="schedule.html" class="active">Schedule</a>
+                </div>
+            </nav>
+        </div>
+    </header>
 
-<h1>Schedule a Meeting</h1>
+    <!-- Main Content -->
+    <div class="container">
+        <!-- Quick Actions -->
+        <div class="quick-actions">
+            <div class="quick-action-card" onclick="scrollToForm()">
+                <div class="quick-action-icon">
+                    <i class="fas fa-calendar-plus"></i>
+                </div>
+                <h3>Schedule New</h3>
+                <p>Create a new meeting schedule</p>
+            </div>
+            <div class="quick-action-card" onclick="window.location.href='meeting.html'">
+                <div class="quick-action-icon">
+                    <i class="fas fa-video"></i>
+                </div>
+                <h3>Join Now</h3>
+                <p>Start instant meeting</p>
+            </div>
+            <div class="quick-action-card" onclick="loadSchedules()">
+                <div class="quick-action-icon">
+                    <i class="fas fa-sync-alt"></i>
+                </div>
+                <h3>Refresh</h3>
+                <p>Update meetings list</p>
+            </div>
+        </div>
 
-<form id="scheduleForm">
-  <label for="date">Meeting Date:</label>
-  <input type="date" id="date" required>
+        <div class="main-layout">
+            <!-- Schedule Form -->
+            <div class="form-section">
+                <h2 class="section-title">
+                    <i class="fas fa-calendar-alt"></i>
+                    Schedule New Meeting
+                </h2>
+                
+                <form id="scheduleForm">
+                    <div class="form-group">
+                        <label for="title" class="required">Meeting Title</label>
+                        <input type="text" id="title" placeholder="Enter meeting title" required>
+                    </div>
 
-  <label for="startTime">Start Time:</label>
-  <input type="time" id="startTime" required>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="date" class="required">Date</label>
+                            <input type="date" id="date" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="duration" class="required">Duration</label>
+                            <select id="duration" required>
+                                <option value="30">30 minutes</option>
+                                <option value="60" selected>1 hour</option>
+                                <option value="90">1.5 hours</option>
+                                <option value="120">2 hours</option>
+                                <option value="custom">Custom</option>
+                            </select>
+                        </div>
+                    </div>
 
-  <label for="endTime">End Time:</label>
-  <input type="time" id="endTime" required>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="startTime" class="required">Start Time</label>
+                            <input type="time" id="startTime" required>
+                        </div>
+                        <div class="form-group" id="endTimeGroup" style="display: none;">
+                            <label for="endTime">End Time</label>
+                            <input type="time" id="endTime">
+                        </div>
+                    </div>
 
-  <label for="details">Details / Notes:</label>
-  <textarea id="details" rows="4" placeholder="Enter meeting agenda or notes"></textarea>
+                    <div class="form-group">
+                        <label for="participants">Participants (Email)</label>
+                        <input type="text" id="participants" placeholder="Enter emails separated by commas">
+                    </div>
 
-  <button type="submit">Schedule Meeting</button>
-</form>
+                    <div class="form-group">
+                        <label for="details">Meeting Agenda & Notes</label>
+                        <textarea id="details" placeholder="Describe meeting agenda, topics to discuss, preparation needed..."></textarea>
+                    </div>
 
-<div class="success" id="successMsg"></div>
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-calendar-check"></i>
+                            Schedule Meeting
+                        </button>
+                        <button type="reset" class="btn btn-secondary">
+                            <i class="fas fa-redo"></i>
+                            Reset Form
+                        </button>
+                    </div>
+                </form>
+            </div>
 
-<h2 style="text-align:center; margin-top:3rem;">Upcoming Scheduled Meetings</h2>
-<table>
-  <thead>
-    <tr>
-      <th>Meeting ID</th>
-      <th>Date</th>
-      <th>Start Time</th>
-      <th>End Time</th>
-      <th>Details</th>
-      <th>Action</th>
-    </tr>
-  </thead>
-  <tbody id="scheduleTable">
-  </tbody>
-</table>
+            <!-- Scheduled Meetings -->
+            <div class="meetings-section">
+                <div class="meetings-header">
+                    <h2 class="section-title">
+                        <i class="fas fa-list"></i>
+                        Scheduled Meetings
+                    </h2>
+                    <span class="meeting-count" id="meetingCount">0 meetings</span>
+                </div>
 
-<script>
-// Generate unique Meeting ID
-function generateMeetingId() {
-  return 'MT-' + Math.random().toString(36).substr(2, 9).toUpperCase();
-}
+                <div id="meetingsList">
+                    <!-- Meetings will be loaded here -->
+                </div>
+            </div>
+        </div>
+    </div>
 
-// Load scheduled meetings from localStorage
-function loadSchedules() {
-  const schedules = JSON.parse(localStorage.getItem('schedules') || "[]");
-  const table = document.getElementById('scheduleTable');
-  table.innerHTML = "";
-  if (schedules.length === 0) {
-    table.innerHTML = `<tr><td colspan="6">No scheduled meetings</td></tr>`;
-    return;
-  }
-  schedules.forEach((item, index) => {
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td><a href="/meeting.html?room=${item.meetingId}">${item.meetingId}</a></td>
-      <td>${item.date}</td>
-      <td>${item.startTime}</td>
-      <td>${item.endTime}</td>
-      <td>${item.details || '-'}</td>
-      <td><button class="delete-btn" onclick="deleteMeeting(${index})">Delete</button></td>
-    `;
-    table.appendChild(tr);
-  });
-}
+    <!-- Notification -->
+    <div class="notification hidden" id="notification"></div>
 
-// Delete a scheduled meeting
-function deleteMeeting(index) {
-  let schedules = JSON.parse(localStorage.getItem('schedules') || "[]");
-  if (!confirm(`Are you sure you want to delete meeting ${schedules[index].meetingId}?`)) return;
-  schedules.splice(index, 1);
-  localStorage.setItem('schedules', JSON.stringify(schedules));
-  loadSchedules();
-}
+    <script>
+        // DOM Elements
+        const scheduleForm = document.getElementById('scheduleForm');
+        const meetingsList = document.getElementById('meetingsList');
+        const meetingCount = document.getElementById('meetingCount');
+        const notification = document.getElementById('notification');
+        const durationSelect = document.getElementById('duration');
+        const endTimeGroup = document.getElementById('endTimeGroup');
 
-// Handle form submission
-document.getElementById('scheduleForm').addEventListener('submit', function(e) {
-  e.preventDefault();
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            loadSchedules();
+            setupEventListeners();
+            setDefaultDateTime();
+        });
 
-  const date = document.getElementById('date').value;
-  const startTime = document.getElementById('startTime').value;
-  const endTime = document.getElementById('endTime').value;
-  const details = document.getElementById('details').value;
+        // Setup event listeners
+        function setupEventListeners() {
+            durationSelect.addEventListener('change', handleDurationChange);
+        }
 
-  if (!date || !startTime || !endTime) {
-    alert("Please fill in all required fields.");
-    return;
-  }
+        // Set default date and time
+        function setDefaultDateTime() {
+            const now = new Date();
+            const tomorrow = new Date(now);
+            tomorrow.setDate(tomorrow.getDate() + 1);
+            
+            document.getElementById('date').value = tomorrow.toISOString().split('T')[0];
+            document.getElementById('startTime').value = '09:00';
+        }
 
-  const meetingId = generateMeetingId();
+        // Handle duration selection
+        function handleDurationChange() {
+            if (durationSelect.value === 'custom') {
+                endTimeGroup.style.display = 'block';
+            } else {
+                endTimeGroup.style.display = 'none';
+            }
+        }
 
-  // Save to localStorage
-  let schedules = JSON.parse(localStorage.getItem('schedules') || "[]");
-  schedules.push({ meetingId, date, startTime, endTime, details });
-  localStorage.setItem('schedules', JSON.stringify(schedules));
+        // Generate unique Meeting ID
+        function generateMeetingId() {
+            const timestamp = Date.now().toString(36);
+            const random = Math.random().toString(36).substr(2, 5);
+            return `MT-${timestamp}-${random}`.toUpperCase();
+        }
 
-  // Show success message
-  const msg = document.getElementById('successMsg');
-  msg.innerText = `Meeting scheduled successfully!\nID: ${meetingId}\nDate: ${date} ${startTime} - ${endTime}`;
+        // Calculate end time based on duration
+        function calculateEndTime(startTime, duration) {
+            const [hours, minutes] = startTime.split(':').map(Number);
+            const startDate = new Date();
+            startDate.setHours(hours, minutes, 0, 0);
+            
+            const endDate = new Date(startDate.getTime() + duration * 60000);
+            return endDate.toTimeString().slice(0, 5);
+        }
 
-  // Reset form
-  document.getElementById('scheduleForm').reset();
+        // Load scheduled meetings
+        function loadSchedules() {
+            try {
+                const schedules = JSON.parse(localStorage.getItem('schedules') || '[]');
+                const now = new Date();
+                
+                // Sort by date and time
+                schedules.sort((a, b) => new Date(a.date + 'T' + a.startTime) - new Date(b.date + 'T' + b.startTime));
+                
+                displayMeetings(schedules);
+                updateMeetingCount(schedules);
+                
+            } catch (error) {
+                console.error('Error loading schedules:', error);
+                showNotification('Failed to load meetings', 'error');
+            }
+        }
 
-  // Reload table
-  loadSchedules();
-});
+        // Display meetings
+        function displayMeetings(schedules) {
+            if (schedules.length === 0) {
+                meetingsList.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-icon">
+                            <i class="fas fa-calendar-times"></i>
+                        </div>
+                        <h3>No Scheduled Meetings</h3>
+                        <p>Schedule your first meeting to get started</p>
+                    </div>
+                `;
+                return;
+            }
 
-// Initial load
-loadSchedules();
-</script>
+            const now = new Date();
+            meetingsList.innerHTML = schedules.map(item => {
+                const meetingDateTime = new Date(item.date + 'T' + item.startTime);
+                const endDateTime = new Date(item.date + 'T' + item.endTime);
+                
+                let status = 'upcoming';
+                let statusText = 'Upcoming';
+                
+                if (now > endDateTime) {
+                    status = 'past';
+                    statusText = 'Past';
+                } else if (now >= meetingDateTime && now <= endDateTime) {
+                    status = 'ongoing';
+                    statusText = 'Ongoing';
+                }
 
+                return `
+                    <div class="meeting-card ${status}">
+                        <div class="meeting-header">
+                            <div>
+                                <div class="meeting-id">
+                                    ${item.title || 'Meeting'}
+                                    <span class="status-badge ${status}">
+                                        <i class="fas fa-${getStatusIcon(status)}"></i>
+                                        ${statusText}
+                                    </span>
+                                </div>
+                                <div class="meeting-time">
+                                    <i class="far fa-calendar"></i> ${formatDate(item.date)} 
+                                    | <i class="far fa-clock"></i> ${item.startTime} - ${item.endTime}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        ${item.details ? `
+                            <div class="meeting-details">
+                                ${item.details}
+                            </div>
+                        ` : ''}
+                        
+                        <div class="meeting-actions">
+                            ${status === 'ongoing' || status === 'upcoming' ? `
+                                <button class="btn btn-primary btn-sm btn-join" onclick="joinMeeting('${item.meetingId}')">
+                                    <i class="fas fa-video"></i>
+                                    Join Meeting
+                                </button>
+                            ` : ''}
+                            
+                            <button class="btn btn-secondary btn-sm" onclick="copyMeetingLink('${item.meetingId}')">
+                                <i class="fas fa-link"></i>
+                                Copy Link
+                            </button>
+                            
+                            <button class="btn btn-danger btn-sm" onclick="deleteMeeting('${item.meetingId}')">
+                                <i class="fas fa-trash"></i>
+                                Delete
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Get status icon
+        function getStatusIcon(status) {
+            const icons = {
+                upcoming: 'clock',
+                ongoing: 'play-circle',
+                past: 'check-circle'
+            };
+            return icons[status] || 'circle';
+        }
+
+        // Update meeting count
+        function updateMeetingCount(schedules) {
+            const upcoming = schedules.filter(item => {
+                const meetingDateTime = new Date(item.date + 'T' + item.startTime);
+                return meetingDateTime > new Date();
+            }).length;
+            
+            meetingCount.textContent = `${upcoming} upcoming, ${schedules.length} total`;
+        }
+
+        // Join meeting
+        function joinMeeting(meetingId) {
+            window.location.href = `meeting.html?room=${meetingId}`;
+        }
+
+        // Copy meeting link
+        function copyMeetingLink(meetingId) {
+            const meetingLink = `${window.location.origin}${window.location.pathname.replace('schedule.html', '')}meeting.html?room=${meetingId}`;
+            navigator.clipboard.writeText(meetingLink).then(() => {
+                showNotification('Meeting link copied to clipboard!', 'success');
+            });
+        }
+
+        // Delete meeting
+        function deleteMeeting(meetingId) {
+            const schedules = JSON.parse(localStorage.getItem('schedules') || '[]');
+            const meeting = schedules.find(s => s.meetingId === meetingId);
+            
+            if (!meeting) return;
+            
+            if (!confirm(`Are you sure you want to delete "${meeting.title || meeting.meetingId}"?`)) return;
+            
+            const updatedSchedules = schedules.filter(s => s.meetingId !== meetingId);
+            localStorage.setItem('schedules', JSON.stringify(updatedSchedules));
+            
+            showNotification('Meeting deleted successfully', 'success');
+            loadSchedules();
+        }
+
+        // Form submission
+        scheduleForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const title = document.getElementById('title').value;
+            const date = document.getElementById('date').value;
+            const startTime = document.getElementById('startTime').value;
+            const duration = document.getElementById('duration').value;
+            const participants = document.getElementById('participants').value;
+            const details = document.getElementById('details').value;
+            
+            if (!title || !date || !startTime) {
+                showNotification('Please fill in all required fields', 'error');
+                return;
+            }
+            
+            const meetingId = generateMeetingId();
+            let endTime;
+            
+            if (duration === 'custom') {
+                endTime = document.getElementById('endTime').value;
+                if (!endTime) {
+                    showNotification('Please specify end time for custom duration', 'error');
+                    return;
+                }
+            } else {
+                endTime = calculateEndTime(startTime, parseInt(duration));
+            }
+            
+            // Save to localStorage
+            const schedules = JSON.parse(localStorage.getItem('schedules') || '[]');
+            schedules.push({
+                meetingId,
+                title,
+                date,
+                startTime,
+                endTime,
+                duration: duration === 'custom' ? null : parseInt(duration),
+                participants: participants ? participants.split(',').map(p => p.trim()) : [],
+                details,
+                createdAt: new Date().toISOString()
+            });
+            
+            localStorage.setItem('schedules', JSON.stringify(schedules));
+            
+            // Show success
+            showNotification(`Meeting "${title}" scheduled successfully!`, 'success');
+            
+            // Reset form
+            scheduleForm.reset();
+            setDefaultDateTime();
+            endTimeGroup.style.display = 'none';
+            
+            // Reload meetings
+            loadSchedules();
+        });
+
+        // Utility functions
+        function formatDate(dateString) {
+            const date = new Date(dateString);
+            return date.toLocaleDateString('en-US', { 
+                weekday: 'short', 
+                year: 'numeric', 
+                month: 'short', 
+                day: 'numeric' 
+            });
+        }
+
+        function showNotification(message, type) {
+            notification.innerHTML = `
+                <i class="fas fa-${type === 'success' ? 'check-circle' : 'exclamation-circle'}"></i>
+                ${message}
+            `;
+            notification.className = `notification ${type}`;
+            
+            setTimeout(() => {
+                notification.classList.remove('hidden');
+            }, 100);
+            
+            setTimeout(() => {
+                notification.classList.add('hidden');
+            }, 3000);
+        }
+
+        function scrollToForm() {
+            document.querySelector('.form-section').scrollIntoView({ 
+                behavior: 'smooth' 
+            });
+        }
+    </script>
 </body>
 </html>
