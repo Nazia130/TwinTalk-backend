@@ -1115,6 +1115,7 @@
         let recordingTimerInterval = null;
         let audioContext = null;
         let audioDestination = null;
+        let audioSources = [];
 
         // WebRTC Configuration
         const configuration = {
@@ -1376,6 +1377,11 @@
                 console.log('🎥 Received remote stream from:', peerId);
                 const remoteStream = event.streams[0];
                 addRemoteVideo(peerId, remoteStream);
+                
+                // Add to recording if active
+                if (isRecording) {
+                    addRemoteStreamToRecording(peerId, remoteStream);
+                }
             };
 
             // Handle ICE candidates
@@ -1934,21 +1940,49 @@
 
         // ========== ENHANCED RECORDING FUNCTIONS ==========
 
-        // Start audio recording
+        // Start audio recording for all participants
         async function startAudioRecording() {
             try {
-                // Create audio context for mixing
+                // Create audio context for mixing all streams
                 audioContext = new AudioContext();
                 audioDestination = audioContext.createMediaStreamDestination();
+                audioSources = [];
                 
                 // Mix local audio
                 if (localStream && localStream.getAudioTracks().length > 0) {
                     const localSource = audioContext.createMediaStreamSource(localStream);
                     localSource.connect(audioDestination);
+                    audioSources.push(localSource);
+                    console.log('✅ Added local audio to recording');
                 }
                 
+                // Mix all remote participant audio streams
+                Object.keys(peers).forEach(peerId => {
+                    const peerConnection = peers[peerId];
+                    if (peerConnection.getReceivers) {
+                        peerConnection.getReceivers().forEach(receiver => {
+                            if (receiver.track && receiver.track.kind === 'audio') {
+                                try {
+                                    const remoteStream = new MediaStream([receiver.track]);
+                                    const remoteSource = audioContext.createMediaStreamSource(remoteStream);
+                                    remoteSource.connect(audioDestination);
+                                    audioSources.push(remoteSource);
+                                    console.log(`✅ Added remote audio from peer ${peerId} to recording`);
+                                } catch (error) {
+                                    console.error(`❌ Error adding remote audio from ${peerId}:`, error);
+                                }
+                            }
+                        });
+                    }
+                });
+
+                // Alternative approach: Capture from remote video elements
+                captureAudioFromRemoteVideos();
+                
                 // Create media recorder
-                mediaRecorder = new MediaRecorder(audioDestination.stream);
+                mediaRecorder = new MediaRecorder(audioDestination.stream, {
+                    mimeType: 'audio/webm;codecs=opus'
+                });
                 audioChunks = [];
                 
                 mediaRecorder.ondataavailable = (event) => {
@@ -1966,14 +2000,22 @@
                 // Update UI
                 startRecording.disabled = true;
                 stopRecording.disabled = false;
-                recordingStatus.innerHTML = '<i class="fas fa-circle"></i><span>Recording in progress...</span>';
+                recordingStatus.innerHTML = '<i class="fas fa-circle"></i><span>Recording all participants...</span>';
                 recordingStatus.classList.add('recording');
                 
                 // Start timer
                 recordingStartTime = new Date();
                 startRecordingTimer();
                 
-                showNotification('Recording started', 'success');
+                // Notify other participants
+                if (socket) {
+                    socket.emit('recording-started', {
+                        roomId: currentRoom,
+                        startedBy: userName
+                    });
+                }
+                
+                showNotification('Recording started - capturing all participants', 'success');
                 
             } catch (error) {
                 console.error('Error starting recording:', error);
@@ -1981,11 +2023,45 @@
             }
         }
 
-        // Enhanced save recording function
+        // Capture audio from remote video elements
+        function captureAudioFromRemoteVideos() {
+            const remoteVideos = participantsSidebar.querySelectorAll('video');
+            remoteVideos.forEach(video => {
+                if (video.srcObject && !video.muted) {
+                    try {
+                        const remoteSource = audioContext.createMediaStreamSource(video.srcObject);
+                        remoteSource.connect(audioDestination);
+                        audioSources.push(remoteSource);
+                        console.log('✅ Added audio from remote video element');
+                    } catch (error) {
+                        console.error('❌ Error capturing audio from remote video:', error);
+                    }
+                }
+            });
+        }
+
+        // Enhanced function to handle new remote streams for recording
+        function addRemoteStreamToRecording(peerId, stream) {
+            if (isRecording && audioContext && audioDestination) {
+                try {
+                    const remoteSource = audioContext.createMediaStreamSource(stream);
+                    remoteSource.connect(audioDestination);
+                    audioSources.push(remoteSource);
+                    console.log(`✅ Added new remote stream from ${peerId} to recording`);
+                } catch (error) {
+                    console.error(`❌ Error adding new remote stream from ${peerId}:`, error);
+                }
+            }
+        }
+
+        // Enhanced save recording function with participant info
         function saveRecording() {
             const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
             const recordingId = 'recording_' + Date.now();
             const duration = Math.floor((new Date() - recordingStartTime) / 1000);
+            
+            // Get participant count
+            const participantCount = participantsList.querySelectorAll('.participant').length;
             
             // Create recording object
             const recording = {
@@ -1996,6 +2072,8 @@
                 size: audioBlob.size,
                 roomId: currentRoom,
                 userName: userName,
+                participantCount: participantCount,
+                includesAllParticipants: true,
                 status: 'recorded'
             };
             
@@ -2011,7 +2089,7 @@
                 // Update recordings list
                 loadRecordingsList();
                 
-                showNotification('Recording saved successfully!', 'success');
+                showNotification(`Recording saved with ${participantCount} participants!`, 'success');
             };
             reader.readAsDataURL(audioBlob);
         }
@@ -2029,6 +2107,8 @@
                 size: recording.size,
                 roomId: recording.roomId,
                 userName: recording.userName,
+                participantCount: recording.participantCount,
+                includesAllParticipants: recording.includesAllParticipants,
                 status: recording.status
             };
             
@@ -2060,8 +2140,10 @@
                             <span>${new Date(recording.timestamp).toLocaleDateString()}</span>
                             <span>${formatTime(recording.duration)}</span>
                             <span>${formatFileSize(recording.size)}</span>
+                            <span>Participants: ${recording.participantCount || 'N/A'}</span>
                             <span>Room: ${recording.roomId}</span>
                         </div>
+                        ${recording.includesAllParticipants ? '<div class="recording-tag" style="color: var(--success); font-size: 0.7rem; margin-top: 0.2rem;">✓ Full meeting recording</div>' : ''}
                     </div>
                     <div class="recording-actions">
                         <button class="recording-action-btn" onclick="playRecording('${recording.id}')" title="Play">
@@ -2156,19 +2238,36 @@
                 // Update UI
                 startRecording.disabled = false;
                 stopRecording.disabled = true;
-                recordingStatus.innerHTML = '<i class="fas fa-check-circle"></i><span>Recording saved</span>';
+                recordingStatus.innerHTML = '<i class="fas fa-check-circle"></i><span>Recording saved with all participants</span>';
                 recordingStatus.classList.remove('recording');
                 
                 // Stop timer
                 stopRecordingTimer();
                 
-                // Clean up audio context
+                // Clean up audio context and sources
                 if (audioContext) {
+                    audioSources.forEach(source => {
+                        try {
+                            source.disconnect();
+                        } catch (e) {
+                            console.error('Error disconnecting audio source:', e);
+                        }
+                    });
+                    audioSources = [];
                     audioContext.close();
                     audioContext = null;
+                    audioDestination = null;
                 }
                 
-                showNotification('Recording stopped and saved', 'success');
+                // Notify other participants
+                if (socket) {
+                    socket.emit('recording-stopped', {
+                        roomId: currentRoom,
+                        stoppedBy: userName
+                    });
+                }
+                
+                showNotification('Recording stopped - all participants audio saved', 'success');
             }
         }
 
