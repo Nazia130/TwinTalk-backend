@@ -584,7 +584,7 @@
             <!-- FFmpeg Status Indicator -->
             <div class="ffmpeg-status" id="ffmpegStatus">
                 <i class="fas fa-circle-notch fa-spin"></i>
-                <span>Loading FFmpeg for MP4 conversion...</span>
+                <span>Loading audio conversion tools...</span>
             </div>
 
             <!-- Azure Speech Services Status Indicator -->
@@ -677,7 +677,7 @@
             key2: "Edvsahl7u2yDOWvIZac1EXW6kVZUVty4c8mEH2qnk2taLcBPfehwJQQJ99BKACNns7RXJ3w3AAAYACOGgvNo"
         };
         
-        const AZURE_REGION = "eastus"; // Update this if your region is different
+        const AZURE_REGION = "koreacentral";
 
         // Initialize
         document.addEventListener('DOMContentLoaded', function() {
@@ -700,12 +700,13 @@
             downloadWebM.addEventListener('click', downloadAsWebM);
         }
 
-        // Initialize FFmpeg
+        // Initialize FFmpeg with fallback to Web Audio API
         async function initializeFFmpeg() {
             try {
-                ffmpegStatus.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Loading FFmpeg (this may take a moment)...';
+                ffmpegStatus.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Loading audio conversion tools...';
                 
-                const { createFFmpeg, fetchFile } = FFmpeg;
+                // Try to load FFmpeg
+                const { createFFmpeg } = FFmpeg;
                 ffmpeg = createFFmpeg({ 
                     log: false,
                     corePath: 'https://unpkg.com/@ffmpeg/core@0.11.0/dist/ffmpeg-core.js'
@@ -715,17 +716,154 @@
                 isFFmpegLoaded = true;
                 
                 ffmpegStatus.className = 'ffmpeg-status connected';
-                ffmpegStatus.innerHTML = '<i class="fas fa-check-circle"></i> FFmpeg loaded - Ready for MP4 conversion';
+                ffmpegStatus.innerHTML = '<i class="fas fa-check-circle"></i> Audio conversion ready (FFmpeg)';
                 console.log('✅ FFmpeg loaded successfully');
                 
             } catch (error) {
-                console.error('FFmpeg loading error:', error);
+                console.error('FFmpeg loading failed, using Web Audio API:', error);
+                isFFmpegLoaded = false;
                 ffmpegStatus.className = 'ffmpeg-status disconnected';
-                ffmpegStatus.innerHTML = '<i class="fas fa-exclamation-triangle"></i> FFmpeg failed to load - MP4 conversion unavailable';
+                ffmpegStatus.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Using Web Audio API for conversion';
+                showNotification('Using Web Audio API for audio conversion', 'warning');
             }
         }
 
-        // Convert WebM to MP4 using FFmpeg
+        // Web Audio API conversion functions
+        function audioBufferToWav(buffer) {
+            const numChannels = buffer.numberOfChannels;
+            const sampleRate = buffer.sampleRate;
+            const format = 1; // PCM
+            const bitDepth = 16;
+            
+            const bytesPerSample = bitDepth / 8;
+            const blockAlign = numChannels * bytesPerSample;
+            
+            const bufferLength = buffer.length * numChannels * bytesPerSample;
+            const wavBuffer = new ArrayBuffer(44 + bufferLength);
+            const view = new DataView(wavBuffer);
+            
+            // Write WAV header
+            writeString(view, 0, 'RIFF');
+            view.setUint32(4, 36 + bufferLength, true);
+            writeString(view, 8, 'WAVE');
+            writeString(view, 12, 'fmt ');
+            view.setUint32(16, 16, true);
+            view.setUint16(20, format, true);
+            view.setUint16(22, numChannels, true);
+            view.setUint32(24, sampleRate, true);
+            view.setUint32(28, sampleRate * blockAlign, true);
+            view.setUint16(32, blockAlign, true);
+            view.setUint16(34, bitDepth, true);
+            writeString(view, 36, 'data');
+            view.setUint32(40, bufferLength, true);
+            
+            // Write audio data
+            let offset = 44;
+            for (let i = 0; i < buffer.length; i++) {
+                for (let channel = 0; channel < numChannels; channel++) {
+                    const sample = Math.max(-1, Math.min(1, buffer.getChannelData(channel)[i]));
+                    view.setInt16(offset, sample < 0 ? sample * 0x8000 : sample * 0x7FFF, true);
+                    offset += 2;
+                }
+            }
+            
+            return wavBuffer;
+        }
+
+        function writeString(view, offset, string) {
+            for (let i = 0; i < string.length; i++) {
+                view.setUint8(offset + i, string.charCodeAt(i));
+            }
+        }
+
+        // Convert WebM to WAV using Web Audio API
+        async function convertWebMToWAV(webmBlob) {
+            return new Promise((resolve, reject) => {
+                try {
+                    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                    const fileReader = new FileReader();
+                    
+                    fileReader.onload = function() {
+                        audioContext.decodeAudioData(fileReader.result)
+                            .then(audioBuffer => {
+                                const wavBuffer = audioBufferToWav(audioBuffer);
+                                const wavBlob = new Blob([wavBuffer], { type: 'audio/wav' });
+                                resolve(wavBlob);
+                                audioContext.close();
+                            })
+                            .catch(error => {
+                                console.error('Audio decoding error:', error);
+                                reject(new Error('Failed to decode audio: ' + error.message));
+                            });
+                    };
+                    
+                    fileReader.onerror = () => {
+                        reject(new Error('Failed to read audio file'));
+                    };
+                    
+                    fileReader.readAsArrayBuffer(webmBlob);
+                } catch (error) {
+                    reject(new Error('Web Audio API not supported: ' + error.message));
+                }
+            });
+        }
+
+        // Convert WebM to WAV using FFmpeg (if available)
+        async function convertWebMToWAVWithFFmpeg(webmBlob) {
+            if (!isFFmpegLoaded || !ffmpeg) {
+                throw new Error('FFmpeg not loaded');
+            }
+
+            try {
+                // Convert blob to Uint8Array
+                const arrayBuffer = await webmBlob.arrayBuffer();
+                const uint8Array = new Uint8Array(arrayBuffer);
+                
+                // Write WebM file to FFmpeg
+                ffmpeg.FS('writeFile', 'input.webm', uint8Array);
+                
+                // Convert to WAV (16kHz, 16-bit, mono - optimal for speech recognition)
+                await ffmpeg.run(
+                    '-i', 'input.webm',
+                    '-acodec', 'pcm_s16le',
+                    '-ac', '1',
+                    '-ar', '16000',
+                    'output.wav'
+                );
+                
+                // Read the converted file
+                const data = ffmpeg.FS('readFile', 'output.wav');
+                const wavBlob = new Blob([data.buffer], { type: 'audio/wav' });
+                
+                // Clean up
+                ffmpeg.FS('unlink', 'input.webm');
+                ffmpeg.FS('unlink', 'output.wav');
+                
+                console.log('✅ WebM to WAV conversion successful with FFmpeg');
+                return wavBlob;
+                
+            } catch (error) {
+                console.error('❌ FFmpeg conversion failed:', error);
+                throw error;
+            }
+        }
+
+        // Main conversion function that tries both methods
+        async function convertWebMToWAVForAzure(webmBlob) {
+            // Try FFmpeg first if available
+            if (isFFmpegLoaded) {
+                try {
+                    return await convertWebMToWAVWithFFmpeg(webmBlob);
+                } catch (error) {
+                    console.log('FFmpeg conversion failed, falling back to Web Audio API');
+                }
+            }
+            
+            // Fallback to Web Audio API
+            return await convertWebMToWAV(webmBlob);
+        }
+
+        // Convert WebM to MP4 using FFmpeg (for downloads)
         async function convertWebMToMP4(webmBlob, recordingId) {
             if (!isFFmpegLoaded || !ffmpeg) {
                 throw new Error('FFmpeg not loaded');
@@ -829,7 +967,8 @@
                 const hasTranscription = item.transcription && item.transcription.trim() !== '';
                 const hasSummary = item.summary && item.summary.trim() !== '';
                 const isRealTranscript = item.isRealTranscript;
-                const transcriptionSource = item.transcriptionModel || 'demo';
+                const participantCount = item.participantCount || 1;
+                const includesAllParticipants = item.includesAllParticipants || false;
                 
                 return `
                 <div class="history-item" data-id="${item.id}" id="recording-${item.id}">
@@ -843,11 +982,13 @@
                                     hasAudio ? 
                                     '<span class="status-badge pending"><i class="fas fa-microphone"></i> Recorded</span>' : 
                                     '<span class="status-badge failed"><i class="fas fa-exclamation-triangle"></i> No Audio</span>'}
+                                ${includesAllParticipants ? '<span class="status-badge completed"><i class="fas fa-users"></i> All Participants</span>' : ''}
                             </h3>
                             <div class="history-meta">
                                 <span><i class="fas fa-calendar"></i> ${formatDate(item.timestamp)}</span>
                                 <span><i class="fas fa-clock"></i> ${formatTime(item.duration || 0)}</span>
                                 <span><i class="fas fa-hdd"></i> ${formatFileSize(item.size || 0)}</span>
+                                <span><i class="fas fa-users"></i> ${participantCount} Participants</span>
                                 ${item.roomId ? `<span><i class="fas fa-users"></i> Room: ${item.roomId}</span>` : ''}
                                 ${item.userName ? `<span><i class="fas fa-user"></i> ${item.userName}</span>` : ''}
                             </div>
@@ -877,7 +1018,7 @@
                             ${hasAudio ? `
                                 <button class="action-btn convert" onclick="showFormatSelection('${item.id}')" ${!isFFmpegLoaded ? 'disabled' : ''}>
                                     <i class="fas fa-file-video"></i>
-                                    ${isFFmpegLoaded ? 'Download' : 'FFmpeg Loading'}
+                                    ${isFFmpegLoaded ? 'Download' : 'No Conversion'}
                                 </button>
                             ` : ''}
                             
@@ -960,7 +1101,7 @@
                 closeFormatModalHandler();
                 
                 if (!isFFmpegLoaded) {
-                    showNotification('FFmpeg not loaded yet. Please wait...', 'error');
+                    showNotification('Audio conversion not available for MP4', 'error');
                     return;
                 }
 
@@ -1069,23 +1210,23 @@
             }
         }
 
-        // Transcribe using Azure Speech Services
+        // Transcribe using Azure Speech Services with WebM to WAV conversion
         async function transcribeRecordingWithAzure(recordingId) {
             try {
                 const itemElement = document.querySelector(`[data-id="${recordingId}"]`);
                 const transcribeBtn = itemElement.querySelector('.action-btn.transcribe');
                 
-                transcribeBtn.innerHTML = '<span class="loading-spinner"></span> Transcribing...';
+                transcribeBtn.innerHTML = '<span class="loading-spinner"></span> Converting & Transcribing...';
                 transcribeBtn.disabled = true;
 
                 // Update UI status
                 const statusElement = itemElement.querySelector('.status-badge');
                 if (statusElement) {
                     statusElement.className = 'status-badge processing';
-                    statusElement.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Transcribing with Azure';
+                    statusElement.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Converting WebM to WAV';
                 }
 
-                showNotification('Starting transcription with Azure Speech Services...', 'success');
+                showNotification('Converting WebM to WAV for Azure transcription...', 'success');
 
                 // Get audio data from localStorage
                 const audioData = JSON.parse(localStorage.getItem(`audio_${recordingId}`) || '{}');
@@ -1094,17 +1235,24 @@
                     throw new Error('No audio data found for transcription');
                 }
 
-                console.log('Starting Azure Speech Services transcription...');
-
-                // Convert base64 to blob
+                // Convert base64 to WebM blob
                 const response = await fetch(audioData.audioData);
-                const audioBlob = await response.blob();
+                const webmBlob = await response.blob();
 
-                // Create audio file for Azure
-                const audioFile = new File([audioBlob], `recording-${recordingId}.webm`, { type: 'audio/webm' });
+                // Convert WebM to WAV
+                const wavBlob = await convertWebMToWAVForAzure(webmBlob);
+
+                // Update status
+                if (statusElement) {
+                    statusElement.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Transcribing with Azure';
+                }
+                showNotification('WebM converted to WAV. Starting Azure transcription...', 'success');
+
+                // Create WAV file for Azure
+                const wavFile = new File([wavBlob], `recording-${recordingId}.wav`, { type: 'audio/wav' });
 
                 // Transcribe using Azure Speech Services
-                const transcription = await transcribeAudioWithAzure(audioFile);
+                const transcription = await transcribeAudioWithAzure(wavFile);
                 
                 if (transcription) {
                     // Update the recording with actual transcription
@@ -1151,7 +1299,7 @@
                     const speechConfig = SpeechSDK.SpeechConfig.fromSubscription(subscriptionKey, AZURE_REGION);
                     speechConfig.speechRecognitionLanguage = "en-US";
 
-                    // Create audio configuration from the file
+                    // Create audio configuration from the WAV file
                     const audioConfig = SpeechSDK.AudioConfig.fromWavFileInput(audioFile);
 
                     // Create speech recognizer
@@ -1189,7 +1337,7 @@
                     recognizer.startContinuousRecognitionAsync(
                         () => {
                             console.log("Azure Speech recognition started");
-                            // Stop recognition after 30 seconds to prevent hanging
+                            // Stop recognition after 60 seconds to prevent hanging
                             setTimeout(() => {
                                 recognizer.stopContinuousRecognitionAsync(
                                     () => {
@@ -1201,7 +1349,7 @@
                                         resolve(fullTranscript.trim());
                                     }
                                 );
-                            }, 30000);
+                            }, 60000);
                         },
                         (err) => {
                             console.error("Error starting recognition:", err);
