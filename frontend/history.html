@@ -468,8 +468,8 @@
             border-radius: var(--border-radius);
         }
 
-        /* Whisper Status */
-        .whisper-status {
+        /* Azure Speech Status */
+        .azure-status {
             background: #f0f9ff;
             border: 1px solid #e0f2fe;
             border-radius: var(--border-radius);
@@ -481,13 +481,13 @@
             font-size: 0.9rem;
         }
 
-        .whisper-status.connected {
+        .azure-status.connected {
             background: #f0fdf4;
             border-color: #dcfce7;
             color: #166534;
         }
 
-        .whisper-status.disconnected {
+        .azure-status.disconnected {
             background: #fef2f2;
             border-color: #fecaca;
             color: #dc2626;
@@ -587,10 +587,10 @@
                 <span>Loading FFmpeg for MP4 conversion...</span>
             </div>
 
-            <!-- Whisper Status Indicator -->
-            <div class="whisper-status" id="whisperStatus">
+            <!-- Azure Speech Services Status Indicator -->
+            <div class="azure-status" id="azureStatus">
                 <i class="fas fa-circle-notch fa-spin"></i>
-                <span>Checking Whisper server status...</span>
+                <span>Checking Azure Speech Services status...</span>
             </div>
 
             <div class="history-list" id="historyList">
@@ -644,6 +644,8 @@
 
     <!-- FFmpeg Script -->
     <script src="https://unpkg.com/@ffmpeg/ffmpeg@0.12.4/dist/ffmpeg.min.js"></script>
+    <!-- Azure Speech SDK -->
+    <script src="https://aka.ms/csspeech/jsbrowserpackageraw"></script>
     <script>
         // DOM Elements
         const historyList = document.getElementById('historyList');
@@ -653,7 +655,7 @@
         const closeDeleteModal = document.getElementById('closeDeleteModal');
         const cancelDelete = document.getElementById('cancelDelete');
         const confirmDelete = document.getElementById('confirmDelete');
-        const whisperStatus = document.getElementById('whisperStatus');
+        const azureStatus = document.getElementById('azureStatus');
         const ffmpegStatus = document.getElementById('ffmpegStatus');
         const formatModal = document.getElementById('formatModal');
         const closeFormatModal = document.getElementById('closeFormatModal');
@@ -665,9 +667,17 @@
         let recordings = [];
         let recordingToDelete = null;
         let recordingToDownload = null;
-        let whisperServerAvailable = false;
+        let azureSpeechAvailable = false;
         let ffmpeg = null;
         let isFFmpegLoaded = false;
+
+        // Azure Speech Services Configuration
+        const AZURE_KEYS = {
+            key1: "49AhVrABTgJDUjQGN8PhPLjCquisNWo0YDsFSlN5QDonBwMddKWyJQQJ99BKACNns7RXJ3w3AAAYACOGgZIN",
+            key2: "Edvsahl7u2yDOWvIZac1EXW6kVZUVty4c8mEH2qnk2taLcBPfehwJQQJ99BKACNns7RXJ3w3AAAYACOGgvNo"
+        };
+        
+        const AZURE_REGION = "eastus"; // Update this if your region is different
 
         // Initialize
         document.addEventListener('DOMContentLoaded', function() {
@@ -675,7 +685,7 @@
             loadHistory();
             setupEventListeners();
             highlightSelectedRecording();
-            checkWhisperServerStatus();
+            checkAzureSpeechStatus();
             initializeFFmpeg();
         });
 
@@ -828,7 +838,7 @@
                             <h3>${item.fileName || 'Meeting Recording'}
                                 ${hasTranscription ? 
                                     (isRealTranscript ? 
-                                        '<span class="status-badge ai"><i class="fas fa-robot"></i> AI Transcribed</span>' : 
+                                        '<span class="status-badge ai"><i class="fas fa-robot"></i> Azure AI Transcribed</span>' : 
                                         '<span class="status-badge completed"><i class="fas fa-check"></i> Transcribed</span>') : 
                                     hasAudio ? 
                                     '<span class="status-badge pending"><i class="fas fa-microphone"></i> Recorded</span>' : 
@@ -851,9 +861,9 @@
                             ` : ''}
                             
                             ${hasAudio && !hasTranscription ? `
-                                <button class="action-btn transcribe" onclick="transcribeRecording('${item.id}')" ${!whisperServerAvailable ? 'disabled' : ''}>
+                                <button class="action-btn transcribe" onclick="transcribeRecordingWithAzure('${item.id}')" ${!azureSpeechAvailable ? 'disabled' : ''}>
                                     <i class="fas fa-keyboard"></i>
-                                    ${whisperServerAvailable ? 'Transcribe' : 'Server Offline'}
+                                    ${azureSpeechAvailable ? 'Transcribe' : 'Azure Offline'}
                                 </button>
                             ` : ''}
                             
@@ -892,7 +902,7 @@
                                 <h4 class="section-title">
                                     <i class="fas fa-keyboard"></i>
                                     Transcription
-                                    ${isRealTranscript ? '<small style="color: var(--accent); margin-left: 10px;">(AI Generated)</small>' : ''}
+                                    ${isRealTranscript ? '<small style="color: var(--accent); margin-left: 10px;">(Azure AI Generated)</small>' : ''}
                                 </h4>
                                 <button class="action-btn download" onclick="downloadText('${item.id}', 'transcription', '${(item.fileName || 'meeting')}-transcription.txt')">
                                     <i class="fas fa-download"></i>
@@ -1059,8 +1069,8 @@
             }
         }
 
-        // Real offline transcription using Whisper
-        async function transcribeRecording(recordingId) {
+        // Transcribe using Azure Speech Services
+        async function transcribeRecordingWithAzure(recordingId) {
             try {
                 const itemElement = document.querySelector(`[data-id="${recordingId}"]`);
                 const transcribeBtn = itemElement.querySelector('.action-btn.transcribe');
@@ -1072,10 +1082,10 @@
                 const statusElement = itemElement.querySelector('.status-badge');
                 if (statusElement) {
                     statusElement.className = 'status-badge processing';
-                    statusElement.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Transcribing';
+                    statusElement.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Transcribing with Azure';
                 }
 
-                showNotification('Starting offline transcription with Whisper AI...', 'success');
+                showNotification('Starting transcription with Azure Speech Services...', 'success');
 
                 // Get audio data from localStorage
                 const audioData = JSON.parse(localStorage.getItem(`audio_${recordingId}`) || '{}');
@@ -1084,58 +1094,126 @@
                     throw new Error('No audio data found for transcription');
                 }
 
-                console.log('Sending audio data to Whisper server...');
+                console.log('Starting Azure Speech Services transcription...');
 
-                // Call the Whisper transcription API
-                const response = await fetch('http://localhost:5001/api/transcribe', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        recordingId: recordingId,
-                        audioData: audioData.audioData
-                    })
-                });
+                // Convert base64 to blob
+                const response = await fetch(audioData.audioData);
+                const audioBlob = await response.blob();
 
-                if (!response.ok) {
-                    throw new Error(`Server error: ${response.status}`);
-                }
+                // Create audio file for Azure
+                const audioFile = new File([audioBlob], `recording-${recordingId}.webm`, { type: 'audio/webm' });
 
-                const result = await response.json();
-
-                if (result.success) {
+                // Transcribe using Azure Speech Services
+                const transcription = await transcribeAudioWithAzure(audioFile);
+                
+                if (transcription) {
                     // Update the recording with actual transcription
                     const recordings = JSON.parse(localStorage.getItem('meetingRecordings') || '[]');
                     const recordingIndex = recordings.findIndex(r => r.id === recordingId);
                     
                     if (recordingIndex !== -1) {
-                        recordings[recordingIndex].transcription = result.text;
+                        recordings[recordingIndex].transcription = transcription;
                         recordings[recordingIndex].isRealTranscript = true;
-                        recordings[recordingIndex].transcriptionModel = result.model || 'whisper-base';
+                        recordings[recordingIndex].transcriptionModel = 'azure-speech';
                         
                         localStorage.setItem('meetingRecordings', JSON.stringify(recordings));
                         
-                        showNotification('✅ Transcription completed using offline AI!', 'success');
+                        showNotification('✅ Transcription completed using Azure Speech Services!', 'success');
                         loadHistory();
                     }
                 } else {
-                    throw new Error(result.error || 'Transcription failed');
+                    throw new Error('Transcription returned empty result');
                 }
 
             } catch (error) {
-                console.error('Transcription error:', error);
-                
-                // Check if it's a connection error
-                if (error.message.includes('Failed to fetch') || error.message.includes('Server error')) {
-                    showNotification('❌ Whisper server not running. Start it with: python whisper_server.py', 'error');
-                } else {
-                    showNotification('❌ Transcription failed: ' + error.message, 'error');
-                }
+                console.error('Azure transcription error:', error);
+                showNotification('❌ Azure transcription failed: ' + error.message, 'error');
                 
                 // Reset button
                 resetTranscribeButton(recordingId);
             }
+        }
+
+        // Azure Speech Services transcription function
+        async function transcribeAudioWithAzure(audioFile) {
+            return new Promise(async (resolve, reject) => {
+                try {
+                    // Check if Speech SDK is available
+                    if (typeof SpeechSDK === 'undefined') {
+                        reject(new Error('Azure Speech SDK not loaded'));
+                        return;
+                    }
+
+                    // Use the first Azure key
+                    const subscriptionKey = AZURE_KEYS.key1;
+                    
+                    // Create speech configuration
+                    const speechConfig = SpeechSDK.SpeechConfig.fromSubscription(subscriptionKey, AZURE_REGION);
+                    speechConfig.speechRecognitionLanguage = "en-US";
+
+                    // Create audio configuration from the file
+                    const audioConfig = SpeechSDK.AudioConfig.fromWavFileInput(audioFile);
+
+                    // Create speech recognizer
+                    const recognizer = new SpeechSDK.SpeechRecognizer(speechConfig, audioConfig);
+
+                    let fullTranscript = '';
+
+                    recognizer.recognizing = (s, e) => {
+                        console.log(`Recognizing: ${e.result.text}`);
+                    };
+
+                    recognizer.recognized = (s, e) => {
+                        if (e.result.reason === SpeechSDK.ResultReason.RecognizedSpeech) {
+                            console.log(`Recognized: ${e.result.text}`);
+                            fullTranscript += e.result.text + ' ';
+                        }
+                    };
+
+                    recognizer.canceled = (s, e) => {
+                        console.log(`Canceled: ${e.reason}`);
+                        if (e.reason === SpeechSDK.CancellationReason.Error) {
+                            console.log(`Error details: ${e.errorDetails}`);
+                            reject(new Error(`Azure Speech recognition error: ${e.errorDetails}`));
+                        }
+                        recognizer.close();
+                    };
+
+                    recognizer.sessionStopped = (s, e) => {
+                        console.log("Session stopped");
+                        recognizer.close();
+                        resolve(fullTranscript.trim());
+                    };
+
+                    // Start continuous recognition
+                    recognizer.startContinuousRecognitionAsync(
+                        () => {
+                            console.log("Azure Speech recognition started");
+                            // Stop recognition after 30 seconds to prevent hanging
+                            setTimeout(() => {
+                                recognizer.stopContinuousRecognitionAsync(
+                                    () => {
+                                        console.log("Azure Speech recognition stopped (timeout)");
+                                        resolve(fullTranscript.trim());
+                                    },
+                                    (err) => {
+                                        console.error("Error stopping recognition:", err);
+                                        resolve(fullTranscript.trim());
+                                    }
+                                );
+                            }, 30000);
+                        },
+                        (err) => {
+                            console.error("Error starting recognition:", err);
+                            reject(new Error(`Failed to start Azure Speech recognition: ${err}`));
+                        }
+                    );
+
+                } catch (error) {
+                    console.error('Azure Speech Services error:', error);
+                    reject(error);
+                }
+            });
         }
 
         function resetTranscribeButton(recordingId) {
@@ -1156,37 +1234,34 @@
             }
         }
 
-        // Check Whisper server status
-        async function checkWhisperServerStatus() {
+        // Check Azure Speech Services status
+        async function checkAzureSpeechStatus() {
             try {
-                const response = await fetch('http://localhost:5001/api/health');
-                const data = await response.json();
-                
-                whisperServerAvailable = data.status === 'healthy';
-                
-                if (whisperServerAvailable) {
-                    whisperStatus.className = 'whisper-status connected';
-                    whisperStatus.innerHTML = `
+                // Simple check to see if Azure Speech SDK is available
+                if (typeof SpeechSDK !== 'undefined') {
+                    azureSpeechAvailable = true;
+                    azureStatus.className = 'azure-status connected';
+                    azureStatus.innerHTML = `
                         <i class="fas fa-check-circle"></i>
-                        <span>Whisper server connected - Ready for offline transcription</span>
+                        <span>Azure Speech Services connected - Ready for transcription</span>
                     `;
-                    console.log('✅ Whisper server is running');
+                    console.log('✅ Azure Speech Services SDK loaded');
                 } else {
-                    whisperServerAvailable = false;
-                    whisperStatus.className = 'whisper-status disconnected';
-                    whisperStatus.innerHTML = `
+                    azureSpeechAvailable = false;
+                    azureStatus.className = 'azure-status disconnected';
+                    azureStatus.innerHTML = `
                         <i class="fas fa-exclamation-triangle"></i>
-                        <span>Whisper server offline - Start with: python whisper_server.py</span>
+                        <span>Azure Speech Services SDK not loaded</span>
                     `;
                 }
             } catch (error) {
-                whisperServerAvailable = false;
-                whisperStatus.className = 'whisper-status disconnected';
-                whisperStatus.innerHTML = `
+                azureSpeechAvailable = false;
+                azureStatus.className = 'azure-status disconnected';
+                azureStatus.innerHTML = `
                     <i class="fas fa-exclamation-triangle"></i>
-                    <span>Whisper server offline - Start with: python whisper_server.py</span>
+                    <span>Azure Speech Services unavailable</span>
                 `;
-                console.log('❌ Whisper server is not running');
+                console.log('❌ Azure Speech Services check failed');
             }
         }
 
