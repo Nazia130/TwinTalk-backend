@@ -1117,6 +1117,11 @@
         let audioDestination = null;
         let audioSources = [];
 
+        // Auto-recording state
+        let autoRecordingStarted = false;
+        let participantsLeaving = false;
+        let initialParticipants = 0;
+
         // WebRTC Configuration
         const configuration = {
             iceServers: [
@@ -1277,6 +1282,9 @@
                 createPeerConnection(data.peerId, false);
                 addParticipant(data.name, data.peerId);
                 showNotification(`${data.name} joined the meeting`, 'success');
+                
+                // Update participant count for auto-recording logic
+                updateParticipantCount();
             });
 
             socket.on('peer-left', (data) => {
@@ -1284,6 +1292,12 @@
                 removePeerConnection(data.peerId);
                 removeParticipant(data.peerId);
                 showNotification(`${data.name} left the meeting`, 'success');
+                
+                // Update participant count for auto-recording logic
+                updateParticipantCount();
+                
+                // Check if all participants are leaving for auto-recording
+                checkParticipantsLeaving();
             });
 
             socket.on('webrtc-offer', async (data) => {
@@ -1307,6 +1321,9 @@
 
             socket.on('participants-updated', (data) => {
                 updateParticipantsList(data.participants);
+                
+                // Update participant count for auto-recording logic
+                updateParticipantCount();
             });
 
             // Avatar events
@@ -1644,6 +1661,41 @@
             const count = participantsList.querySelectorAll('.participant').length;
             participantCount.textContent = count;
             participantCountSidebar.textContent = count;
+            
+            // Set initial participants count for auto-recording logic
+            if (initialParticipants === 0 && count > 1) {
+                initialParticipants = count;
+            }
+        }
+
+        // Check if participants are leaving for auto-recording logic
+        function checkParticipantsLeaving() {
+            const currentCount = participantsList.querySelectorAll('.participant').length;
+            
+            // If we have more than 1 participant and someone leaves, mark that participants are leaving
+            if (initialParticipants > 1 && currentCount < initialParticipants) {
+                participantsLeaving = true;
+                console.log('Participants are leaving the meeting');
+            }
+            
+            // If all participants have left (only local user remains) and recording is active
+            if (participantsLeaving && currentCount <= 1 && isRecording && autoRecordingStarted) {
+                console.log('All participants have left, stopping auto recording');
+                stopAudioRecording();
+                showNotification('All participants have left. Recording stopped.', 'success');
+                
+                // Reset flags
+                participantsLeaving = false;
+                autoRecordingStarted = false;
+                initialParticipants = 0;
+                
+                // Optionally leave the meeting after recording stops
+                setTimeout(() => {
+                    if (confirm('All participants have left. Would you like to leave the meeting?')) {
+                        leaveMeetingHandler();
+                    }
+                }, 2000);
+            }
         }
 
         // Setup event listeners
@@ -1702,6 +1754,8 @@
                     if (!isRecording) {
                         setTimeout(() => {
                             startAudioRecording();
+                            autoRecordingStarted = true;
+                            showNotification('Auto-recording started with avatar mode', 'success');
                         }, 1000);
                     }
                 } else {
@@ -1711,6 +1765,13 @@
                         roomId: currentRoom,
                         name: userName
                     });
+                    
+                    // If auto-recording was active, stop it
+                    if (isRecording && autoRecordingStarted) {
+                        stopAudioRecording();
+                        autoRecordingStarted = false;
+                        showNotification('Auto-recording stopped with avatar mode', 'success');
+                    }
                 }
             });
 
@@ -1855,6 +1916,8 @@
                 if (!isRecording) {
                     setTimeout(() => {
                         startAudioRecording();
+                        autoRecordingStarted = true;
+                        showNotification('Auto-recording started with avatar mode', 'success');
                     }, 1000);
                 }
             } else {
@@ -1864,6 +1927,13 @@
                     roomId: currentRoom,
                     name: userName
                 });
+                
+                // If auto-recording was active, stop it
+                if (isRecording && autoRecordingStarted) {
+                    stopAudioRecording();
+                    autoRecordingStarted = false;
+                    showNotification('Auto-recording stopped with avatar mode', 'success');
+                }
             }
         }
 

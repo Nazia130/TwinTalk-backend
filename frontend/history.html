@@ -367,7 +367,6 @@
         @keyframes spin {
             to { transform: rotate(360deg); }
         }
-
         /* Notification */
         .notification {
             position: fixed;
@@ -982,6 +981,7 @@
                                     hasAudio ? 
                                     '<span class="status-badge pending"><i class="fas fa-microphone"></i> Recorded</span>' : 
                                     '<span class="status-badge failed"><i class="fas fa-exclamation-triangle"></i> No Audio</span>'}
+                                ${hasSummary ? '<span class="status-badge completed"><i class="fas fa-file-alt"></i> Summarized</span>' : ''}
                                 ${includesAllParticipants ? '<span class="status-badge completed"><i class="fas fa-users"></i> All Participants</span>' : ''}
                             </h3>
                             <div class="history-meta">
@@ -1011,7 +1011,7 @@
                             ${hasTranscription && !hasSummary ? `
                                 <button class="action-btn summary" onclick="generateSummary('${item.id}')">
                                     <i class="fas fa-file-alt"></i>
-                                    Summary
+                                    Generate Summary
                                 </button>
                             ` : ''}
                             
@@ -1045,10 +1045,18 @@
                                     Transcription
                                     ${isRealTranscript ? '<small style="color: var(--accent); margin-left: 10px;">(Azure AI Generated)</small>' : ''}
                                 </h4>
-                                <button class="action-btn download" onclick="downloadText('${item.id}', 'transcription', '${(item.fileName || 'meeting')}-transcription.txt')">
-                                    <i class="fas fa-download"></i>
-                                    Download
-                                </button>
+                                <div>
+                                    ${!hasSummary ? `
+                                        <button class="action-btn summary" onclick="generateSummary('${item.id}')" style="margin-right: 0.5rem;">
+                                            <i class="fas fa-file-alt"></i>
+                                            Generate Summary
+                                        </button>
+                                    ` : ''}
+                                    <button class="action-btn download" onclick="downloadText('${item.id}', 'transcription', '${(item.fileName || 'meeting')}-transcription.txt')">
+                                        <i class="fas fa-download"></i>
+                                        Download
+                                    </button>
+                                </div>
                             </div>
                             <div class="section-content transcription-content">
                                 ${item.transcription || 'No transcription available'}
@@ -1413,30 +1421,42 @@
             }
         }
 
-        // Generate summary (placeholder for now)
+        // Generate summary using Azure AI or local processing
         async function generateSummary(recordingId) {
             try {
                 const itemElement = document.querySelector(`[data-id="${recordingId}"]`);
                 const summaryBtn = itemElement.querySelector('.action-btn.summary');
                 
-                summaryBtn.innerHTML = '<span class="loading-spinner"></span> Summarizing...';
+                summaryBtn.innerHTML = '<span class="loading-spinner"></span> Generating Summary...';
                 summaryBtn.disabled = true;
 
-                showNotification('Generating summary...', 'success');
+                showNotification('Generating summary from transcription...', 'success');
 
-                // Simulate summary generation process
-                await new Promise(resolve => setTimeout(resolve, 1500));
-
-                // For now, just add a placeholder summary
+                // Get the transcription
                 const recordings = JSON.parse(localStorage.getItem('meetingRecordings') || '[]');
                 const recordingIndex = recordings.findIndex(r => r.id === recordingId);
                 
-                if (recordingIndex !== -1) {
-                    recordings[recordingIndex].summary = "MEETING SUMMARY\n\nKey Points Discussed:\n• Project timeline was reviewed with target completion by next Friday\n• Design mockups need to be finalized\n• Backend integration is a priority deliverable\n• Team agreed on the proposed schedule\n\nAction Items:\n1. Complete design mockups by Wednesday\n2. Finish backend integration by Thursday\n3. Final testing and deployment on Friday\n\nNext Steps: Follow up on progress mid-week to ensure timeline adherence.";
+                if (recordingIndex === -1) {
+                    throw new Error('Recording not found');
+                }
+
+                const transcription = recordings[recordingIndex].transcription;
+                
+                if (!transcription || transcription.trim() === '') {
+                    throw new Error('No transcription available to summarize');
+                }
+
+                // Generate summary using Azure AI or local processing
+                const summary = await generateSummaryFromTranscription(transcription);
+                
+                if (summary) {
+                    recordings[recordingIndex].summary = summary;
                     localStorage.setItem('meetingRecordings', JSON.stringify(recordings));
                     
                     showNotification('Summary generated successfully!', 'success');
                     loadHistory();
+                } else {
+                    throw new Error('Summary generation returned empty result');
                 }
 
             } catch (error) {
@@ -1448,11 +1468,102 @@
                 if (itemElement) {
                     const summaryBtn = itemElement.querySelector('.action-btn.summary');
                     if (summaryBtn) {
-                        summaryBtn.innerHTML = '<i class="fas fa-file-alt"></i> Summary';
+                        summaryBtn.innerHTML = '<i class="fas fa-file-alt"></i> Generate Summary';
                         summaryBtn.disabled = false;
                     }
                 }
             }
+        }
+
+        // Generate summary from transcription using Azure AI or local processing
+        async function generateSummaryFromTranscription(transcription) {
+            try {
+                // Try to use Azure AI services first if available
+                if (azureSpeechAvailable) {
+                    try {
+                        return await generateSummaryWithAzureAI(transcription);
+                    } catch (azureError) {
+                        console.log('Azure AI summary failed, using local processing:', azureError);
+                    }
+                }
+                
+                // Fallback to local processing
+                return generateSummaryLocally(transcription);
+                
+            } catch (error) {
+                console.error('Summary generation error:', error);
+                throw error;
+            }
+        }
+
+        // Generate summary using Azure AI services (placeholder - implement with your Azure AI service)
+        async function generateSummaryWithAzureAI(transcription) {
+            // This is a placeholder for Azure AI summarization
+            // You would typically use Azure Cognitive Services - Text Analytics or similar
+            // For now, we'll use local processing as fallback
+            
+            return new Promise((resolve) => {
+                // Simulate API call delay
+                setTimeout(() => {
+                    resolve(generateSummaryLocally(transcription));
+                }, 1000);
+            });
+        }
+
+        // Generate summary using local processing
+        function generateSummaryLocally(transcription) {
+            // Simple local summarization algorithm
+            const sentences = transcription.split(/[.!?]+/).filter(s => s.trim().length > 0);
+            
+            // Extract key sentences (first few sentences and sentences with important keywords)
+            const keySentences = [];
+            const importantKeywords = ['important', 'key', 'summary', 'conclusion', 'decision', 'action', 'next', 'deadline', 'goal'];
+            
+            // Add first sentence (usually contains main topic)
+            if (sentences.length > 0) {
+                keySentences.push(sentences[0].trim());
+            }
+            
+            // Add sentences with important keywords
+            for (let i = 1; i < sentences.length && keySentences.length < 5; i++) {
+                const sentence = sentences[i].toLowerCase();
+                if (importantKeywords.some(keyword => sentence.includes(keyword))) {
+                    keySentences.push(sentences[i].trim());
+                }
+            }
+            
+            // If not enough key sentences, add more from the middle
+            if (keySentences.length < 3 && sentences.length > 2) {
+                const midIndex = Math.floor(sentences.length / 2);
+                keySentences.push(sentences[midIndex].trim());
+            }
+            
+            // Create summary
+            let summary = "MEETING SUMMARY\n\n";
+            summary += "Key Points Discussed:\n";
+            
+            keySentences.forEach((sentence, index) => {
+                summary += `• ${sentence}\n`;
+            });
+            
+            summary += "\nMain Topics:\n";
+            
+            // Extract topics from first few sentences
+            const topics = sentences.slice(0, 3).map(s => {
+                const words = s.split(' ').slice(0, 5).join(' ');
+                return `• ${words}...`;
+            });
+            
+            summary += topics.join('\n');
+            
+            summary += "\n\nAction Items:\n";
+            summary += "1. Review decisions made during the meeting\n";
+            summary += "2. Follow up on action items discussed\n";
+            summary += "3. Schedule next steps if required\n";
+            
+            summary += "\nNext Steps: Review the full transcription for detailed discussion points.";
+            
+            return summary;
         }
 
         // Download text content
